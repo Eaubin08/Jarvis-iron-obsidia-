@@ -47,7 +47,7 @@ class EmptyMemory:
 )
 def test_physical_voice_turn_micro_wake_stt_cognition_kokoro():
     microphone = SoundDeviceMicrophone(sample_rate=16000)
-    stt = FasterWhisperSTT("tiny", device="cpu", compute_type="int8")
+    stt = FasterWhisperSTT("small", device="cpu", compute_type="int8", language="en")
 
     model_value = os.environ.get(MODEL_ENV)
     transcript_wake = None
