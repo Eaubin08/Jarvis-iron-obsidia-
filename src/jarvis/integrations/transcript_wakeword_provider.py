@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from jarvis.contracts import SpeechToTextProvider
 
@@ -17,6 +17,8 @@ class TranscriptWakeWordProvider:
 
     stt: SpeechToTextProvider
     phrase: str = "hey jarvis"
+    last_transcript: str = field(default="", init=False)
+    last_normalized_transcript: str = field(default="", init=False)
 
     def __post_init__(self) -> None:
         normalized = _normalize_phrase(self.phrase)
@@ -29,6 +31,8 @@ class TranscriptWakeWordProvider:
             raise ValueError("audio must not be empty")
         transcript = self.stt.transcribe(audio)
         normalized = _normalize_phrase(transcript)
+        self.last_transcript = transcript
+        self.last_normalized_transcript = normalized
         if not normalized:
             return False
         haystack = f" {normalized} "
