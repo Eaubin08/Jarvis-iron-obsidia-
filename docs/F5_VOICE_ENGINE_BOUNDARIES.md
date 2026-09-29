@@ -52,4 +52,4 @@ Wake-triggered input:
 - empty microphone audio fails closed
 - empty transcript after wake fails closed
 - deterministic composition tests: implemented
-- physical end-to-end microphone + real wake model + real STT: NOT YET CLAIMED
+- ingress bridge: WakeInputRuntime -> ConversationVoiceRuntime implemented\n- no second STT at ingress\n- positive wake transcript enters THINKING state\n- physical end-to-end microphone + real wake model + real STT: NOT YET CLAIMED

@@ -64,3 +64,13 @@ def test_empty_transcript_fails_closed():
         pass
     else:
         raise AssertionError("empty transcript must fail")
+
+
+def test_accept_transcript_enters_thinking_without_calling_stt():
+    stt = FakeSTT("must not be used")
+    runtime = ConversationVoiceRuntime(stt, FakeTTS())
+
+    assert runtime.accept_transcript("  ready  ") == "ready"
+    assert stt.audio is None
+    assert runtime.state is VoiceState.THINKING
+    assert runtime.follow_up_open is False

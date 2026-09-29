@@ -36,6 +36,14 @@ class ConversationVoiceRuntime:
             raise ValueError("empty transcript")
         return text
 
+    def accept_transcript(self, text: str) -> str:
+        transcript = text.strip()
+        if not transcript:
+            raise ValueError("empty transcript")
+        self.state = VoiceState.THINKING
+        self.follow_up_open = False
+        return transcript
+
     def speak(self, text: str, *, open_follow_up: bool = True) -> SpeechHandle:
         if not text.strip():
             raise ValueError("speech text must not be empty")
