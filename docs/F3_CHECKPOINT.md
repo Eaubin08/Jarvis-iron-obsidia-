@@ -1,7 +1,7 @@
 # F3 CHECKPOINT — structured browser
 
 Date: 2026-09-29
-Status: CONTRACT PASS / REAL BROWSER TEST PENDING
+Status: CLOSED
 
 Implemented:
 - Jarvis-owned BrowserBackend
@@ -13,12 +13,20 @@ Implemented:
 - browser.fill
 - no coordinate-based control in structured browser backend
 
-Contract verification:
-GitHub Actions run 36604048683
-Head 81c49c27f0b3bf854684a254d8441e5bcfd301aa
-4/4 PASS on Windows/Linux, Python 3.11/3.13.
+Verification:
+Contract run 36604048683 = 4/4 PASS.
+Real-browser run 36604176744:
+- Ubuntu 3.11 = PASS
+- Ubuntu 3.13 = PASS
+- Windows 3.11 = PASS
+- Windows 3.13 = PASS
+- Windows real Chromium integration = PASS
 
-Real-browser gate:
-A dedicated Windows CI job installs the optional browser dependency and
-Chromium, then runs tests/test_f3_playwright_integration.py against a local
-HTML fixture. F3 is not CLOSED until that job passes.
+The real browser gate installs Playwright + Chromium and exercises navigation,
+fill, click and DOM read against a controlled local HTML fixture.
+
+Verdict:
+F3 = CLOSED
+
+Next:
+F4 Native Windows + UIA/Win32 structured action path.
