@@ -1,0 +1,33 @@
+schema_version = 1
+
+[policy]
+canonical_rule = "No runtime model/voice asset is canonical until its provenance and deployment rights are recorded here."
+bundled_wakeword_models = false
+
+[[components]]
+id = "openwakeword-code"
+kind = "runtime-library"
+upstream = "https://github.com/dscripka/openWakeWord"
+package = "openwakeword"
+version = "0.6.0"
+license = "Apache-2.0"
+canonical_status = "ALLOWED"
+notes = "Code license only. This status does not transfer to upstream pre-trained model assets."
+
+[[assets]]
+id = "openwakeword-hey-jarvis"
+kind = "wakeword-model"
+upstream = "https://github.com/dscripka/openWakeWord"
+license = "CC-BY-NC-SA-4.0"
+canonical_status = "DEV_PERSONAL_ONLY"
+bundled = false
+notes = "Upstream pre-trained model. Non-commercial license; never a canonical Jarvis Iron production asset."
+
+[[assets]]
+id = "jarvis-custom-wakeword"
+kind = "wakeword-model"
+upstream = ""
+license = "UNRESOLVED"
+canonical_status = "TARGET_HOLD"
+bundled = false
+notes = "Final target. Promote only after training-data provenance, model ownership/license, hash, and deployment rights are recorded."

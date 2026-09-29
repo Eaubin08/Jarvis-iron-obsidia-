@@ -19,12 +19,20 @@ STT:
 
 TTS:
 - Jarvis adapter: LocalTTS
-- engine injected through SpeechEngine
+- engine: KokoroEngine behind SpeechEngine
 - synthesis and playback separated from ConversationVoiceRuntime
 - cancellation is Jarvis-owned through SpeechHandle
-- no Kokoro/Piper/other model or voice asset is canonical yet
-- engine package license and voice/model asset license must be recorded separately before selection
+- real Kokoro synthesis gate: PASS on GitHub Actions run 36605853948
+- model/voice provenance remains separate from engine-package licensing
 
 Wake word:
-- not yet integrated
-- source/model/asset licensing remains a hard gate
+- canonical adapter: OpenWakeWordProvider
+- model path is explicit and must already exist locally
+- provider performs no model download and bundles no wake-word model
+- accepted input at this seam: 16 kHz mono PCM16 bytes
+- openWakeWord code: Apache-2.0
+- upstream pre-trained models: CC-BY-NC-SA-4.0
+- hey_jarvis: DEV/PERSONAL ONLY, never canonical production asset
+- final target: Jarvis-owned/permissively licensed model after provenance review
+- machine-readable provenance registry: assets/provenance.toml
+- real microphone + custom-model wake-word gate: NOT YET CLAIMED

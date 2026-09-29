@@ -15,6 +15,7 @@ browser = ["playwright>=1.55,<2"]
 windows = ["pywin32>=311", "pywinauto>=0.6.9"]
 voice = ["faster-whisper>=1.1,<2"]
 tts = ["kokoro>=0.9.4,<1", "numpy>=1.26", "soundfile>=0.12", "sounddevice>=0.5"]
+wakeword = ["openwakeword==0.6.0", "numpy>=1.26"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
