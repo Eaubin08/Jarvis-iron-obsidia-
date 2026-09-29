@@ -7,10 +7,18 @@ from pathlib import Path
 
 
 class FasterWhisperSTT:
-    def __init__(self, model_size: str = "small", *, device: str = "cpu", compute_type: str = "int8"):
+    def __init__(
+        self,
+        model_size: str = "small",
+        *,
+        device: str = "cpu",
+        compute_type: str = "int8",
+        language: str | None = None,
+    ):
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
+        self.language = language
         self._model = None
 
     def _load(self):
@@ -32,7 +40,10 @@ class FasterWhisperSTT:
             raise ValueError("audio must not be empty")
         path = self._write_pcm16_wav(audio)
         try:
-            segments, _ = self._load().transcribe(str(path), vad_filter=True)
+            kwargs = {"vad_filter": True}
+            if self.language:
+                kwargs["language"] = self.language
+            segments, _ = self._load().transcribe(str(path), **kwargs)
             return " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
         finally:
             path.unlink(missing_ok=True)
