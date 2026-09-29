@@ -36,5 +36,5 @@ Wake word:
 - final target: Jarvis-owned/permissively licensed model after provenance review
 - machine-readable provenance registry: assets/provenance.toml
 - real external-model integration gate: READY, requires JARVIS_WAKEWORD_MODEL_PATH
-- real microphone capture gate: NOT YET CLAIMED
+- canonical microphone adapter: SoundDeviceMicrophone\n- capture contract: bounded mono 16 kHz PCM16 bytes\n- real microphone capture gate: READY, requires JARVIS_REAL_MIC_TEST=1 on a machine with an input device
 - custom Jarvis model gate: NOT YET CLAIMED

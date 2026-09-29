@@ -115,6 +115,10 @@ class ActionBackend(Protocol):
     def execute(self, request: ActionRequest) -> ActionResult: ...
 
 
+class MicrophoneProvider(Protocol):
+    def capture(self, duration_seconds: float) -> bytes: ...
+
+
 class WakeWordProvider(Protocol):
     def detect(self, audio: bytes) -> bool: ...
 
