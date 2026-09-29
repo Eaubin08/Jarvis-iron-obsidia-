@@ -8,21 +8,25 @@ Branch: `build/jarvis-v0`
 
 Latest full available regression:
 
-`python -m pytest -p no:cacheprovider --basetemp <codex-writable-temp>`
+`python -m pytest -q`
+
+Executed with the prepared Codex Python runtime containing the declared
+Playwright, Windows, STT and TTS integration dependencies.
 
 Result:
 
-- 93 passed
-- 5 skipped
-- 5 failed
+- 102 passed
+- 3 skipped
+- 0 failed
 
-The five failures are environment/physical integration gates, not regressions
-from F7-F12:
+Additional observed integration evidence:
 
-- `tests/test_f4_uia_integration.py`: `win32api` missing for fixture.
-- `tests/test_f4_win32_integration.py`: `win32con` / `win32gui` missing.
-- `tests/test_f5_stt_integration.py`: `faster_whisper` missing.
-- `tests/test_f5_tts_integration.py`: `kokoro` missing.
+- real Playwright Chromium integration: PASS
+- real Win32 integration: PASS
+- structured UIA-driver integration: PASS
+- real faster-whisper model load/transcription path: PASS
+- real Kokoro model synthesis path: PASS
+- live authenticated Screenpipe localhost query: PASS (`1 passed in 0.30s`)
 
 ## Contract Matrix
 
@@ -54,12 +58,12 @@ from F7-F12:
 | W01 wake word -> STT latency | HOLD | Wake/STT contract tests exist | Physical wake/STT latency not executed on target hardware. |
 | W02 barge-in during TTS | READY | Voice runtime cancellation tests | Physical TTS playback/barge-in not executed. |
 | W03 follow-up without repeated wake word | READY | Voice conversation state tests | Physical voice loop not executed. |
-| W04 exact command opens known application through structured backend | HOLD | `tests/test_f4_windows_backend.py` unit path PASS | Real Win32 integration blocked by missing `pywin32`. |
-| W05 browser action uses DOM/Playwright before visual operator | READY | F3 browser tests and F8 routing tests | Live browser profile/action not executed here. |
-| W06 UIA action targets correct window/control | HOLD | Unit seam exists | Real UIA fixture blocked by missing `win32api`/Windows integration dependency. |
+| W04 exact command opens known application through structured backend | PASS | Real Win32 integration test PASS in final environment | |
+| W05 browser action uses DOM/Playwright before visual operator | PASS | Real Playwright Chromium integration + F8 routing tests | |
+| W06 UIA action targets correct window/control | PASS | Structured UIA-driver fixture integration PASS | |
 | W07 visual fallback succeeds where UIA/DOM unavailable | READY | F8 fake visual fallback tests | Physical visual operator provider not integrated/executed. |
 | W08 multi-monitor coordinate correctness | NOT YET CLAIMED | None | No physical multi-monitor visual test executed. |
-| W09 Screenpipe query returns relevant recent context | READY | F6 timeline normalization/integration gate | Live localhost Screenpipe service not executed in final run. |
+| W09 Screenpipe query returns relevant recent context | PASS | Authenticated localhost Screenpipe integration test PASS (`1 passed in 0.30s`) | |
 | W10 screen context is refreshed before action | PASS | F8 visual state refresh tests | |
 | W11 restart preserves durable memory but not ephemeral working state | PASS | `tests/test_f7_context_memory.py` | |
 | W12 microphone/camera permissions fail closed and visibly | READY | F5 microphone tests and F11 camera fail-closed tests | Physical microphone/camera permissions not executed. |
@@ -69,20 +73,26 @@ from F7-F12:
 | STEP | STATUS | EVIDENCE | HOLD REASON |
 | --- | --- | --- | --- |
 | wake word | READY | F5 wake input/provider tests | Physical wake word not executed. |
-| speech input | READY | F5 STT adapter/unit tests | Real `faster_whisper` missing in final environment. |
+| speech input | READY | Real faster-whisper model/transcription integration PASS | Physical microphone-to-STT end-to-end remains held. |
 | bounded context assembly | PASS | F7 ContextAssembler tests | |
 | cognition or deterministic routing | PASS | F1/F2 runtime tests | |
-| spoken reply | READY | F5 TTS/runtime tests | Real `kokoro` missing in final environment. |
+| spoken reply | READY | Real Kokoro synthesis integration PASS | Physical speaker playback end-to-end remains held. |
 | interruption/barge-in | READY | F5 voice cancellation tests | Physical audio not executed. |
 | deterministic local action | PASS | F2/F0 local action routing tests | |
-| browser/native action through structured backend | READY | F3/F4 structured backend unit tests | Real browser/Win32 integration not fully executed in final environment. |
-| recent Screenpipe context query | READY | F6 Screenpipe query tests | Live Screenpipe localhost not executed in final run. |
+| browser/native action through structured backend | PASS | Real Playwright, Win32 and structured UIA-driver integration tests PASS | |
+| recent Screenpipe context query | PASS | Live authenticated Screenpipe localhost integration PASS | |
 | bounded long-running task | PASS | F9 TaskRuntime tests | |
 
 Pass condition status:
 
 READY WITH HOLDS. The available automated contract layer shows that operations
 cross Jarvis-owned contracts and no donor owns canonical session/task/action
-state. Physical voice, Windows UIA/Win32, real STT/TTS model, visual-operator,
-multi-monitor, and live Screenpipe proofs remain explicitly held unless run on a
-compatible machine with the optional dependencies/services installed.
+state. The automated and real integration layer is green: 102 passed, 3 skipped,
+0 failed. Real Playwright, Win32, structured UIA-driver, faster-whisper,
+Kokoro and authenticated Screenpipe paths have been exercised successfully.
+
+Remaining HOLD/READY items concern proofs not yet exercised as complete
+physical end-to-end scenarios: wake-word/microphone latency, physical
+barge-in/audio playback, physical visual-operator execution, multi-monitor
+coordinates, camera/device permission behavior and other hardware-dependent
+acceptance paths.

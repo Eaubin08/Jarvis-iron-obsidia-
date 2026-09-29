@@ -28,6 +28,12 @@ class MemoryRecord:
     timestamp: datetime = field(default_factory=_utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def memory_id(self) -> str:
+        """Compatibility alias for the initial remote F7 memory item id."""
+
+        return self.record_id
+
 
 @dataclass(frozen=True)
 class AdmissionDecision:
@@ -145,8 +151,10 @@ class MemoryStore:
         self,
         text: str,
         *,
-        provenance: str,
+        provenance: str = "explicit",
         metadata: dict[str, Any] | None = None,
+        timestamp: datetime | None = None,
+        memory_id: str | None = None,
     ) -> AdmissionDecision:
         metadata = dict(metadata or {})
         decision = self.admission_policy.evaluate(text, metadata)
@@ -156,6 +164,8 @@ class MemoryStore:
             category=self.category,
             text=text.strip(),
             provenance=provenance,
+            record_id=memory_id or _new_id(),
+            timestamp=timestamp or _utc_now(),
             metadata=metadata,
         )
         self._records.append(record)
@@ -178,6 +188,11 @@ class MemoryStore:
             ]
         return list(records[-limit:])
 
+    def clear(self) -> None:
+        self._records.clear()
+        if self.backend is not None:
+            self.backend.save(self.category, self._records)
+
 
 class WorkingMemory(MemoryStore):
     def __init__(self, *, retention_policy: RetentionPolicy | None = None) -> None:
@@ -192,7 +207,7 @@ class WorkingMemory(MemoryStore):
 
 
 class PersonalMemory(MemoryStore):
-    def __init__(self, backend: MemoryBackend, *, retention_policy: RetentionPolicy | None = None) -> None:
+    def __init__(self, backend: MemoryBackend | None = None, *, retention_policy: RetentionPolicy | None = None) -> None:
         super().__init__(
             admission_policy=PersonalAdmissionPolicy(),
             retention_policy=retention_policy,
@@ -201,7 +216,7 @@ class PersonalMemory(MemoryStore):
 
 
 class ProjectMemory(MemoryStore):
-    def __init__(self, backend: MemoryBackend, *, retention_policy: RetentionPolicy | None = None) -> None:
+    def __init__(self, backend: MemoryBackend | None = None, *, retention_policy: RetentionPolicy | None = None) -> None:
         super().__init__(
             admission_policy=ProjectAdmissionPolicy(),
             retention_policy=retention_policy,
@@ -210,7 +225,7 @@ class ProjectMemory(MemoryStore):
 
 
 class EpisodicMemory(MemoryStore):
-    def __init__(self, backend: MemoryBackend, *, retention_policy: RetentionPolicy | None = None) -> None:
+    def __init__(self, backend: MemoryBackend | None = None, *, retention_policy: RetentionPolicy | None = None) -> None:
         super().__init__(
             admission_policy=EpisodicAdmissionPolicy(),
             retention_policy=retention_policy,

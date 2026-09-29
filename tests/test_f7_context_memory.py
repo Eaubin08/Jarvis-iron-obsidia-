@@ -23,16 +23,16 @@ class FakeTimeline:
         return [
             PerceptualObservation(
                 observation_id="obs-1",
-                source="fake_timeline",
+                source="fake-screenpipe",
                 kind="ocr",
-                timestamp=datetime.now(timezone.utc),
-                text="recent screen mentioned Jarvis",
+                timestamp=datetime(2026, 9, 29, 20, 0, tzinfo=timezone.utc),
+                text="Jarvis screen context",
                 live_handle=True,
             )
-        ]
+        ][:limit]
 
 
-def build_assembler(root: Path, timeline=None):
+def build_assembler(root: Path, timeline=None, **kwargs):
     backend = JsonlMemoryBackend(root)
     return ContextAssembler(
         working=WorkingMemory(),
@@ -41,10 +41,28 @@ def build_assembler(root: Path, timeline=None):
         episodic=EpisodicMemory(backend),
         perceptual_timeline=timeline,
         per_category_limit=2,
+        **kwargs,
     )
 
 
-def test_context_assembler_returns_bounded_context_with_provenance(tmp_path):
+def test_context_assembler_is_bounded_and_records_provenance(tmp_path):
+    assembler = build_assembler(tmp_path, FakeTimeline(), max_items=2, max_chars=200)
+    assembler.working.admit("Jarvis current turn", provenance="unit", memory_id="w1")
+    assembler.project.admit("Jarvis project architecture", provenance="explicit", memory_id="p1")
+
+    snapshot = assembler.build("s1", "t1", "Jarvis")
+
+    assert snapshot.metadata["bounded"] is True
+    assert snapshot.metadata["item_count"] == 2
+    assert snapshot.metadata["request"] == "Jarvis"
+    assert len(snapshot.summary) <= 200
+    assert snapshot.provenance == (
+        "memory:working:w1",
+        "memory:project:p1",
+    )
+
+
+def test_context_assembler_keeps_all_categories_and_perceptual_provenance(tmp_path):
     timeline = FakeTimeline()
     assembler = build_assembler(tmp_path, timeline)
     assembler.working.admit("current user request mentions Jarvis", provenance="unit")
@@ -54,13 +72,12 @@ def test_context_assembler_returns_bounded_context_with_provenance(tmp_path):
 
     snapshot = assembler.build(session_id="s1", request="Jarvis")
 
-    assert "working:" in snapshot.summary
-    assert "personal:" in snapshot.summary
-    assert "project:" in snapshot.summary
-    assert "episodic:" in snapshot.summary
-    assert "perceptual:" in snapshot.summary
-    assert snapshot.metadata["bounded"] is True
-    assert len([p for p in snapshot.provenance if p.startswith("working:")]) == 1
+    assert "[working]" in snapshot.summary
+    assert "[personal]" in snapshot.summary
+    assert "[project]" in snapshot.summary
+    assert "[episodic]" in snapshot.summary
+    assert "[perceptual]" in snapshot.summary
+    assert "perception:fake-screenpipe:obs-1" in snapshot.provenance
     assert timeline.queries == [("Jarvis", 2)]
 
 
@@ -74,6 +91,18 @@ def test_memory_categories_remain_isolated_and_do_not_cross_write(tmp_path):
     assert [r.text for r in assembler.project.query("repo")] == ["repo is Jarvis Iron"]
     assert assembler.working.query("favorite") == []
     assert assembler.episodic.query("favorite") == []
+
+
+def test_memory_clear_is_category_local():
+    working = WorkingMemory()
+    personal = PersonalMemory()
+
+    working.admit("working-only", memory_id="w")
+    personal.admit("personal-only", memory_id="u")
+    working.clear()
+
+    assert working.query() == []
+    assert [x.text for x in personal.query()] == ["personal-only"]
 
 
 def test_restart_preserves_durable_memory_but_not_working_memory(tmp_path):
