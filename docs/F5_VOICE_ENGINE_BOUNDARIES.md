@@ -5,6 +5,8 @@ Status: IN PROGRESS
 Jarvis owns:
 - ConversationVoiceRuntime
 - WakeInputRuntime
+- VoiceIngressRuntime
+- VoiceTurnRuntime
 - voice state
 - follow-up semantics
 - barge-in semantics
@@ -29,7 +31,7 @@ TTS:
 Microphone:
 - canonical adapter: SoundDeviceMicrophone
 - capture contract: bounded mono 16 kHz PCM16 bytes
-- real microphone capture gate: READY, requires JARVIS_REAL_MIC_TEST=1 on a machine with an input device
+- real microphone capture gate: READY, requires JARVIS_REAL_MIC_TEST=1
 - physical-device PASS: not yet claimed
 
 Wake word:
@@ -51,8 +53,10 @@ Wake-triggered input:
 - wake => the same captured PCM16 buffer is passed to STT
 - empty microphone audio fails closed
 - empty transcript after wake fails closed
-- deterministic composition tests: implemented
-- ingress bridge: WakeInputRuntime -> ConversationVoiceRuntime implemented\n- no second STT at ingress\n- positive wake transcript enters THINKING state\n- physical end-to-end microphone + real wake model + real STT: NOT YET CLAIMED
+- deterministic composition tests: PASS
+- ingress bridge: WakeInputRuntime -> ConversationVoiceRuntime implemented
+- no second STT at ingress
+- positive wake transcript enters THINKING state
 
 Full turn composition:
 - VoiceTurnRuntime: ingress -> JarvisCore -> ConversationVoiceRuntime.speak
@@ -60,5 +64,11 @@ Full turn composition:
 - empty cognition response => fail closed
 - successful response => SPEAKING with follow-up open
 - speech_finished => IDLE
-- deterministic full-turn composition: implemented
-- physical full voice loop: NOT YET CLAIMED
+- deterministic full-turn composition: PASS
+
+Physical full voice loop:
+- opt-in gate: tests/test_f5_physical_voice_e2e.py
+- requires JARVIS_REAL_VOICE_E2E=1
+- requires JARVIS_WAKEWORD_MODEL_PATH
+- no bundled/downloaded wake-word model
+- physical full voice loop PASS: NOT YET CLAIMED
