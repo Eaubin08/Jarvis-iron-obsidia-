@@ -12,6 +12,7 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 browser = ["playwright>=1.55,<2"]
+windows = ["pywin32>=311"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
