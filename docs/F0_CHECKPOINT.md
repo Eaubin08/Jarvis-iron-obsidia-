@@ -1,54 +1,36 @@
 # F0 CHECKPOINT — Canonical contracts/events
 
 Date: 2026-09-29
-Status: IMPLEMENTED / TESTS AUTHORED / MACHINE EXECUTION PENDING
+Status: CLOSED
 
 ## Implemented
-
-- expanded JarvisEvent identity/session/correlation fields
-- ContextSnapshot provenance
-- ActionRequest target/source/session/task/risk/idempotency
-- ActionResult backend/timestamps/evidence
-- Capability contract
-- CapabilityRegistry contract
-- PermissionPolicy contract
-- ActionBackend contract
-- split wake/STT/TTS contracts
-- in-process Jarvis EventBus
-- Jarvis-owned ActionRouter
-- backend priority independent of donor identity
-
-## Compatibility
-
-Existing:
-- StubMemory / StubCognition
-- PersonalJarvisCognition
-- PersonalJarvisWebSocketTransport
-
-continue to consume compatible ContextSnapshot/CognitionProvider surfaces.
-
-Legacy VoiceProvider remains temporarily as a compatibility seam.
-It is not the frozen voice architecture.
-
-## Tests authored
-
-tests/test_f0_contracts.py covers:
-- event identity/time/session
+- canonical event identity/session/correlation fields
 - context provenance
-- action risk/idempotency
-- structured backend priority
-- permission denial blocks execution
-- event bus routing without donor/UI
+- action target/source/session/task/risk/idempotency
+- action backend/timestamps/evidence
+- capability, permission and action-backend contracts
+- split wake/STT/TTS contracts
+- in-process EventBus
+- Jarvis-owned ActionRouter
+- donor-independent backend priority
 
-Existing standalone and Personal Jarvis adapter tests remain present.
+## Verification
+
+GitHub Actions run: 36603416582
+Head: a1bd36c8283938db09e8f8be20421d38d98bba78
+Conclusion: SUCCESS
+
+Matrix:
+- ubuntu-latest / Python 3.11 = PASS
+- ubuntu-latest / Python 3.13 = PASS
+- windows-latest / Python 3.11 = PASS
+- windows-latest / Python 3.13 = PASS
 
 ## Verdict
 
-F0_IMPLEMENTATION = PASS STRUCTURAL
-F0_MACHINE_TEST = PENDING
+F0_IMPLEMENTATION = PASS
+F0_CI = 4/4 PASS
+F0 = CLOSED
 
-Do not advance the checkpoint to fully CLOSED until pytest is executed in a
-real checkout/CI environment and passes.
-
-Next after machine verification:
+Next:
 F1 — local text runtime + fake providers + canonical event emission.
