@@ -4,6 +4,7 @@ Status: IN PROGRESS
 
 Jarvis owns:
 - ConversationVoiceRuntime
+- WakeInputRuntime
 - voice state
 - follow-up semantics
 - barge-in semantics
@@ -25,6 +26,12 @@ TTS:
 - real Kokoro synthesis gate: PASS on GitHub Actions run 36605853948
 - model/voice provenance remains separate from engine-package licensing
 
+Microphone:
+- canonical adapter: SoundDeviceMicrophone
+- capture contract: bounded mono 16 kHz PCM16 bytes
+- real microphone capture gate: READY, requires JARVIS_REAL_MIC_TEST=1 on a machine with an input device
+- physical-device PASS: not yet claimed
+
 Wake word:
 - canonical adapter: OpenWakeWordProvider
 - model path is explicit and must already exist locally
@@ -36,5 +43,13 @@ Wake word:
 - final target: Jarvis-owned/permissively licensed model after provenance review
 - machine-readable provenance registry: assets/provenance.toml
 - real external-model integration gate: READY, requires JARVIS_WAKEWORD_MODEL_PATH
-- canonical microphone adapter: SoundDeviceMicrophone\n- capture contract: bounded mono 16 kHz PCM16 bytes\n- real microphone capture gate: READY, requires JARVIS_REAL_MIC_TEST=1 on a machine with an input device
 - custom Jarvis model gate: NOT YET CLAIMED
+
+Wake-triggered input:
+- canonical composition: MicrophoneProvider -> WakeWordProvider -> SpeechToTextProvider
+- no wake => STT is not called
+- wake => the same captured PCM16 buffer is passed to STT
+- empty microphone audio fails closed
+- empty transcript after wake fails closed
+- deterministic composition tests: implemented
+- physical end-to-end microphone + real wake model + real STT: NOT YET CLAIMED
