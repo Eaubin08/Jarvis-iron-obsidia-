@@ -39,7 +39,13 @@ class ScreenpipeTimeline:
         with urlopen(url, timeout=5) as response:
             payload = json.loads(response.read().decode("utf-8"))
 
-        rows = payload.get("data", payload if isinstance(payload, list) else [])
+        if isinstance(payload, dict):
+            rows = payload.get("data", [])
+        elif isinstance(payload, list):
+            rows = payload
+        else:
+            raise ValueError("screenpipe search response must be an object or list")
+
         if not isinstance(rows, list):
             raise ValueError("screenpipe search response must contain a list")
 
