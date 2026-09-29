@@ -1,6 +1,6 @@
 # F5 VOICE ENGINE BOUNDARIES
 
-Status: IN PROGRESS
+Status: CODE/CI CLOSED — PHYSICAL E2E HOLD
 
 Jarvis owns:
 - ConversationVoiceRuntime
@@ -71,4 +71,4 @@ Physical full voice loop:
 - requires JARVIS_REAL_VOICE_E2E=1
 - requires JARVIS_WAKEWORD_MODEL_PATH
 - no bundled/downloaded wake-word model
-- physical full voice loop PASS: NOT YET CLAIMED
+- physical full voice loop PASS: NOT YET CLAIMED\n- standard CI regression proof: PASS on run 36614462845
