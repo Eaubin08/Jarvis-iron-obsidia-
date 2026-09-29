@@ -35,4 +35,6 @@ Wake word:
 - hey_jarvis: DEV/PERSONAL ONLY, never canonical production asset
 - final target: Jarvis-owned/permissively licensed model after provenance review
 - machine-readable provenance registry: assets/provenance.toml
-- real microphone + custom-model wake-word gate: NOT YET CLAIMED
+- real external-model integration gate: READY, requires JARVIS_WAKEWORD_MODEL_PATH
+- real microphone capture gate: NOT YET CLAIMED
+- custom Jarvis model gate: NOT YET CLAIMED
