@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from .actions import ActionRouter
 from .contracts import CognitionProvider, JarvisEvent, MemoryProvider
+from .context import ContextAssembler
 from .events import EventBus
 from .fast_intent import FastIntentRouter
 
@@ -17,6 +18,7 @@ class TextRuntime:
     session_id: str = "local-text"
     fast_intent: FastIntentRouter | None = None
     actions: ActionRouter | None = None
+    context_assembler: ContextAssembler | None = None
 
     def handle(self, text: str) -> str:
         text = text.strip()
@@ -32,7 +34,13 @@ class TextRuntime:
         self.events.publish(heard)
         self.memory.remember(heard)
 
-        context = self.memory.context()
+        if self.context_assembler is None:
+            context = self.memory.context()
+        else:
+            context = self.context_assembler.build(
+                session_id=self.session_id,
+                request=text,
+            )
         self.events.publish(
             JarvisEvent(
                 kind="context.built",
