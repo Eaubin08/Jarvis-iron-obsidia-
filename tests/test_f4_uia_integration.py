@@ -26,21 +26,24 @@ def test_real_uia_finds_and_invokes_structured_controls():
         else:
             pytest.fail("UIA fixture window did not appear")
 
-        edit = win.child_window(control_type="Edit")
-        edit.wait("ready", timeout=5)
-        edit.set_edit_text("hello")
+        driver.set_text(
+            window_title="Jarvis UIA Fixture",
+            control_name="",
+            value="hello",
+        )
 
-        buttons = win.descendants(control_type="Button")
-        assert buttons, "UIA fixture exposes no Button control"
-        buttons[0].invoke()
+        driver.click(window_title="Jarvis UIA Fixture", control_name="Save")
 
         deadline = time.time() + 5
         while time.time() < deadline:
-            texts = [c.window_text() for c in win.descendants(control_type="Text")]
-            if any("saved:hello" in value for value in texts):
+            result = driver.read_text(
+                window_title="Jarvis UIA Fixture",
+                control_name="saved:hello",
+            )
+            if result["text"] == "saved:hello":
                 return
             time.sleep(0.1)
-        pytest.fail(f"UIA action did not update fixture text; observed={texts!r}")
+        pytest.fail("UIA action did not update fixture text")
     finally:
         process.terminate()
         process.wait(timeout=10)

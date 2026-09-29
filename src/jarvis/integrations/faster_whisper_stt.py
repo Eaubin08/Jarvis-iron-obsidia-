@@ -19,6 +19,7 @@ class FasterWhisperSTT:
                 from faster_whisper import WhisperModel
             except ImportError as exc:
                 raise RuntimeError("faster-whisper is not installed; install the voice optional dependency") from exc
+            self._patch_pyav_metadata_errors()
             self._model = WhisperModel(
                 self.model_size,
                 device=self.device,
@@ -47,3 +48,20 @@ class FasterWhisperSTT:
             wav.setframerate(16000)
             wav.writeframes(audio)
         return path
+
+    @staticmethod
+    def _patch_pyav_metadata_errors() -> None:
+        try:
+            import av
+        except ImportError:
+            return
+        if getattr(av.open, "_jarvis_metadata_errors_compat", False):
+            return
+        original_open = av.open
+
+        def open_compat(*args, **kwargs):
+            kwargs.pop("metadata_errors", None)
+            return original_open(*args, **kwargs)
+
+        open_compat._jarvis_metadata_errors_compat = True
+        av.open = open_compat
