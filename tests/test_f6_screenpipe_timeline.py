@@ -1,4 +1,3 @@
-import io
 import json
 from datetime import datetime, timezone
 
@@ -24,8 +23,9 @@ class FakeResponse:
 def test_screenpipe_query_normalizes_historical_observation(monkeypatch):
     seen = {}
 
-    def fake_urlopen(url, timeout):
-        seen["url"] = url
+    def fake_urlopen(request, timeout):
+        seen["url"] = request.full_url
+        seen["auth"] = request.get_header("Authorization")
         seen["timeout"] = timeout
         return FakeResponse(
             {
@@ -48,7 +48,7 @@ def test_screenpipe_query_normalizes_historical_observation(monkeypatch):
         "jarvis.integrations.screenpipe_timeline.urlopen", fake_urlopen
     )
 
-    timeline = ScreenpipeTimeline()
+    timeline = ScreenpipeTimeline(api_key="secret-token")
     rows = timeline.query(
         "Jarvis",
         start=datetime(2026, 9, 29, 17, 0, tzinfo=timezone.utc),
@@ -65,11 +65,27 @@ def test_screenpipe_query_normalizes_historical_observation(monkeypatch):
     assert row.live_handle is False
     assert "q=Jarvis" in seen["url"]
     assert "limit=5" in seen["url"]
+    assert seen["auth"] == "Bearer secret-token"
     assert seen["timeout"] == 5
 
 
+def test_screenpipe_query_omits_authorization_without_api_key(monkeypatch):
+    seen = {}
+
+    def fake_urlopen(request, timeout):
+        seen["auth"] = request.get_header("Authorization")
+        return FakeResponse([])
+
+    monkeypatch.setattr(
+        "jarvis.integrations.screenpipe_timeline.urlopen", fake_urlopen
+    )
+
+    ScreenpipeTimeline().query("x")
+    assert seen["auth"] is None
+
+
 def test_screenpipe_history_can_never_be_live_handle(monkeypatch):
-    def fake_urlopen(url, timeout):
+    def fake_urlopen(request, timeout):
         return FakeResponse(
             [
                 {

@@ -9,14 +9,19 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from ..contracts import PerceptualObservation
 
 
 class ScreenpipeTimeline:
-    def __init__(self, base_url: str = "http://127.0.0.1:3030"):
+    def __init__(
+        self,
+        base_url: str = "http://127.0.0.1:3030",
+        api_key: str | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
 
     def query(
         self,
@@ -36,7 +41,12 @@ class ScreenpipeTimeline:
             params["end_time"] = self._iso(end)
 
         url = f"{self.base_url}/search?{urlencode(params)}"
-        with urlopen(url, timeout=5) as response:
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        request = Request(url, headers=headers)
+        with urlopen(request, timeout=5) as response:
             payload = json.loads(response.read().decode("utf-8"))
 
         if isinstance(payload, dict):

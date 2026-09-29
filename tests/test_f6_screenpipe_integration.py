@@ -11,8 +11,11 @@ from jarvis.integrations.screenpipe_timeline import ScreenpipeTimeline
 )
 def test_real_screenpipe_localhost_query_returns_historical_observations():
     base_url = os.environ.get("JARVIS_SCREENPIPE_URL", "http://127.0.0.1:3030")
+    api_key = os.environ.get("JARVIS_SCREENPIPE_API_KEY") or os.environ.get(
+        "SCREENPIPE_API_KEY"
+    )
     query = os.environ.get("JARVIS_SCREENPIPE_QUERY", "")
-    timeline = ScreenpipeTimeline(base_url=base_url)
+    timeline = ScreenpipeTimeline(base_url=base_url, api_key=api_key)
 
     rows = timeline.query(query, limit=5)
 
