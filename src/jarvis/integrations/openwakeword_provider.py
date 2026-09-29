@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
-
 
 class OpenWakeWordProvider:
     """Detect a wake word from 16 kHz mono PCM16 audio."""
@@ -54,6 +52,13 @@ class OpenWakeWordProvider:
             raise ValueError("audio must not be empty")
         if len(audio) % 2:
             raise ValueError("PCM16 audio byte length must be even")
+
+        try:
+            import numpy as np
+        except ImportError as exc:
+            raise RuntimeError(
+                "numpy is not installed; install the wakeword optional dependency"
+            ) from exc
 
         pcm = np.frombuffer(audio, dtype="<i2")
         scores = self._load().predict(pcm)
