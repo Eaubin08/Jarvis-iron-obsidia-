@@ -21,9 +21,23 @@ def test_detects_configured_phrase_case_and_punctuation_insensitive():
     assert stt.calls == [b"pcm"]
 
 
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "J'arvisse, hey, J'arvisse.",
+        "J'ai revis statue, et j'ai revis statue.",
+        "J'ai revis status.",
+    ],
+)
+def test_default_hey_jarvis_accepts_observed_local_whisper_variants(transcript):
+    provider = TranscriptWakeWordProvider(FakeSTT(transcript), "hey jarvis")
+    assert provider.detect(b"pcm") is True
+
+
 def test_does_not_match_partial_or_unrelated_phrase():
     assert TranscriptWakeWordProvider(FakeSTT("jarvis status"), "hey jarvis").detect(b"pcm") is False
     assert TranscriptWakeWordProvider(FakeSTT("hey there"), "hey jarvis").detect(b"pcm") is False
+    assert TranscriptWakeWordProvider(FakeSTT("j ai revis"), "bonjour atlas").detect(b"pcm") is False
 
 
 def test_phrase_is_configurable():
