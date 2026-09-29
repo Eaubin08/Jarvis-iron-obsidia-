@@ -19,6 +19,7 @@ from jarvis.wake_input_runtime import WakeInputRuntime
 E2E_ENV = "JARVIS_REAL_VOICE_E2E"
 MODEL_ENV = "JARVIS_WAKEWORD_MODEL_PATH"
 PHRASE_ENV = "JARVIS_WAKE_PHRASE"
+CAPTURE_SECONDS_ENV = "JARVIS_VOICE_CAPTURE_SECONDS"
 
 
 class DeterministicCognition:
@@ -49,13 +50,15 @@ def test_physical_voice_turn_micro_wake_stt_cognition_kokoro():
     stt = FasterWhisperSTT("tiny", device="cpu", compute_type="int8")
 
     model_value = os.environ.get(MODEL_ENV)
+    transcript_wake = None
     if model_value:
         model_path = Path(model_value).expanduser().resolve()
         assert model_path.is_file(), f"wake-word model not found: {model_path}"
         wake_word = OpenWakeWordProvider(model_path, threshold=0.5)
     else:
         wake_phrase = os.environ.get(PHRASE_ENV, "hey jarvis")
-        wake_word = TranscriptWakeWordProvider(stt, wake_phrase)
+        transcript_wake = TranscriptWakeWordProvider(stt, wake_phrase)
+        wake_word = transcript_wake
 
     tts = LocalTTS(KokoroEngine())
     conversation = ConversationVoiceRuntime(stt, tts)
@@ -65,10 +68,19 @@ def test_physical_voice_turn_micro_wake_stt_cognition_kokoro():
     core = JarvisCore(DeterministicCognition(), EmptyMemory())
     runtime = VoiceTurnRuntime(ingress, core, conversation)
 
-    handle = runtime.run_once(3.0)
+    duration = float(os.environ.get(CAPTURE_SECONDS_ENV, "5.0"))
+    handle = runtime.run_once(duration)
+
+    diagnostic = ""
+    if transcript_wake is not None:
+        diagnostic = (
+            f" Whisper heard: {transcript_wake.last_transcript!r}; "
+            f"normalized: {transcript_wake.last_normalized_transcript!r}."
+        )
 
     assert handle is not None, (
-        "wake phrase was not detected; speak the configured wake phrase during capture"
+        "wake phrase was not detected; speak the configured wake phrase during capture."
+        + diagnostic
     )
     assert conversation.state is VoiceState.SPEAKING
 
