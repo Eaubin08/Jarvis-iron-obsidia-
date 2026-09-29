@@ -1,0 +1,26 @@
+# Exact upstream pins for donor audits.
+# A pin is not permission to import code. It makes analysis reproducible.
+
+[personal_jarvis]
+repository = "PersonalJarvis/PersonalJarvis"
+commit = "53d8c4d16f7baf5cfbfb2e02896fae4b89c4628f"
+license = "Apache-2.0"
+integration = "external_runtime_adapter"
+status = "J1_PRIMARY"
+
+[screenpipe]
+repository = "screenpipe/screenpipe"
+integration = "external_service_adapter"
+status = "PENDING_EXACT_PIN"
+
+[openinterpreter_01]
+repository = "openinterpreter/01"
+license = "AGPL-3.0"
+integration = "reference_first"
+status = "DEFERRED"
+
+[leon]
+repository = "leon-ai/leon"
+license = "MIT"
+integration = "reference"
+status = "DEFERRED"
