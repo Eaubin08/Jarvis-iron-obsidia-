@@ -7,16 +7,17 @@ Implemented:
 - deterministic FastIntentRouter
 - LocalCapabilityRegistry
 - ambiguity escalates instead of guessing
-- first canonical capability: system.status
+- canonical system.status capability
+- end-to-end fast path through PermissionPolicy and ActionRouter
+- explicit proof that cognition is not called for deterministic status command
 
 Verification:
-GitHub Actions run 36603706034
-Head de17a3b667531acab583309ef4c4e2b06f8bb2da
-4/4 PASS on Windows/Linux, Python 3.11/3.13.
+Base F2 run 36603706034 = 4/4 PASS.
+End-to-end F2 run 36603899868 = 4/4 PASS.
+Windows/Linux; Python 3.11/3.13.
 
-Follow-up implementation:
-fast intent is now connected end-to-end to ActionRouter with a Jarvis-owned
-SystemBackend. Tests explicitly fail if cognition is invoked for system.status.
+Verdict:
+F2 = CLOSED
 
 Next:
-validate the end-to-end fast-path CI, then begin F3 BrowserBackend.
+F3 structured BrowserBackend / Playwright adapter.
