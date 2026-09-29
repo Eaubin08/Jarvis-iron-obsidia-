@@ -1,40 +1,53 @@
 # F5 WAKE-WORD REAL GATE
 
-Status: READY / EXTERNAL ASSET REQUIRED
+Status: READY / GENERIC LOCAL PATH AVAILABLE
 
-The real openWakeWord integration gate is intentionally asset-external.
+Jarvis Iron supports two local wake-word paths behind the same canonical
+WakeWordProvider contract.
 
-## Contract
+## 1. Generic transcript-match path
 
-The test `tests/test_f5_wakeword_integration.py`:
+The default physical gate can use TranscriptWakeWordProvider with the already
+integrated local Faster-Whisper STT provider.
 
-- uses the real `openwakeword` package;
-- loads a real model from `JARVIS_WAKEWORD_MODEL_PATH`;
-- requires that path to exist before the provider is constructed;
-- passes real PCM16 samples through `OpenWakeWordProvider.detect`;
-- does not download a model;
-- does not bundle a model;
-- does not infer or silently select a default model.
+Properties:
 
-## Run
+- configurable phrase;
+- no custom wake-word model required;
+- fully local;
+- no cloud audio path;
+- no donor runtime dependency;
+- no hidden model selection;
+- keeps WakeInputRuntime unchanged.
 
-Install the optional runtime:
+Focused automated coverage:
 
-    python -m pip install -e ".[dev,wakeword]"
+    python -m pytest -q tests/test_f5_transcript_wakeword_provider.py
 
-Provide an explicitly reviewed model asset:
+Physical full-turn gate:
 
-    $env:JARVIS_WAKEWORD_MODEL_PATH = "C:\\path\\to\\reviewed-model.onnx"
+    $env:JARVIS_REAL_VOICE_E2E = "1"
+    $env:JARVIS_WAKE_PHRASE = "hey jarvis"
+    python -m pytest -q tests/test_f5_physical_voice_e2e.py -s
+
+## 2. Optional custom OpenWakeWord path
+
+The existing OpenWakeWordProvider remains supported for an explicitly supplied
+custom ONNX model.
+
+    $env:JARVIS_WAKEWORD_MODEL_PATH = "C:\path\to\reviewed-model.onnx"
     python -m pytest -q tests/test_f5_wakeword_integration.py
 
-Without `JARVIS_WAKEWORD_MODEL_PATH`, the real-model test is skipped by design.
+No OpenWakeWord named model is bundled or silently downloaded.
+
+## Donor calibration
+
+The pinned Personal Jarvis donor ships no built-in named wake word. Its generic
+strategy prefers a user-owned custom ONNX model when available, otherwise a
+local generic recognizer path. Jarvis Iron adopts the architectural principle
+without importing donor runtime state or donor-specific objects.
 
 ## Licensing boundary
 
-`hey_jarvis` or another upstream openWakeWord pre-trained model may be used only
-when its license permits the intended context. It is not bundled and is not the
-canonical Jarvis Iron production asset.
-
-The final canonical target remains a Jarvis-owned or otherwise deployment-safe
-model whose provenance, hash, license and rights are recorded in
-`assets/provenance.toml`.
+The optional custom ONNX path remains governed by assets/provenance.toml.
+The transcript-match path introduces no new wake-word model asset.

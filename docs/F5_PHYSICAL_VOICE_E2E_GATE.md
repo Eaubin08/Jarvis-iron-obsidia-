@@ -14,66 +14,80 @@ It composes the real runtime path:
         v
     PCM16 16 kHz mono
         |
-        v
-    OpenWakeWordProvider
-        |
-        v
-    explicitly supplied wake-word model
-        |
-        v
-    FasterWhisperSTT
-        |
-        v
-    VoiceIngressRuntime
-        |
-        v
-    JarvisCore
-        |
-        v
-    deterministic cognition response
-        |
-        v
-    ConversationVoiceRuntime
-        |
-        v
-    LocalTTS
-        |
-        v
-    KokoroEngine
-        |
-        v
-    physical audio playback
+        +-------------------------------+
+        |                               |
+        v                               v
+    TranscriptWakeWordProvider      OpenWakeWordProvider
+    (default generic path)          (optional custom ONNX path)
+        |                               |
+        +---------------+---------------+
+                        |
+                        v
+                FasterWhisperSTT
+                        |
+                        v
+                VoiceIngressRuntime
+                        |
+                        v
+                    JarvisCore
+                        |
+                        v
+             deterministic cognition
+                        |
+                        v
+             ConversationVoiceRuntime
+                        |
+                        v
+                    LocalTTS
+                        |
+                        v
+                  KokoroEngine
+                        |
+                        v
+               physical audio playback
 
-## Requirements
+## Default physical path
 
-No wake-word asset is bundled or downloaded.
+No custom wake-word model is required.
 
-The operator must provide an already reviewed model:
+The default gate uses local Faster-Whisper to transcript-match a configurable
+wake phrase. It stays fully local and preserves the canonical WakeWordProvider
+boundary.
 
-    $env:JARVIS_WAKEWORD_MODEL_PATH = "C:\path\to\reviewed-model.onnx"
-
-The physical gate is enabled explicitly:
+Enable the gate:
 
     $env:JARVIS_REAL_VOICE_E2E = "1"
+    $env:JARVIS_WAKE_PHRASE = "hey jarvis"
 
 Install the real providers:
 
-    python -m pip install -e ".[dev,voice,wakeword,microphone,tts]"
+    python -m pip install -e ".[dev,voice,microphone,tts]"
 
 Run:
 
     python -m pytest -q tests/test_f5_physical_voice_e2e.py -s
 
-During the three-second capture window, speak the phrase corresponding to the
-reviewed wake-word model.
+During the three-second capture window, say the configured phrase and a short
+command, for example:
+
+    Hey Jarvis status
+
+## Optional optimized custom ONNX path
+
+If an explicitly reviewed custom wake-word model is available, set:
+
+    $env:JARVIS_WAKEWORD_MODEL_PATH = "C:\path\to\reviewed-model.onnx"
+
+When this variable is present the gate keeps using OpenWakeWordProvider instead
+of transcript matching. No model is silently selected or downloaded.
 
 ## PASS meaning
 
-A PASS proves, on that machine and for that supplied model:
+A PASS proves, on that machine:
 
 - physical microphone capture;
 - PCM16 handoff;
-- real openWakeWord inference;
+- local wake phrase detection;
 - real faster-whisper transcription;
 - transition into Jarvis conversation state;
 - cognition invocation;
@@ -81,5 +95,4 @@ A PASS proves, on that machine and for that supplied model:
 - local audio playback path;
 - return to IDLE after speech completion.
 
-It does not promote the supplied wake-word model to canonical status.
-Canonical model provenance remains governed by `assets/provenance.toml`.
+The custom ONNX path remains asset-governed by assets/provenance.toml.
