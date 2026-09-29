@@ -1,13 +1,12 @@
-"""Standalone text runtime for F1.
-
-This is Jarvis-owned orchestration. Providers remain replaceable.
-"""
+"""Standalone Jarvis-owned text orchestration."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .actions import ActionRouter
 from .contracts import CognitionProvider, JarvisEvent, MemoryProvider
 from .events import EventBus
+from .fast_intent import FastIntentRouter
 
 
 @dataclass
@@ -16,6 +15,8 @@ class TextRuntime:
     memory: MemoryProvider
     events: EventBus = field(default_factory=EventBus)
     session_id: str = "local-text"
+    fast_intent: FastIntentRouter | None = None
+    actions: ActionRouter | None = None
 
     def handle(self, text: str) -> str:
         text = text.strip()
@@ -36,14 +37,39 @@ class TextRuntime:
             JarvisEvent(
                 kind="context.built",
                 source="text_runtime",
-                payload={
-                    "summary": context.summary,
-                    "provenance": list(context.provenance),
-                },
+                payload={"summary": context.summary, "provenance": list(context.provenance)},
                 session_id=self.session_id,
                 causation_id=heard.event_id,
             )
         )
+
+        if self.fast_intent is not None and self.actions is not None:
+            match = self.fast_intent.route(text, session_id=self.session_id)
+            if match is not None:
+                self.events.publish(
+                    JarvisEvent(
+                        kind="action.requested",
+                        source="fast_intent",
+                        payload={"capability": match.request.capability, "rule": match.rule},
+                        session_id=self.session_id,
+                        causation_id=heard.event_id,
+                    )
+                )
+                result = self.actions.execute(match.request, context)
+                self.events.publish(
+                    JarvisEvent(
+                        kind="action.completed" if result.ok else "action.failed",
+                        source="action_router",
+                        payload={
+                            "capability": match.request.capability,
+                            "backend": result.backend,
+                            "message": result.message,
+                        },
+                        session_id=self.session_id,
+                        causation_id=heard.event_id,
+                    )
+                )
+                return result.message
 
         self.events.publish(
             JarvisEvent(
