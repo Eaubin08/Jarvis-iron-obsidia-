@@ -93,8 +93,30 @@ class MemoryProvider(Protocol):
     def context(self) -> ContextSnapshot: ...
 
 
+@dataclass(frozen=True)
+class PerceptualObservation:
+    observation_id: str
+    source: str
+    kind: str
+    timestamp: datetime
+    text: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+    live_handle: bool = False
+
+
 class PerceptionProvider(Protocol):
     def observe(self) -> list[JarvisEvent]: ...
+
+
+class PerceptualTimeline(Protocol):
+    def query(
+        self,
+        query: str,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        limit: int = 20,
+    ) -> list[PerceptualObservation]: ...
 
 
 class CapabilityRegistry(Protocol):
