@@ -53,3 +53,12 @@ Wake-triggered input:
 - empty transcript after wake fails closed
 - deterministic composition tests: implemented
 - ingress bridge: WakeInputRuntime -> ConversationVoiceRuntime implemented\n- no second STT at ingress\n- positive wake transcript enters THINKING state\n- physical end-to-end microphone + real wake model + real STT: NOT YET CLAIMED
+
+Full turn composition:
+- VoiceTurnRuntime: ingress -> JarvisCore -> ConversationVoiceRuntime.speak
+- no wake => no cognition and no TTS
+- empty cognition response => fail closed
+- successful response => SPEAKING with follow-up open
+- speech_finished => IDLE
+- deterministic full-turn composition: implemented
+- physical full voice loop: NOT YET CLAIMED
