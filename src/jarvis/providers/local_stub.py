@@ -32,7 +32,12 @@ class StubCognition:
     feels responsive while Brody/Obsidia remain replaceable future providers.
     """
 
-    def respond(self, user_input: str, context: ContextSnapshot) -> str:
+    def try_respond(self, user_input: str, context: ContextSnapshot) -> str | None:
+        """Return only deterministic local-presence answers.
+
+        Unknown requests return None so a governed cognition provider may
+        handle them. This method never performs actions.
+        """
         text = _normalize(user_input)
 
         exact = {
@@ -82,4 +87,7 @@ class StubCognition:
             if remainder in exact:
                 return exact[remainder]
 
-        return "Oui, je t'écoute."
+        return None
+
+    def respond(self, user_input: str, context: ContextSnapshot) -> str:
+        return self.try_respond(user_input, context) or "Oui, je t'écoute."
