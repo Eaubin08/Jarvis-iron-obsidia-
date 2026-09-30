@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 import queue
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk
 
@@ -38,11 +39,16 @@ class JarjarHUD(tk.Tk):
         self._ui_queue: queue.Queue[tuple[str, object]] = queue.Queue()
         self._angle = 0.0
         self._message_count = 0
+        self._voice_busy = threading.Lock()
+        self._voice_stop = threading.Event()
+        self._voice_thread: threading.Thread | None = None
 
         self._build()
+        self.protocol("WM_DELETE_WINDOW", self._close)
         self.after(30, self._animate_avatar)
         self.after(75, self._drain_ui_queue)
         self.after(150, self._sync_model)
+        self.after(300, self._ensure_auto_voice)
 
     def _build(self) -> None:
         top = tk.Frame(self, bg="#05080d")
@@ -90,7 +96,7 @@ class JarjarHUD(tk.Tk):
 
         self.avatar_caption = tk.Label(
             avatar_panel,
-            text="DESKTOP COMPANION // ONLINE",
+            text="DESKTOP COMPANION // ALWAYS LISTENING",
             fg="#688b9b",
             bg="#071019",
             font=("Consolas", 10),
@@ -178,21 +184,73 @@ class JarjarHUD(tk.Tk):
         threading.Thread(target=self._text_worker, args=(text,), daemon=True).start()
 
     def _text_worker(self, text: str) -> None:
-        try:
-            self.controller.submit_text(text)
-        except Exception as exc:
-            self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+        # Do not let microphone capture race a spoken text response.
+        with self._voice_busy:
+            try:
+                self.controller.submit_text(text)
+            except Exception as exc:
+                self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
 
     def _start_voice_turn(self) -> None:
-        threading.Thread(target=self._voice_worker, daemon=True).start()
+        threading.Thread(target=self._manual_voice_worker, daemon=True).start()
 
-    def _voice_worker(self) -> None:
+    def _manual_voice_worker(self) -> None:
+        if not self._voice_busy.acquire(blocking=False):
+            return
         try:
             result = self.controller.run_voice_turn()
             if result is not None:
                 self.controller.voice_finished()
         except Exception as exc:
             self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+        finally:
+            self._voice_busy.release()
+
+    def _ensure_auto_voice(self) -> None:
+        if (
+            self.controller.model.snapshot()["voice_enabled"]
+            and (self._voice_thread is None or not self._voice_thread.is_alive())
+        ):
+            self._voice_stop.clear()
+            self._voice_thread = threading.Thread(
+                target=self._auto_voice_loop,
+                name="jarjar-always-listening",
+                daemon=True,
+            )
+            self._voice_thread.start()
+
+    def _auto_voice_loop(self) -> None:
+        while not self._voice_stop.is_set():
+            snap = self.controller.model.snapshot()
+            if not snap["voice_enabled"]:
+                return
+            if snap["state"] in {HUDState.THINKING.value, HUDState.SPEAKING.value}:
+                self._voice_stop.wait(0.1)
+                continue
+
+            if not self._voice_busy.acquire(timeout=0.2):
+                continue
+            try:
+                result = self.controller.run_voice_turn()
+                if result is None:
+                    continue
+                self.controller.voice_finished()
+
+                # One bounded wake-free conversational continuation.
+                if (
+                    not self._voice_stop.is_set()
+                    and self.controller.model.snapshot()["voice_enabled"]
+                    and self.controller.follow_up_turn_handler is not None
+                ):
+                    follow = self.controller.run_follow_up_turn()
+                    if follow is not None:
+                        self.controller.voice_finished()
+            except Exception as exc:
+                self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+                self.controller.model.set_state(HUDState.IDLE)
+                self._voice_stop.wait(0.5)
+            finally:
+                self._voice_busy.release()
 
     def _toggle_voice(self) -> None:
         enabled = self.controller.toggle_voice()
@@ -201,6 +259,17 @@ class JarjarHUD(tk.Tk):
             bg="#103428" if enabled else "#32151c",
             fg="#a9ffd2" if enabled else "#ff9aaa",
         )
+        self.avatar_caption.configure(
+            text=(
+                "DESKTOP COMPANION // ALWAYS LISTENING"
+                if enabled
+                else "DESKTOP COMPANION // VOICE PAUSED"
+            )
+        )
+        if enabled:
+            self._ensure_auto_voice()
+        else:
+            self._voice_stop.set()
 
     def _sync_model(self) -> None:
         snap = self.controller.model.snapshot()
@@ -277,6 +346,10 @@ class JarjarHUD(tk.Tk):
 
     def _drain_ui_queue(self) -> None:
         self.after(75, self._drain_ui_queue)
+
+    def _close(self) -> None:
+        self._voice_stop.set()
+        self.destroy()
 
 
 def run_hud(controller: HUDController) -> None:
