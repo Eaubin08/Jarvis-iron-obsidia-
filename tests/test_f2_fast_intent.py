@@ -76,3 +76,14 @@ def test_conflicting_volume_directions_fail_closed():
     router = FastIntentRouter()
     assert router.route("monte le volume baisse le volume") is None
     assert router.local_guard_response("monte le volume baisse le volume") is not None
+
+
+def test_volume_article_does_not_hide_direction_verb():
+    up = FastIntentRouter().route("monte le volume de 10")
+    down = FastIntentRouter().route("baisse le volume de 15")
+    assert up is not None
+    assert up.request.capability == "audio.adjust_volume"
+    assert up.request.arguments == {"delta": 10}
+    assert down is not None
+    assert down.request.capability == "audio.adjust_volume"
+    assert down.request.arguments == {"delta": -15}
