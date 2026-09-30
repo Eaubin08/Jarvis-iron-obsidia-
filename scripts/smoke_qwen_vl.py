@@ -38,7 +38,7 @@ def main() -> int:
     )
     try:
         answer = vision.respond(
-            "Décris très brièvement uniquement ce que tu peux réellement observer dans cette image.",
+            "Décris très brièvement uniquement ce que tu peux réellement observer sur la caméra 0.",
             ContextSnapshot("physical vision smoke"),
         )
     except Exception as exc:
