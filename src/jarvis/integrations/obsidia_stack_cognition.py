@@ -33,6 +33,7 @@ class ObsidiaStackCognition:
     allow_provider: bool = True
     session_id: str = field(default_factory=lambda: f"jarjar-{uuid4().hex}")
     transport: Transport = _default_transport
+    last_trace: dict = field(default_factory=dict, init=False)
 
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
         text = user_input.strip()
@@ -79,6 +80,26 @@ class ObsidiaStackCognition:
 
         if not isinstance(packet, dict):
             raise RuntimeError("invalid Obsidia cognition packet")
+
+        self.last_trace = {
+            "source": packet.get("source"),
+            "voice_runtime": packet.get("voice_runtime"),
+            "provider_status": packet.get("provider_status"),
+            "provider_called": packet.get("provider_called"),
+            "selected_provider": packet.get("selected_provider"),
+            "fastpath": packet.get("fastpath"),
+            "decision_authority": packet.get("decision_authority"),
+            "readonly": packet.get("readonly"),
+        }
+        trace_bits = [
+            f"{key}={value}"
+            for key, value in self.last_trace.items()
+            if value is not None
+        ]
+        print(
+            "JARJAR_COGNITION: "
+            + (" ".join(trace_bits) if trace_bits else "no routing metadata returned")
+        )
 
         answer = packet.get("final_answer") or packet.get("response")
         if not isinstance(answer, str) or not answer.strip():
