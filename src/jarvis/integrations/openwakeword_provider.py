@@ -1,9 +1,4 @@
-"""openWakeWord adapter behind the canonical Jarvis WakeWordProvider.
-
-No wake-word model is bundled or downloaded by this adapter. Callers must pass
-an explicit local model path whose provenance and deployment rights have been
-reviewed separately.
-"""
+"""openWakeWord adapter behind the canonical Jarvis WakeWordProvider."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,6 +27,39 @@ class OpenWakeWordProvider:
         self.inference_framework = inference_framework
         self._model = None
 
+    @classmethod
+    def builtin(
+        cls,
+        name: str = "hey_jarvis",
+        *,
+        threshold: float = 0.5,
+        inference_framework: str = "onnx",
+    ) -> "OpenWakeWordProvider":
+        """Resolve/download one official openWakeWord pretrained model."""
+        try:
+            import openwakeword
+            from openwakeword.utils import download_models
+        except ImportError as exc:
+            raise RuntimeError(
+                "openwakeword is not installed; install the wakeword optional dependency"
+            ) from exc
+
+        normalized = name.strip().casefold().replace(" ", "_")
+        if not normalized:
+            raise ValueError("wake-word model name must not be empty")
+
+        download_models([normalized])
+        candidates = openwakeword.get_pretrained_model_paths(inference_framework)
+        for candidate in candidates:
+            path = Path(candidate)
+            if normalized in path.stem.casefold():
+                return cls(
+                    path,
+                    threshold=threshold,
+                    inference_framework=inference_framework,
+                )
+        raise RuntimeError(f"openWakeWord pretrained model not found after download: {normalized}")
+
     def _load(self):
         if self._model is None:
             try:
@@ -46,6 +74,16 @@ class OpenWakeWordProvider:
                 inference_framework=self.inference_framework,
             )
         return self._model
+
+    def warmup(self) -> None:
+        self._load()
+
+    def reset(self) -> None:
+        model = self._model
+        if model is not None:
+            reset = getattr(model, "reset", None)
+            if callable(reset):
+                reset()
 
     def detect(self, audio: bytes) -> bool:
         if not audio:
