@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Callable
+import re
+import unicodedata
 
 from .contracts import ActionRequest, RiskClass
 
@@ -14,7 +17,7 @@ class FastIntentMatch:
 
 
 class FastIntentRouter:
-    """Exact/bounded rules only. Ambiguity returns None and escalates."""
+    """Bounded deterministic rules. Ambiguity returns None and escalates."""
 
     def __init__(self) -> None:
         self._rules: list[tuple[str, Callable[[str], ActionRequest | None]]] = [
@@ -34,7 +37,7 @@ class FastIntentRouter:
         ]
 
     def route(self, text: str, *, session_id: str = "default") -> FastIntentMatch | None:
-        normalized = " ".join(text.strip().lower().split())
+        normalized = self._normalize_voice_text(text)
         if not normalized:
             return None
         for name, rule in self._rules:
@@ -55,27 +58,57 @@ class FastIntentRouter:
         return None
 
     @staticmethod
+    def _normalize_voice_text(text: str) -> str:
+        text = unicodedata.normalize("NFKD", text.lower())
+        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = re.sub(r"[^a-z0-9' ]+", " ", text)
+        text = " ".join(text.split())
+        polite_suffixes = (
+            " s il te plait",
+            " s'il te plait",
+            " s il vous plait",
+            " s'il vous plait",
+        )
+        for suffix in polite_suffixes:
+            if text.endswith(suffix):
+                text = text[: -len(suffix)].strip()
+                break
+        return text
+
+    @staticmethod
+    def _close_command(text: str, candidates: tuple[str, ...], *, threshold: float = 0.80) -> bool:
+        if len(text.split()) > 6:
+            return False
+        return max(SequenceMatcher(None, text, candidate).ratio() for candidate in candidates) >= threshold
+
+    @staticmethod
     def _status(text: str) -> ActionRequest | None:
         if text in {"status", "jarvis status", "statut", "statut jarvis"}:
             return ActionRequest("system.status")
         return None
 
-
-    @staticmethod
-    def _volume_up(text: str) -> ActionRequest | None:
-        if text in {"monte le volume", "augmente le volume", "volume plus"}:
+    @classmethod
+    def _volume_up(cls, text: str) -> ActionRequest | None:
+        candidates = ("monte le volume", "augmente le volume", "volume plus")
+        if text in candidates or cls._close_command(text, candidates):
+            return ActionRequest("audio.volume_up")
+        if text in {"monte", "plus fort"}:
             return ActionRequest("audio.volume_up")
         return None
 
-    @staticmethod
-    def _volume_down(text: str) -> ActionRequest | None:
-        if text in {"baisse le volume", "diminue le volume", "volume moins"}:
+    @classmethod
+    def _volume_down(cls, text: str) -> ActionRequest | None:
+        candidates = ("baisse le volume", "diminue le volume", "volume moins")
+        if text in candidates or cls._close_command(text, candidates):
+            return ActionRequest("audio.volume_down")
+        if text in {"baisse", "moins fort"}:
             return ActionRequest("audio.volume_down")
         return None
 
-    @staticmethod
-    def _mute(text: str) -> ActionRequest | None:
-        if text in {"coupe le son", "mute", "son muet"}:
+    @classmethod
+    def _mute(cls, text: str) -> ActionRequest | None:
+        candidates = ("coupe le son", "mets en sourdine", "mute", "son muet")
+        if text in candidates or cls._close_command(text, candidates):
             return ActionRequest("audio.mute_toggle")
         return None
 
@@ -93,23 +126,23 @@ class FastIntentRouter:
 
     @staticmethod
     def _media_previous(text: str) -> ActionRequest | None:
-        if text in {"musique précédente", "musique precedente", "piste précédente", "piste precedente", "précédent", "precedent"}:
+        if text in {"musique precedente", "piste precedente", "precedent"}:
             return ActionRequest("media.previous")
         return None
 
     @staticmethod
     def _battery(text: str) -> ActionRequest | None:
-        if text in {"batterie", "niveau batterie", "état batterie", "etat batterie"}:
+        if text in {"batterie", "niveau batterie", "etat batterie"}:
             return ActionRequest("system.battery", risk=RiskClass.READ_ONLY)
         return None
 
     @staticmethod
     def _open_app(text: str) -> ActionRequest | None:
-        prefixes = ("ouvre ", "lance ", "démarre ", "demarre ")
+        prefixes = ("ouvre ", "lance ", "demarre ")
         for prefix in prefixes:
             if text.startswith(prefix):
                 app = text[len(prefix):].strip()
-                for article in ("l'", "l’", "le ", "la ", "les "):
+                for article in ("l'", "le ", "la ", "les "):
                     if app.startswith(article):
                         app = app[len(article):].strip()
                         break
@@ -117,30 +150,28 @@ class FastIntentRouter:
                     return ActionRequest("app.open", {"app": app})
         return None
 
-
     @staticmethod
     def _wifi(text: str) -> ActionRequest | None:
-        if text in {"wifi", "wi fi", "état wifi", "etat wifi", "statut wifi"}:
+        if text in {"wifi", "wi fi", "etat wifi", "statut wifi"}:
             return ActionRequest("wifi.status", risk=RiskClass.READ_ONLY)
         if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi"}:
             return ActionRequest("wifi.enable", risk=RiskClass.SENSITIVE)
-        if text in {"désactive le wifi", "desactive le wifi", "coupe le wifi", "coupe wifi"}:
+        if text in {"desactive le wifi", "coupe le wifi", "coupe wifi"}:
             return ActionRequest("wifi.disable", risk=RiskClass.SENSITIVE)
         return None
 
     @staticmethod
     def _bluetooth(text: str) -> ActionRequest | None:
-        if text in {"bluetooth", "état bluetooth", "etat bluetooth", "statut bluetooth"}:
+        if text in {"bluetooth", "etat bluetooth", "statut bluetooth"}:
             return ActionRequest("bluetooth.status", risk=RiskClass.READ_ONLY)
         if text in {"active le bluetooth", "active bluetooth", "allume le bluetooth"}:
             return ActionRequest("bluetooth.enable", risk=RiskClass.SENSITIVE)
-        if text in {"désactive le bluetooth", "desactive le bluetooth", "coupe le bluetooth"}:
+        if text in {"desactive le bluetooth", "coupe le bluetooth"}:
             return ActionRequest("bluetooth.disable", risk=RiskClass.SENSITIVE)
         return None
 
     @staticmethod
     def _window_state(text: str) -> ActionRequest | None:
-        import re
         patterns = (
             (r"^(?:minimise|minimize) (.+)$", "window.minimize"),
             (r"^(?:maximise|maximize) (.+)$", "window.maximize"),
@@ -156,9 +187,8 @@ class FastIntentRouter:
 
     @staticmethod
     def _window_monitor(text: str) -> ActionRequest | None:
-        import re
         match = re.match(
-            r"^(?:mets|déplace|deplace) (.+?) (?:sur |vers )?(?:l )?[ée]cran (\d+)$",
+            r"^(?:mets|deplace) (.+?) (?:sur |vers )?(?:l )?ecran (\d+)$",
             text,
         )
         if not match:
