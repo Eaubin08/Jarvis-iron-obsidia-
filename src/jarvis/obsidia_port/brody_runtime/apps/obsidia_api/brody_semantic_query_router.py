@@ -92,11 +92,18 @@ _TOPIC_ROUTES: list[tuple[list[str], str, str, str, list[str]]] = [
         ["arbres", "tree policy", "safe_trees", "blocked_action", "34 arbres"],
     ),
     (
-        ["obsidia", "jarjar", "projet obsidia", "ton rôle brody", "ton role brody", "ton rôle jarjar", "ton role jarjar", "qu'est-ce que tu sais", "qui es-tu", "obsidia brody"],
+        ["ton rôle brody", "ton role brody", "ton rôle jarjar", "ton role jarjar", "qu'est-ce que tu sais", "qui es-tu", "obsidia brody"],
         "OBSIDIA_BRODY_ROLE",
         "Obsidia Brody X108 mémoire gouvernance",
+        "brody",
+        ["obsidia", "x108", "gouvernance", "response structure", "mémoire"],
+    ),
+    (
+        ["projet obsidia", "obsidia"],
+        "OBSIDIA_PROJECT",
+        "Obsidia projet architecture mémoire gouvernance",
         "obsidia",
-        ["brody", "x108", "gouvernance", "response structure", "mémoire"],
+        ["x108", "brody", "architecture", "mémoire", "gouvernance"],
     ),
     (
         ["réponses", "protocolaires", "template", "trop protocolaire", "améliore"],
