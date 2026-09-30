@@ -29,6 +29,7 @@ def main() -> int:
         visual_driver=PyAutoGUIVisualDriver(),
     )
     vision = from_environment(live_timeline=timeline)
+    vision.max_images = 1
 
     print(
         "VISION_SMOKE: "
@@ -37,7 +38,7 @@ def main() -> int:
     )
     try:
         answer = vision.respond(
-            "Décris brièvement uniquement ce que tu peux réellement observer dans les images fournies.",
+            "Décris très brièvement uniquement ce que tu peux réellement observer dans cette image.",
             ContextSnapshot("physical vision smoke"),
         )
     except Exception as exc:
