@@ -151,7 +151,7 @@ class Win32Driver:
                 "-NoProfile",
                 "-NonInteractive",
                 "-Command",
-                script + " | ConvertTo-Json -Compress -Depth 4",
+                "& {\n" + script + "\n} | ConvertTo-Json -Compress -Depth 4",
             ],
             capture_output=True,
             text=True,
