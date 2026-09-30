@@ -17,6 +17,13 @@ class HUDController:
     text_handler: Callable[[str], str]
     voice_turn_handler: Callable[[], tuple[str, str] | None] | None = None
     follow_up_turn_handler: Callable[[], tuple[str, str] | None] | None = None
+    response_source: Callable[[], str] | None = None
+
+    def _jarjar_label(self) -> str:
+        if self.response_source is None:
+            return "JARJAR"
+        source = self.response_source().strip()
+        return f"JARJAR · {source}" if source else "JARJAR"
 
     def submit_text(self, text: str) -> str:
         clean = text.strip()
@@ -29,7 +36,7 @@ class HUDController:
             reply = self.text_handler(clean).strip()
             if not reply:
                 raise ValueError("empty Jarjar response")
-            self.model.append("JARJAR", reply)
+            self.model.append(self._jarjar_label(), reply)
             return reply
         except Exception:
             self.model.set_state(HUDState.ERROR)
@@ -62,7 +69,7 @@ class HUDController:
                 raise ValueError("voice turn returned empty transcript or reply")
             self.model.append("YOU", transcript)
             self.model.set_state(HUDState.THINKING)
-            self.model.append("JARJAR", reply)
+            self.model.append(self._jarjar_label(), reply)
             self.model.set_state(HUDState.SPEAKING)
             return transcript, reply
         except Exception:
