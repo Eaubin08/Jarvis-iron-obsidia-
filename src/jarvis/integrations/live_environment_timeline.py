@@ -11,9 +11,10 @@ from jarvis.contracts import PerceptualObservation
 
 
 class LiveEnvironmentTimeline:
-    def __init__(self, *, monitor_provider=None, camera_rig=None):
+    def __init__(self, *, monitor_provider=None, camera_rig=None, visual_driver=None):
         self.monitor_provider = monitor_provider
         self.camera_rig = camera_rig
+        self.visual_driver = visual_driver
 
     def query(self, query: str, *, start=None, end=None, limit: int = 20):
         if limit <= 0:
@@ -52,6 +53,29 @@ class LiveEnvironmentTimeline:
                         "bottom": layout.bottom,
                         "width": layout.width,
                         "height": layout.height,
+                        "fresh": True,
+                    },
+                    live_handle=False,
+                )
+            )
+
+        if self.visual_driver is not None:
+            state = self.visual_driver.snapshot()
+            rows.append(
+                PerceptualObservation(
+                    observation_id=str(state["observation_id"]),
+                    source="live-screen",
+                    kind="desktop_screenshot",
+                    timestamp=now,
+                    text=(
+                        f"fresh virtual desktop screenshot "
+                        f"{state.get('width')}x{state.get('height')}"
+                    ),
+                    metadata={
+                        "screenshot_path": state.get("screenshot_path"),
+                        "width": state.get("width"),
+                        "height": state.get("height"),
+                        "coordinate_space": state.get("coordinate_space"),
                         "fresh": True,
                     },
                     live_handle=False,
