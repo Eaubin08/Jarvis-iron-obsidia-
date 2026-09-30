@@ -133,7 +133,7 @@ def test_text_runtime_can_use_context_assembler_without_breaking_memory_provider
         context_assembler=assembler,
     )
 
-    assert runtime.handle("project context") == "JARVIS_V0: project context"
+    assert runtime.handle("project context") == "Oui, je t'écoute."
     assert [event.kind for event in legacy_memory.events] == [
         "voice.heard",
         "cognition.completed",
@@ -142,4 +142,4 @@ def test_text_runtime_can_use_context_assembler_without_breaking_memory_provider
 
 def test_text_runtime_legacy_memory_provider_still_works():
     runtime = TextRuntime(StubCognition(), StubMemory())
-    assert runtime.handle("hello") == "JARVIS_V0: hello"
+    assert runtime.handle("hello") == "Oui, je t'écoute."
