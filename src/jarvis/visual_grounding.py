@@ -78,11 +78,16 @@ def parse_click_action(
     if not isinstance(response, str) or not response.strip():
         raise ValueError("empty grounding response")
 
-    action_match = re.search(r"Action:\s*click\((.*?)\)", response, re.DOTALL)
+    action_match = re.search(r"Action:\s*click\(", response)
     if not action_match:
         raise ValueError("grounding response is not a click action")
 
-    body = action_match.group(1)
+    # UI-TARS coordinate payloads can contain their own parentheses, e.g.
+    # click(start_box='(483,273)'). Slice from the opening click instead of
+    # using a non-greedy regex that stops at the coordinate's closing ')'.
+    body = response[action_match.end():].strip()
+    if body.endswith(")"):
+        body = body[:-1].rstrip()
     point_match = re.search(r"<point>\s*(\d+)\s+(\d+)\s*</point>", body)
     box_match = re.search(
         r"(?:start_box|point)\s*=\s*['\"]\(\s*(\d+)\s*,\s*(\d+)\s*\)['\"]",
