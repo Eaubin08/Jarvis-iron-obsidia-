@@ -13,6 +13,7 @@ from typing import Any
 
 from .obsidia_port.router_core.decision import decide
 from .obsidia_port.brody_readonly_intent_guard import detect_readonly_runtime_state_intent
+from .obsidia_port.brody_semantic_query_router import build_semantic_query
 
 
 _MEMORY_INDEX = Path(__file__).resolve().parent / "obsidia_port" / "router_core" / "memory_index.json"
@@ -53,13 +54,58 @@ class ObsidiaPreInferenceAdapter:
             return {}
 
     def route(self, user_input: str) -> PreInferenceDecision:
+        raw = decide(user_input, memory_index=self._memory_index)
+        route = str(raw.get("route") or "")
+        ir = dict(raw.get("ir") or {})
+        raw_topic = dict(raw.get("topic") or {})
+
+        # Jarjar is the local surface name. For Brody's semantic router only,
+        # map that surface name to the Brody role vocabulary already present
+        # in the canonical stack. The user's original text is never changed
+        # for the actual provider call.
+        semantic_input = user_input
+        if "jarjar" in user_input.casefold():
+            semantic_input = (
+                user_input.replace("Jarjar", "Brody")
+                .replace("jarjar", "brody")
+                .replace("JARJAR", "BRODY")
+            )
+
+        semantic = build_semantic_query(semantic_input)
+        semantic_topic = str(semantic.get("topic") or "")
+
         readonly_intent = detect_readonly_runtime_state_intent(user_input)
-        if readonly_intent.get("status") == "RUNTIME_STATE_READONLY_INTENT_PASS":
+        readonly_pass = (
+            readonly_intent.get("status")
+            == "RUNTIME_STATE_READONLY_INTENT_PASS"
+        )
+
+        # The readonly guard is a safety/context signal, not a universal
+        # replacement for semantic routing. Promote it to a Jarjar runtime
+        # answer only when the router itself points at runtime/memory ambiguity,
+        # or when the semantic router identifies a current-state question.
+        runtime_state_query = (
+            (
+                readonly_pass
+                and (
+                    route == "clarification_needed"
+                    or semantic_topic == "CURRENT_STATE"
+                )
+            )
+            or (
+                ir.get("target_layer") == "memory"
+                and semantic_topic == "MEMORY_QUERY"
+                and ir.get("intent_type") in {"reasoning", "status"}
+            )
+        )
+
+        if runtime_state_query:
             decision = PreInferenceDecision(
                 route="runtime_state_readonly",
                 level=0,
-                reason="canonical Brody readonly runtime-state intent guard",
+                reason="Brody semantic/runtime state resolved before model escalation",
                 ir={
+                    **ir,
                     "intent_type": "runtime_state_query",
                     "target_layer": "runtime",
                     "action_type": "read",
@@ -70,9 +116,9 @@ class ObsidiaPreInferenceAdapter:
                     "invariants": ["readonly", "KX108_ONLY"],
                 },
                 topic={
+                    **semantic,
                     "topic": "RUNTIME_STATE_READONLY",
-                    "is_canonical": True,
-                    "route": "BRODY_READONLY_INTENT_GUARD",
+                    "source_topic": semantic_topic,
                 },
             )
             self.last_decision = decision
@@ -84,8 +130,19 @@ class ObsidiaPreInferenceAdapter:
             )
             return decision
 
-        raw = decide(user_input, memory_index=self._memory_index)
-        route = str(raw.get("route") or "")
+        # Canonical Brody semantic role/self queries should stay on Brody even
+        # if the public deterministic IR does not know the local Jarjar name.
+        if semantic_topic == "OBSIDIA_BRODY_ROLE":
+            raw["route"] = "brody"
+            raw["level"] = 1
+            raw["reason"] = "canonical Brody semantic role route"
+            route = "brody"
+            raw["topic"] = semantic
+            if ir.get("intent_type") == "unknown":
+                ir["intent_type"] = "question"
+                ir["target_layer"] = "brody"
+                ir["action_type"] = "answer"
+                raw["ir"] = ir
         direct_answer = None
         if route == "local_solver":
             value = raw.get("solver_answer")
