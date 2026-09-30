@@ -88,8 +88,18 @@ class LocalVisionCognition:
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 raw = response.read()
-        except (HTTPError, URLError, TimeoutError) as exc:
-            raise RuntimeError("local vision provider unavailable") from exc
+        except HTTPError as exc:
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")
+            except Exception:
+                detail = ""
+            raise RuntimeError(
+                f"local vision HTTP {exc.code}: {detail[:1200]}"
+            ) from exc
+        except URLError as exc:
+            raise RuntimeError(f"local vision endpoint unavailable: {exc.reason}") from exc
+        except TimeoutError as exc:
+            raise RuntimeError("local vision request timed out") from exc
         try:
             packet = json.loads(raw.decode("utf-8"))
             answer = packet["choices"][0]["message"]["content"]
@@ -109,5 +119,5 @@ def from_environment(*, live_timeline=None) -> LocalVisionCognition:
         model=os.getenv("JARJAR_VISION_MODEL", "Qwen2.5-VL-3B-Instruct"),
         timeout_seconds=float(os.getenv("JARJAR_VISION_TIMEOUT", "45")),
         live_timeline=live_timeline,
-        max_images=int(os.getenv("JARJAR_VISION_MAX_IMAGES", "3")),
+        max_images=int(os.getenv("JARJAR_VISION_MAX_IMAGES", "1")),
     )
