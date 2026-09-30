@@ -12,7 +12,7 @@ from jarvis.contracts import CognitionProvider, ContextSnapshot
 
 
 _PROJECT_PATTERNS = (
-    r"\bobsidia\b", r"\bx[- ]?108\b", r"\bbrody\b", r"\bkx108\b",
+    r"\b(obsidia|obsidian|obsidio)\b", r"\bx[- ]?108\b", r"\bbrody\b", r"\bkx108\b",
     r"\bjarvis[- ]iron\b", r"\bsource[- ]?pack\b", r"\bnative memory\b",
 )
 _ENV_PATTERNS = (
