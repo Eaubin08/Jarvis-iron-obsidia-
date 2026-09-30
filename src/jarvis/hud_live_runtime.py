@@ -113,6 +113,13 @@ class HUDLiveVoiceBridge:
             return None
         return self._respond(transcript)
 
+    def is_self_echo(self, transcript: str) -> bool:
+        """Return True when a captured utterance matches Jarjar's own TTS."""
+        return bool(
+            self._last_spoken_text
+            and self._looks_like_self_echo(transcript, self._last_spoken_text)
+        )
+
     def run_follow_up_turn(self) -> tuple[str, str] | None:
         """Capture one wake-free follow-up after a successful spoken reply.
 
@@ -128,9 +135,7 @@ class HUDLiveVoiceBridge:
                 raise
             return None
 
-        if self._last_spoken_text and self._looks_like_self_echo(
-            transcript, self._last_spoken_text
-        ):
+        if self.is_self_echo(transcript):
             print(f"JARJAR_ECHO: REJECTED transcript={transcript!r}")
             self.conversation.follow_up_open = True
             return None
