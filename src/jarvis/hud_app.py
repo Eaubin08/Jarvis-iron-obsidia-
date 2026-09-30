@@ -237,15 +237,18 @@ class JarjarHUD(tk.Tk):
                     continue
                 self.controller.voice_finished()
 
-                # One bounded wake-free conversational continuation.
-                if (
+                # Stay in a bounded conversational session after one wake.
+                # Each successful reply re-opens follow-up; inactivity closes
+                # the session and returns control to the wake-word detector.
+                while (
                     not self._voice_stop.is_set()
                     and self.controller.model.snapshot()["voice_enabled"]
                     and self.controller.follow_up_turn_handler is not None
                 ):
                     follow = self.controller.run_follow_up_turn()
-                    if follow is not None:
-                        self.controller.voice_finished()
+                    if follow is None:
+                        break
+                    self.controller.voice_finished()
             except Exception as exc:
                 self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
                 self.controller.model.set_state(HUDState.IDLE)
