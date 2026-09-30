@@ -182,7 +182,25 @@ class FastIntentRouter:
     @classmethod
     def local_guard_response(cls, text: str) -> str | None:
         normalized = cls._normalize_voice_text(text)
-        if "volume" in normalized or re.search(r"\b(?:son|sourdine|mute)\b", normalized):
+
+        # Guard only clear audio-control intent. The French word "son" is also
+        # a possessive determiner ("son contexte", "son fonctionnement") and
+        # must never hijack ordinary cognition/project questions.
+        audio_control = (
+            "volume" in normalized
+            or re.search(r"\b(?:sourdine|mute)\b", normalized)
+            or normalized in {
+                "coupe le son",
+                "coupe son",
+                "remets le son",
+                "remet le son",
+                "active le son",
+                "desactive le son",
+                "monte le son",
+                "baisse le son",
+            }
+        )
+        if audio_control:
             return "Je n'ai pas compris la commande audio. Dis par exemple : monte le volume de dix, baisse le volume de quinze, ou mets le volume à trente."
         return None
 
