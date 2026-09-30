@@ -26,6 +26,9 @@ STATE_COLORS = {
     HUDState.ERROR.value: "#ff4567",
 }
 
+WAKE_COLOR = "#4dd8ff"
+SESSION_COLOR = "#38ff9c"
+
 
 class JarjarHUD(tk.Tk):
     def __init__(self, controller: HUDController):
@@ -236,6 +239,7 @@ class JarjarHUD(tk.Tk):
                 if result is None:
                     continue
                 self.controller.voice_finished()
+                self.controller.model.set_session_open(True)
 
                 # Stay in a bounded conversational session after one wake.
                 # Each successful reply re-opens follow-up; inactivity closes
@@ -247,10 +251,12 @@ class JarjarHUD(tk.Tk):
                 ):
                     follow = self.controller.run_follow_up_turn()
                     if follow is None:
+                        self.controller.model.set_session_open(False)
                         break
                     self.controller.voice_finished()
             except Exception as exc:
                 self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+                self.controller.model.set_session_open(False)
                 self.controller.model.set_state(HUDState.IDLE)
                 self._voice_stop.wait(0.5)
             finally:
@@ -273,13 +279,42 @@ class JarjarHUD(tk.Tk):
         if enabled:
             self._ensure_auto_voice()
         else:
+            self.controller.model.set_session_open(False)
             self._voice_stop.set()
 
     def _sync_model(self) -> None:
         snap = self.controller.model.snapshot()
         state = snap["state"]
-        color = STATE_COLORS.get(state, "#4dd8ff")
-        self.status.configure(text=f"● {state.upper()}", fg=color)
+        session_open = snap.get("session_open", False)
+
+        if state == HUDState.LISTENING.value and session_open:
+            status_text = "● CONVERSATION // ÉCOUTE"
+            color = SESSION_COLOR
+        elif state == HUDState.LISTENING.value:
+            status_text = "● WAKE // ÉCOUTE"
+            color = WAKE_COLOR
+        elif state == HUDState.THINKING.value:
+            status_text = "● RÉFLEXION"
+            color = STATE_COLORS[state]
+        elif state == HUDState.SPEAKING.value:
+            status_text = "● PARLE"
+            color = STATE_COLORS[state]
+        elif session_open:
+            status_text = "● CONVERSATION OUVERTE"
+            color = SESSION_COLOR
+        else:
+            status_text = f"● {state.upper()}"
+            color = STATE_COLORS.get(state, WAKE_COLOR)
+
+        self.status.configure(text=status_text, fg=color)
+
+        if not snap["voice_enabled"]:
+            caption = "DESKTOP COMPANION // VOICE PAUSED"
+        elif session_open:
+            caption = "CONVERSATION OPEN // PARLE NATURELLEMENT"
+        else:
+            caption = "WAKE MODE // DIS « HEY JARVIS »"
+        self.avatar_caption.configure(text=caption, fg=color)
 
         messages = snap["messages"]
         if len(messages) > self._message_count:
@@ -300,11 +335,29 @@ class JarjarHUD(tk.Tk):
         width = max(self.canvas.winfo_width(), 320)
         height = max(self.canvas.winfo_height(), 360)
         cx, cy = width / 2, height / 2
-        state = self.controller.model.snapshot()["state"]
-        color = STATE_COLORS.get(state, "#4dd8ff")
+        snap = self.controller.model.snapshot()
+        state = snap["state"]
+        session_open = snap.get("session_open", False)
 
-        self._angle = (self._angle + 0.035) % (math.pi * 2)
-        pulse = 1.0 + 0.08 * math.sin(self._angle * 3)
+        if state == HUDState.THINKING.value:
+            color = STATE_COLORS[state]
+            speed = 0.070
+            pulse_depth = 0.14
+        elif state == HUDState.SPEAKING.value:
+            color = STATE_COLORS[state]
+            speed = 0.055
+            pulse_depth = 0.18
+        elif session_open:
+            color = SESSION_COLOR
+            speed = 0.045
+            pulse_depth = 0.12
+        else:
+            color = WAKE_COLOR
+            speed = 0.025
+            pulse_depth = 0.05
+
+        self._angle = (self._angle + speed) % (math.pi * 2)
+        pulse = 1.0 + pulse_depth * math.sin(self._angle * 3)
 
         radius = min(width, height) * 0.19 * pulse
         for ring in range(4):
