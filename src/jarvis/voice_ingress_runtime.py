@@ -1,4 +1,4 @@
-"""Bridge from wake-triggered input into conversational voice state."""
+"""Bridge from wake-triggered or follow-up input into conversational voice state."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,3 +19,18 @@ class VoiceIngressRuntime:
         if result.transcript is None:
             raise ValueError("wake input returned no transcript")
         return self.conversation.accept_transcript(result.transcript)
+
+    def capture_follow_up(self, duration_seconds: float) -> str:
+        """Capture a follow-up turn without re-running wake-word detection."""
+        if not self.conversation.follow_up_open:
+            raise RuntimeError("follow-up window is not open")
+
+        audio = self.wake_input.microphone.capture(duration_seconds)
+        if not audio:
+            raise ValueError("microphone returned empty audio")
+
+        transcript = self.wake_input.stt.transcribe(audio).strip()
+        if not transcript:
+            raise ValueError("empty follow-up transcript")
+
+        return self.conversation.accept_transcript(transcript)
