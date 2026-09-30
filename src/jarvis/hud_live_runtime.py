@@ -59,7 +59,6 @@ class HUDLiveVoiceBridge:
         except ValueError as exc:
             if "empty" not in str(exc).casefold():
                 raise
-            self.conversation.follow_up_open = False
             return None
         return self._respond(transcript)
 
