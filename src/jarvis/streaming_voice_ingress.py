@@ -5,7 +5,7 @@ wake detector fires and the utterance recorder reaches end-of-speech.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 import time
 
@@ -25,6 +25,7 @@ class StreamingVoiceIngress:
     wake_speech_start_timeout: float = 3.0
     follow_up_start_timeout: float = 2.0
     on_wake: Callable[[], None] | None = None
+    _pending_fragment: str = field(default="", init=False, repr=False)
 
     def capture_and_begin_turn(self, _duration_seconds: float = 0.0) -> str | None:
         reset = getattr(self.wake_word, "reset", None)
@@ -87,6 +88,19 @@ class StreamingVoiceIngress:
                 close()
 
 
+    @staticmethod
+    def _looks_incomplete_fragment(text: str) -> bool:
+        value = text.strip()
+        if not value:
+            return False
+        tokens = value.split()
+        # Conservative gate: only hold short transcripts that Whisper itself
+        # marks as trailing/incomplete. Normal short commands still pass.
+        return len(tokens) <= 8 and (
+            value.endswith("...")
+            or value.endswith("…")
+        )
+
     def capture_follow_up(self, _duration_seconds: float = 0.0) -> str:
         if not self.conversation.follow_up_open:
             raise RuntimeError("follow-up window is not open")
@@ -102,4 +116,15 @@ class StreamingVoiceIngress:
         transcript = self.stt.transcribe(audio).strip()
         if not transcript:
             raise ValueError("empty follow-up transcript")
+
+        if self._pending_fragment:
+            transcript = f"{self._pending_fragment} {transcript}".strip()
+            print(f"JARJAR_STT: MERGED_PENDING transcript={transcript!r}")
+            self._pending_fragment = ""
+
+        if self._looks_incomplete_fragment(transcript):
+            self._pending_fragment = transcript
+            print(f"JARJAR_STT: HOLD_FRAGMENT transcript={transcript!r}")
+            raise ValueError("empty follow-up transcript")
+
         return self.conversation.accept_transcript(transcript)
