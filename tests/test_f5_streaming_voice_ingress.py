@@ -2,14 +2,16 @@ from jarvis.streaming_voice_ingress import StreamingVoiceIngress
 
 
 class Mic:
-    def __init__(self):
+    def __init__(self, utterances=None):
         self.stream_chunks = [b"a", b"wake"]
-        self.utterances = [b"speech"]
+        self.utterances = list(utterances or [b"speech"])
+        self.capture_kwargs = []
 
     def iter_chunks(self, *, chunk_samples):
         yield from self.stream_chunks
 
     def capture_until_silence(self, **kwargs):
+        self.capture_kwargs.append(kwargs)
         return self.utterances.pop(0)
 
 
@@ -36,9 +38,11 @@ class STT:
 
 
 class Conversation:
-    follow_up_open = False
+    def __init__(self):
+        self.follow_up_open = False
 
     def accept_transcript(self, text):
+        self.follow_up_open = False
         return text
 
 
@@ -54,9 +58,10 @@ def test_streaming_wake_invokes_stt_only_after_detection():
     assert wake.calls == [b"a", b"wake"]
     assert stt.calls == 1
     assert wake.resets == 1
+    assert mic.capture_kwargs[0]["speech_start_timeout"] == 3.0
 
 
-def test_follow_up_skips_wake_detector():
+def test_follow_up_skips_wake_detector_and_uses_short_start_timeout():
     mic = Mic()
     wake = Wake()
     stt = STT()
@@ -69,3 +74,22 @@ def test_follow_up_skips_wake_detector():
     assert result == "bonjour"
     assert wake.calls == []
     assert stt.calls == 1
+    assert mic.capture_kwargs[0]["speech_start_timeout"] == 2.0
+
+
+def test_follow_up_inactivity_closes_conversation():
+    mic = Mic(utterances=[b""])
+    wake = Wake()
+    stt = STT()
+    conversation = Conversation()
+    conversation.follow_up_open = True
+    ingress = StreamingVoiceIngress(mic, wake, stt, conversation)
+
+    try:
+        ingress.capture_follow_up()
+        assert False, "expected empty follow-up"
+    except ValueError as exc:
+        assert "empty follow-up" in str(exc)
+
+    assert conversation.follow_up_open is False
+    assert stt.calls == 0
