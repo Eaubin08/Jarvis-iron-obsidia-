@@ -171,7 +171,7 @@ def build_live_controller() -> HUDController:
         # HOLD: true duplex/barge-in while Jarjar is speaking.
         # Keep current anti-echo path; revisit concurrent capture separately.
         post_speech_cooldown_seconds=float(
-            os.getenv("JARVIS_POST_SPEECH_COOLDOWN_SECONDS", "0.45")
+            os.getenv("JARVIS_POST_SPEECH_COOLDOWN_SECONDS", "0.10")
         ),
     )
 
