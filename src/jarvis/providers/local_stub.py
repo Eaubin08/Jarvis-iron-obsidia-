@@ -90,4 +90,10 @@ class StubCognition:
         return None
 
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
-        return self.try_respond(user_input, context) or "Oui, je t'écoute."
+        local = self.try_respond(user_input, context)
+        if local is not None:
+            return local
+        # Preserve the original deterministic standalone stub contract.
+        # The live router calls try_respond() directly and therefore still
+        # escalates unknown language to Qwen/Brody instead of stopping here.
+        return f"JARVIS_V0: {user_input.strip()}"
