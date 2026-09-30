@@ -56,7 +56,7 @@ Additional observed integration evidence:
 | TEST | STATUS | EVIDENCE | HOLD REASON |
 | --- | --- | --- | --- |
 | W01 wake word -> STT latency | PASS | Physical F5 voice E2E PASS (`1 passed in 40.58s`) | |
-| W02 barge-in during TTS | READY | Voice runtime cancellation tests | Physical TTS playback/barge-in not executed. |
+| W02 barge-in during TTS | PASS | Physical French Kokoro playback/barge-in PASS (`1 passed in 30.95s`) | |
 | W03 follow-up without repeated wake word | READY | Voice conversation state tests | Physical voice loop not executed. |
 | W04 exact command opens known application through structured backend | PASS | Real Win32 integration test PASS in final environment | |
 | W05 browser action uses DOM/Playwright before visual operator | PASS | Real Playwright Chromium integration + F8 routing tests | |
@@ -77,7 +77,7 @@ Additional observed integration evidence:
 | bounded context assembly | PASS | F7 ContextAssembler tests | |
 | cognition or deterministic routing | PASS | F1/F2 runtime tests | |
 | spoken reply | PASS | Physical F5 voice E2E exercised Kokoro -> local speaker playback | |
-| interruption/barge-in | READY | F5 voice cancellation tests | Physical audio not executed. |
+| interruption/barge-in | PASS | Physical French Kokoro playback/barge-in PASS (`1 passed in 30.95s`) | |
 | deterministic local action | PASS | F2/F0 local action routing tests | |
 | browser/native action through structured backend | PASS | Real Playwright, Win32 and structured UIA-driver integration tests PASS | |
 | recent Screenpipe context query | PASS | Live authenticated Screenpipe localhost integration PASS | |
