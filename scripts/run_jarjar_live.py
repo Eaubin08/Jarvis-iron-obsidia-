@@ -29,7 +29,7 @@ def build_live_controller() -> HUDController:
     )
     wake = OpenWakeWordProvider.builtin(
         os.getenv("JARVIS_WAKEWORD_MODEL", "hey_jarvis"),
-        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.35")),
+        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.32")),
         inference_framework="onnx",
     )
     kokoro = KokoroEngine(lang_code="f", voice="ff_siwis")
