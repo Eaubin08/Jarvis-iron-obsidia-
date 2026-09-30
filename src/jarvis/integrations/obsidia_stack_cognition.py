@@ -33,6 +33,74 @@ def _is_legacy_graphiti_text(value: object) -> bool:
     return any(marker in text for marker in _LEGACY_GRAPHITI_MARKERS)
 
 
+def _governed_capability_answer(
+    authority_snapshot: dict,
+    *,
+    native_memory_active: bool,
+    memory_source_mode: str,
+) -> str:
+    """Render Brody/Jarjar role from the canonical authority snapshot.
+
+    This is intentionally governance-first: capability questions must not be
+    answered from project-memory material or a legacy True Voice fallback.
+    """
+    may = set(authority_snapshot.get("brody_may") or [])
+    must_not = set(authority_snapshot.get("brody_must_not") or [])
+
+    capabilities: list[str] = []
+    if "repondre_naturellement" in may:
+        capabilities.append("répondre naturellement")
+    if {
+        "expliquer_ce_que_brody_peut_faire",
+        "expliquer_ce_que_brody_ne_peut_pas_faire",
+    } & may:
+        capabilities.append("expliquer ses capacités, ses limites et les frontières de gouvernance")
+    if "lister_capacites_et_limites" in may:
+        capabilities.append("lister les capacités et limites du système")
+    if "expliquer_automation_snapshot" in may:
+        capabilities.append("expliquer l'état d'automatisation observé")
+    if "expliquer_role_humain_operateur" in may:
+        capabilities.append("situer le rôle de l'opérateur humain")
+    if "expliquer_role_kx108_decision_authority" in may:
+        capabilities.append("situer KX108 comme autorité de décision")
+    if "expliquer_role_memoire_candidate_only" in may:
+        capabilities.append("expliquer la place de la mémoire sans lui donner d'autorité")
+    if "expliquer_boundary_complet" in may:
+        capabilities.append("exposer le boundary complet")
+
+    forbidden: list[str] = []
+    mapping = {
+        "decider": "décider",
+        "emettre_act": "émettre ACT",
+        "emettre_hold_block_allow_comme_verdict": "émettre HOLD/BLOCK/ALLOW comme verdict",
+        "ecrire_memoire_automatiquement": "écrire automatiquement en mémoire",
+        "executer": "exécuter une action",
+        "bypass_x108": "contourner X108",
+    }
+    for key, label in mapping.items():
+        if key in must_not:
+            forbidden.append(label)
+
+    cap_text = ", ".join(capabilities) if capabilities else "répondre et contextualiser en mode consultatif"
+    forbidden_text = ", ".join(forbidden) if forbidden else "décider ou agir à la place de KX108"
+
+    if native_memory_active:
+        memory_text = "Native Memory est active sur le runtime connecté."
+    else:
+        memory_text = (
+            "Native Memory n'est pas active sur ce runtime ; "
+            f"la source mémoire observée est {memory_source_mode or 'UNKNOWN'}."
+        )
+
+    return (
+        "Jarjar est la surface locale qui s'appuie sur Brody pour la cognition gouvernée. "
+        f"Selon la matrice d'autorité active, Brody peut {cap_text}. "
+        f"Il ne peut pas {forbidden_text}. "
+        "KX108/X108 reste l'unique autorité de décision ; Brody reste consultatif et readonly. "
+        f"{memory_text}"
+    )
+
+
 def _default_transport(request: Request, timeout: float) -> bytes:
     with urlopen(request, timeout=timeout) as response:
         return response.read()
@@ -125,6 +193,10 @@ class ObsidiaStackCognition:
         if not isinstance(domain_raccord, dict):
             domain_raccord = {}
 
+        authority_snapshot = packet.get("authority_snapshot")
+        if not isinstance(authority_snapshot, dict):
+            authority_snapshot = {}
+
         memory_source_mode = str(
             memory_snapshot.get("source_mode") or ""
         ).strip()
@@ -162,6 +234,11 @@ class ObsidiaStackCognition:
                 "structural_answer_available"
             ),
             "domain_memory_dependency": domain_raccord.get("memory_dependency"),
+            "authority_request_type": authority_snapshot.get("request_type"),
+            "authority_response_mode": authority_snapshot.get("response_mode"),
+            "authority_requires_kx108_decision": authority_snapshot.get(
+                "requires_kx108_decision"
+            ),
             "provider_status": packet.get("provider_status"),
             "provider_called": packet.get("provider_called"),
             "selected_provider": packet.get("selected_provider"),
@@ -194,6 +271,25 @@ class ObsidiaStackCognition:
             + f" authority={packet.get('decision_authority') or 'UNKNOWN'}"
             + f" readonly={packet.get('readonly')}"
         )
+
+        governance_capability_safe = (
+            authority_snapshot.get("request_type") == "CAPABILITY_SCOPE"
+            and authority_snapshot.get("response_mode") == "CAPABILITY_SCOPE"
+            and authority_snapshot.get("decision_authority") == "KX108_ONLY"
+            and packet.get("decision_authority") == "KX108_ONLY"
+            and packet.get("readonly") is True
+        )
+
+        if governance_capability_safe:
+            print(
+                "JARJAR_BRODY_GOVERNANCE: ACCEPT_CAPABILITY_SCOPE "
+                "authority=KX108_ONLY readonly=True"
+            )
+            return _governed_capability_answer(
+                authority_snapshot,
+                native_memory_active=native_memory_active,
+                memory_source_mode=memory_source_mode,
+            )
 
         structural_answer = domain_raccord.get("structural_answer")
         structural_answer_safe = (
