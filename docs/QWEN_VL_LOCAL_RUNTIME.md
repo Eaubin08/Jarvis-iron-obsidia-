@@ -1,0 +1,52 @@
+# Qwen2.5-VL local runtime — target machine
+
+Chosen physical V0 model:
+
+`ggml-org/Qwen2.5-VL-3B-Instruct-GGUF:Q4_K_M`
+
+Rationale:
+
+- multimodal Qwen-VL model;
+- GGUF is available from ggml-org;
+- Q4_K_M is materially lighter than F16/Q8 for the target CPU/16 GB machine;
+- llama.cpp exposes an OpenAI-compatible local server;
+- Jarjar already targets that API contract on port 8081.
+
+## Install llama.cpp on Windows
+
+```powershell
+winget install llama.cpp
+```
+
+Close/reopen PowerShell if the executable is not immediately visible.
+
+## Launch vision server
+
+```powershell
+cd C:\Users\User\Desktop\Jarvis-iron-obsidia-
+powershell -ExecutionPolicy Bypass -File .\scripts\start_qwen_vl.ps1
+```
+
+Default endpoint:
+
+`http://127.0.0.1:8081/v1/chat/completions`
+
+The first launch may download the GGUF model.
+
+## Physical validation
+
+Keep the vision server running in terminal 1. In terminal 2:
+
+```powershell
+cd C:\Users\User\Desktop\Jarvis-iron-obsidia-
+& 'C:\Users\User\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m scripts.smoke_qwen_vl
+```
+
+Success ends with:
+
+`VISION_PHYSICAL: PASS`
+
+## Boundary
+
+This provider returns descriptive text only. It cannot click, type, launch
+applications, or bypass ActionRouter/PermissionPolicy.
