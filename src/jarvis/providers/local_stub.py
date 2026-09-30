@@ -1,4 +1,7 @@
 """Zero-dependency providers used to validate the standalone boundary."""
+from __future__ import annotations
+
+import re
 
 from jarvis.contracts import ContextSnapshot, JarvisEvent
 
@@ -17,6 +20,53 @@ class StubMemory:
         )
 
 
+def _normalize(text: str) -> str:
+    return " ".join(re.findall(r"\w+", text.casefold(), flags=re.UNICODE))
+
+
 class StubCognition:
+    """Tiny local presence layer for the standalone V0.
+
+    This is deliberately not a general intelligence provider. It gives short,
+    predictable acknowledgements for common conversational phrases so the HUD
+    feels responsive while Brody/Obsidia remain replaceable future providers.
+    """
+
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
-        return f"JARVIS_V0: {user_input}"
+        text = _normalize(user_input)
+
+        exact = {
+            "bonjour": "Salut.",
+            "salut": "Salut.",
+            "coucou": "Salut.",
+            "ça va": "Oui, je suis là.",
+            "ca va": "Oui, je suis là.",
+            "tu m entends": "Oui, je t'entends.",
+            "tu m entends bien": "Oui, je t'entends.",
+            "attends": "D'accord.",
+            "attend": "D'accord.",
+            "continue": "Je continue.",
+            "continuer": "Je continue.",
+            "merci": "Avec plaisir.",
+            "au revoir": "À plus.",
+            "a plus": "À plus.",
+            "ok": "D'accord.",
+            "d accord": "D'accord.",
+        }
+        if text in exact:
+            return exact[text]
+
+        if "tu m entends" in text:
+            return "Oui, je t'entends."
+        if text.startswith("qu est ce que tu comprends") or text.startswith("que comprends tu"):
+            return "Je t'écoute et je comprends ta phrase."
+        if "on peut encore continuer" in text or text.startswith("on continue"):
+            return "Oui, on continue."
+        if text.startswith("hey jarvis"):
+            remainder = text.removeprefix("hey jarvis").strip()
+            if not remainder:
+                return "Oui ?"
+            if remainder in exact:
+                return exact[remainder]
+
+        return "Oui, je t'écoute."
