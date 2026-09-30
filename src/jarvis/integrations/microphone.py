@@ -103,6 +103,8 @@ class SoundDeviceMicrophone:
         silence = 0.0
         elapsed = 0.0
         max_rms = 0
+        voiced_run = 0
+        speech_confirm_chunks = 3
         chunk_seconds = chunk_samples / self.sample_rate
 
         with sd.RawInputStream(
@@ -121,10 +123,22 @@ class SoundDeviceMicrophone:
                 max_rms = max(max_rms, rms)
 
                 if rms >= rms_threshold:
-                    started = True
-                    silence = 0.0
-                elif started:
-                    silence += chunk_seconds
+                    voiced_run += 1
+                    if started:
+                        silence = 0.0
+                    elif voiced_run >= speech_confirm_chunks:
+                        started = True
+                        silence = 0.0
+                        print(
+                            f"JARJAR_MIC: SPEECH_CONFIRMED rms={rms} "
+                            f"threshold={rms_threshold} "
+                            f"confirm_ms={speech_confirm_chunks * chunk_seconds * 1000:.0f}"
+                        )
+                else:
+                    if not started:
+                        voiced_run = 0
+                    else:
+                        silence += chunk_seconds
 
                 if (
                     not started
