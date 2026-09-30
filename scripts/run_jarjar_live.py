@@ -17,6 +17,8 @@ from jarvis.cognition_bridge import CostAwareCognitionRouter
 from jarvis.camera_rig import CameraRig
 from jarvis.integrations.live_environment_timeline import LiveEnvironmentTimeline
 from jarvis.integrations.local_qwen_cognition import from_environment as qwen_cognition_from_environment
+from jarvis.integrations.local_vision_cognition import from_environment as vision_cognition_from_environment
+from jarvis.integrations.pyautogui_visual_driver import PyAutoGUIVisualDriver
 from jarvis.integrations.obsidia_stack_cognition import from_environment as obsidia_cognition_from_environment
 from jarvis.monitor_layout import WindowsMonitorProvider
 from jarvis.providers.local_stub import StubCognition, StubMemory
@@ -75,13 +77,16 @@ def build_live_controller() -> HUDController:
         live_timeline = LiveEnvironmentTimeline(
             monitor_provider=WindowsMonitorProvider(),
             camera_rig=camera_rig,
+            visual_driver=PyAutoGUIVisualDriver(),
         )
 
     qwen = qwen_cognition_from_environment(live_timeline=live_timeline)
+    vision = vision_cognition_from_environment(live_timeline=live_timeline)
     cognition = CostAwareCognitionRouter(
         local_presence=local_presence,
         governed_stack=governed_stack,
         qwen=qwen,
+        vision=vision,
     )
     core = JarvisCore(cognition, StubMemory())
     print(
@@ -91,6 +96,10 @@ def build_live_controller() -> HUDController:
     print(
         "JARJAR_BOOT: cost router ready "
         f"(Qwen={qwen.endpoint}, live-context={'on' if live_timeline is not None else 'off'})"
+    )
+    print(
+        "JARJAR_BOOT: vision route ready "
+        f"(Vision={vision.endpoint}, model={vision.model})"
     )
     bridge = HUDLiveVoiceBridge(
         ingress=ingress,
