@@ -66,6 +66,10 @@ class SoundDeviceMicrophone:
             blocksize=chunk_samples,
             device=self.device,
         ) as stream:
+            print(
+                f"JARJAR_MIC: WAKE_STREAM_OPEN sample_rate={self.sample_rate} "
+                f"device={self.device if self.device is not None else 'default'}"
+            )
             while True:
                 data, _overflowed = stream.read(chunk_samples)
                 yield bytes(data)
