@@ -24,6 +24,7 @@ class FastIntentRouter:
             ("status", self._status),
             ("volume_up", self._volume_up),
             ("volume_down", self._volume_down),
+            ("volume_set", self._volume_set),
             ("mute", self._mute),
             ("media_play_pause", self._media_play_pause),
             ("media_next", self._media_next),
@@ -63,6 +64,7 @@ class FastIntentRouter:
         text = "".join(ch for ch in text if not unicodedata.combining(ch))
         text = re.sub(r"[^a-z0-9' ]+", " ", text)
         text = " ".join(text.split())
+        text = re.sub(r"^(?:et )?(?:hey )?jarvis(?: jarvis)?[ ,]*", "", text).strip()
         polite_suffixes = (
             " s il te plait",
             " s'il te plait",
@@ -87,8 +89,28 @@ class FastIntentRouter:
             return ActionRequest("system.status")
         return None
 
+    @staticmethod
+    def _volume_amount(text: str) -> int | None:
+        match = re.search(r"\b(?:de|a)\s+(\d{1,3})\b", text)
+        if not match:
+            return None
+        value = int(match.group(1))
+        return value if 0 <= value <= 100 else None
+
     @classmethod
     def _volume_up(cls, text: str) -> ActionRequest | None:
+        amount = cls._volume_amount(text)
+        if "volume" in text:
+            head = text.split("volume", 1)[0].strip().split()
+            verb = head[-1] if head else ""
+            if (
+                verb in {"monte", "augmente", "remonte"}
+                or SequenceMatcher(None, verb, "monte").ratio() >= 0.55
+                or SequenceMatcher(None, verb, "augmente").ratio() >= 0.65
+            ):
+                if amount is not None and re.search(r"\bde\s+\d{1,3}\b", text):
+                    return ActionRequest("audio.adjust_volume", {"delta": amount})
+                return ActionRequest("audio.volume_up")
         candidates = ("monte le volume", "augmente le volume", "volume plus")
         if text in candidates or cls._close_command(text, candidates):
             return ActionRequest("audio.volume_up")
@@ -98,11 +120,35 @@ class FastIntentRouter:
 
     @classmethod
     def _volume_down(cls, text: str) -> ActionRequest | None:
+        amount = cls._volume_amount(text)
+        if "volume" in text:
+            head = text.split("volume", 1)[0].strip().split()
+            verb = head[-1] if head else ""
+            if (
+                verb in {"baisse", "diminue", "descend"}
+                or SequenceMatcher(None, verb, "baisse").ratio() >= 0.60
+                or SequenceMatcher(None, verb, "diminue").ratio() >= 0.65
+            ):
+                if amount is not None and re.search(r"\bde\s+\d{1,3}\b", text):
+                    return ActionRequest("audio.adjust_volume", {"delta": -amount})
+                return ActionRequest("audio.volume_down")
         candidates = ("baisse le volume", "diminue le volume", "volume moins")
         if text in candidates or cls._close_command(text, candidates):
             return ActionRequest("audio.volume_down")
         if text in {"baisse", "moins fort"}:
             return ActionRequest("audio.volume_down")
+        return None
+
+    @classmethod
+    def _volume_set(cls, text: str) -> ActionRequest | None:
+        if "volume" not in text:
+            return None
+        match = re.search(r"\b(?:mets|met|regle|fixe)\b.*\bvolume\b.*\ba\s+(\d{1,3})\b", text)
+        if not match:
+            return None
+        percent = int(match.group(1))
+        if 0 <= percent <= 100:
+            return ActionRequest("audio.set_volume", {"percent": percent})
         return None
 
     @classmethod
