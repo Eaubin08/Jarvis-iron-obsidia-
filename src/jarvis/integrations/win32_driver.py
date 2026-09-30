@@ -285,7 +285,7 @@ $items
         if not win32gui.IsWindow(hwnd):
             raise ValueError(f"window handle not found: {hwnd}")
         current = win32gui.GetWindowText(hwnd).strip()
-        layout = WindowsMonitorProvider().snapshot()
+        layout = WindowsMonitorProvider().layout()
         monitors = list(layout.monitors)
         if monitor_index > len(monitors):
             raise ValueError(
