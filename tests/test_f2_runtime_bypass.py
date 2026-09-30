@@ -4,7 +4,7 @@ from jarvis.contracts import Capability
 from jarvis.events import EventBus
 from jarvis.fast_intent import FastIntentRouter
 from jarvis.local_actions import LocalPermissionPolicy, SystemBackend
-from jarvis.providers.local_stub import StubCognition, StubMemory
+from jarvis.providers.local_stub import DeterministicStubCognition, StubMemory
 from jarvis.runtime import TextRuntime
 
 
@@ -39,7 +39,7 @@ def test_fast_status_bypasses_cognition_end_to_end():
 
 def test_open_language_still_escalates_to_cognition():
     runtime = TextRuntime(
-        StubCognition(),
+        DeterministicStubCognition(),
         StubMemory(),
         fast_intent=FastIntentRouter(),
         actions=build_actions(),
