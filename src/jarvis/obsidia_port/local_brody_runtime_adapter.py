@@ -43,6 +43,10 @@ from periphery.context.governed_model_projection import (
 from runtime_wiring.source_runtime.brody_source_context_bridge import (
     build_brody_context_from_source_packs,
 )
+from jarvis.obsidia_port.evidence_qualification import (
+    build_evidence_qualification_snapshot,
+    build_qualified_context,
+)
 
 
 class LocalBrodyRuntimeAdapter:
@@ -204,6 +208,16 @@ class LocalBrodyRuntimeAdapter:
                 limit=5,
             )
 
+            evidence_qualification = build_evidence_qualification_snapshot(
+                user_message=message,
+                semantic_snapshot=semantic,
+                requested_memory_target=requested_memory_query,
+                native_memory_selected_items=memory.get("selected_items"),
+                source_pack_hydrated_entries=source_pack.get(
+                    "hydrated_entries"
+                ),
+            )
+
             join = run_real_cognitive_join(
                 message=message,
                 language=language,
@@ -303,113 +317,21 @@ class LocalBrodyRuntimeAdapter:
 
             if requested_target_for_model:
                 qwen_context_parts.append(
-                    "[REQUESTED MEMORY TARGET]\n"
+                    "[REQUESTED MEMORY TARGET - ROUTING METADATA]\n"
                     + requested_target_for_model
                 )
 
             if retrieval_target_for_model:
                 qwen_context_parts.append(
-                    "[EFFECTIVE MEMORY TARGET]\n"
+                    "[EFFECTIVE MEMORY TARGET - ROUTING METADATA]\n"
                     + retrieval_target_for_model
                 )
 
-            memory_response_md = str(
-                memory.get("response_md") or ""
-            ).strip()
-
-            if memory_response_md:
-                qwen_context_parts.append(
-                    "[SELECTED NATIVE MEMORY RESPONSE]\n"
-                    + memory_response_md[:3000]
-                )
-
-            selected_memory_items = memory.get("selected_items") or []
-            if isinstance(selected_memory_items, list):
-                memory_lines: list[str] = []
-
-                for item in selected_memory_items[:3]:
-                    if not isinstance(item, dict):
-                        continue
-
-                    title = str(
-                        item.get("title")
-                        or item.get("name")
-                        or item.get("id")
-                        or ""
-                    ).strip()
-
-                    content = str(
-                        item.get("material")
-                        or item.get("excerpt")
-                        or item.get("content")
-                        or item.get("content_preview")
-                        or item.get("text")
-                        or item.get("summary")
-                        or ""
-                    ).strip()
-
-                    if title or content:
-                        memory_lines.append(
-                            "- "
-                            + (title or "memory item")
-                            + (
-                                "\n  " + content[:1200]
-                                if content
-                                else ""
-                            )
-                        )
-
-                if memory_lines:
-                    qwen_context_parts.append(
-                        "[SELECTED NATIVE MEMORY ITEMS]\n"
-                        + "\n".join(memory_lines)
-                    )
-
-            source_summary = str(
-                source_pack.get("context_summary_for_brody")
-                or source_pack.get("source_pack_context_summary")
-                or ""
-            ).strip()
-
-            if source_summary:
-                qwen_context_parts.append(
-                    "[SOURCE PACK SUMMARY]\n"
-                    + source_summary[:3000]
-                )
-
-            hydrated_entries = source_pack.get("hydrated_entries") or []
-            if isinstance(hydrated_entries, list):
-                source_lines: list[str] = []
-
-                for entry in hydrated_entries[:3]:
-                    if not isinstance(entry, dict):
-                        continue
-
-                    file_name = str(
-                        entry.get("file_name")
-                        or entry.get("name")
-                        or "source"
-                    ).strip()
-
-                    preview = str(
-                        entry.get("content_preview")
-                        or entry.get("preview")
-                        or ""
-                    ).strip()
-
-                    if preview:
-                        source_lines.append(
-                            "### "
-                            + file_name
-                            + "\n"
-                            + preview[:1600]
-                        )
-
-                if source_lines:
-                    qwen_context_parts.append(
-                        "[HYDRATED SOURCE MATERIAL]\n"
-                        + "\n\n".join(source_lines)
-                    )
+            qualified_context = build_qualified_context(
+                evidence_qualification
+            )
+            if qualified_context:
+                qwen_context_parts.append(qualified_context)
 
             qwen_context = "\n\n".join(qwen_context_parts)
 
@@ -795,6 +717,25 @@ class LocalBrodyRuntimeAdapter:
                 "response_policy_pre_status": response_policy_pre.get("status"),
                 "response_size_pre": response_size_pre,
                 "qwen_max_tokens": qwen_max_tokens,
+
+                "evidence_qualification_status": (
+                    evidence_qualification.get("status")
+                ),
+                "evidence_claim_support_required": (
+                    evidence_qualification.get("claim_support_required")
+                ),
+                "evidence_claim_support_available": (
+                    evidence_qualification.get("claim_support_available")
+                ),
+                "evidence_qualification_counts": (
+                    evidence_qualification.get("counts_by_qualification")
+                ),
+                "evidence_requested_subjects": (
+                    evidence_qualification.get("requested_subjects")
+                ),
+                "evidence_requested_properties": (
+                    evidence_qualification.get("requested_properties")
+                ),
 
                 "qwen_context_chars": len(qwen_context),
                 "qwen_context_used": bool(qwen_context),
