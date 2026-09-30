@@ -50,8 +50,13 @@ class FasterWhisperSTT:
                     "Assistant Jarvis en français. "
                     "Commandes possibles : monte le volume, baisse le volume, coupe le son, "
                     "mets en sourdine, play, pause, piste suivante, piste précédente, "
-                    "ouvre une application, ferme une application."
+                    "ouvre une application, ferme une application. "
+                    "Noms importants : Jarjar, Jarvis, Obsidia, Brody, X-108, Qwen."
                 ),
+                "beam_size": 5,
+                "best_of": 5,
+                "temperature": 0.0,
+                "condition_on_previous_text": False,
             }
             if self.language:
                 kwargs["language"] = self.language
