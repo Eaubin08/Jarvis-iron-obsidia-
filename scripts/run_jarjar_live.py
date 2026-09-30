@@ -108,6 +108,7 @@ def build_live_controller() -> HUDController:
         ("audio.mute_toggle", "windows"),
         ("audio.status", "windows"),
         ("audio.set_volume", "windows"),
+        ("audio.adjust_volume", "windows"),
         ("audio.set_mute", "windows"),
         ("media.play_pause", "windows"),
         ("media.next", "windows"),
