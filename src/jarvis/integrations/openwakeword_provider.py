@@ -26,6 +26,8 @@ class OpenWakeWordProvider:
         self.threshold = threshold
         self.inference_framework = inference_framework
         self._model = None
+        self.last_score = 0.0
+        self.last_model = ""
 
     @classmethod
     def builtin(
@@ -101,5 +103,10 @@ class OpenWakeWordProvider:
         pcm = np.frombuffer(audio, dtype="<i2")
         scores = self._load().predict(pcm)
         if not scores:
+            self.last_score = 0.0
+            self.last_model = ""
             return False
-        return max(float(score) for score in scores.values()) >= self.threshold
+        model_name, score = max(scores.items(), key=lambda item: float(item[1]))
+        self.last_model = str(model_name)
+        self.last_score = float(score)
+        return self.last_score >= self.threshold
