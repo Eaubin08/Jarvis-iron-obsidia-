@@ -105,6 +105,10 @@ class FastIntentRouter:
         for prefix in prefixes:
             if text.startswith(prefix):
                 app = text[len(prefix):].strip()
+                for article in ("l'", "l’", "le ", "la ", "les "):
+                    if app.startswith(article):
+                        app = app[len(article):].strip()
+                        break
                 if app:
                     return ActionRequest("app.open", {"app": app})
         return None
