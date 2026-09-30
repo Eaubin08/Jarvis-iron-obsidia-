@@ -47,12 +47,23 @@ class Provider(OpenCVCameraProvider):
         return self.fake_cv2
 
 
-def test_probe_reports_available_and_releases():
-    cap = Capture(opened=True)
+def test_probe_reports_available_only_after_real_frame_and_releases():
+    cap = Capture(opened=True, frames=[(True, Frame())])
     provider = Provider(CV2([cap]))
     result = provider.probe()
     assert result["available"] is True
+    assert result["opened"] is True
+    assert result["frame_ok"] is True
     assert cap.released is True
+
+
+def test_probe_rejects_opened_device_without_frame():
+    cap = Capture(opened=True, frames=[(False, None)])
+    provider = Provider(CV2([cap]))
+    result = provider.probe()
+    assert result["available"] is False
+    assert result["opened"] is True
+    assert result["frame_ok"] is False
 
 
 def test_snapshot_fails_closed_when_camera_unavailable():
