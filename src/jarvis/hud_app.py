@@ -126,6 +126,12 @@ class JarjarHUD(tk.Tk):
             transcript_frame, orient="vertical", command=self.transcript.yview
         )
         self.transcript.configure(yscrollcommand=scroll.set)
+        self.transcript.tag_configure("speaker_you", foreground="#62e6ff", font=("Consolas", 11, "bold"))
+        self.transcript.tag_configure("text_you", foreground="#bff7ff")
+        self.transcript.tag_configure("speaker_jarjar", foreground="#d86cff", font=("Consolas", 11, "bold"))
+        self.transcript.tag_configure("text_jarjar", foreground="#ead7ff")
+        self.transcript.tag_configure("source", foreground="#688b9b", font=("Consolas", 9))
+        self.transcript.tag_configure("system", foreground="#7f98a3")
         self.transcript.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
 
@@ -335,7 +341,40 @@ class JarjarHUD(tk.Tk):
 
     def _append_transcript(self, speaker: str, text: str) -> None:
         self.transcript.configure(state="normal")
-        self.transcript.insert("end", f"{speaker}> {text}\n\n")
+
+        if speaker == "YOU":
+            self.transcript.insert("end", "YOU> ", "speaker_you")
+            self.transcript.insert("end", text + "\n\n", "text_you")
+
+        elif speaker.startswith("JARJAR"):
+            self.transcript.insert("end", f"{speaker}> ", "speaker_jarjar")
+
+            source_markers = (
+                "\n**Sources de référence",
+                "\nSources de référence",
+                "\n_Brody",
+                "\nBrody — réponse structurée",
+            )
+            positions = [
+                text.find(marker)
+                for marker in source_markers
+                if text.find(marker) >= 0
+            ]
+            if positions:
+                split_at = min(positions)
+                main = text[:split_at].rstrip()
+                source = text[split_at:].strip()
+            else:
+                main, source = text, ""
+
+            self.transcript.insert("end", main + "\n", "text_jarjar")
+            if source:
+                self.transcript.insert("end", source + "\n", "source")
+            self.transcript.insert("end", "\n")
+
+        else:
+            self.transcript.insert("end", f"{speaker}> {text}\n\n", "system")
+
         self.transcript.see("end")
         self.transcript.configure(state="disabled")
 
