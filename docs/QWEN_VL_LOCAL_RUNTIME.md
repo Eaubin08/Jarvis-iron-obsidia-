@@ -77,3 +77,18 @@ Defaults are therefore now:
 
 These remain configurable. The longer timeout reflects CPU inference latency;
 it is not evidence of a provider failure.
+
+
+## CPU screen preprocessing
+
+The original virtual-desktop screenshot remains full-resolution evidence for
+coordinate mapping and action receipts.
+
+For local CPU Qwen-VL inference only, `live-screen` evidence is copied and
+downscaled to a maximum dimension of 1280 pixels before being sent to the
+vision model. This avoids mutating the canonical screenshot while reducing
+multimodal prompt cost and latency.
+
+Override with:
+
+`JARJAR_VISION_SCREEN_MAX_DIMENSION`
