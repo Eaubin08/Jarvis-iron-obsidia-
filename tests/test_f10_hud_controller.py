@@ -33,6 +33,24 @@ def test_voice_turn_tracks_listening_thinking_speaking_then_idle():
     assert model.state is HUDState.IDLE
 
 
+def test_follow_up_handler_has_separate_seam():
+    model = HUDModel()
+    controller = HUDController(
+        model,
+        lambda text: text,
+        voice_turn_handler=lambda: ("wake", "one"),
+        follow_up_turn_handler=lambda: ("suite", "two"),
+    )
+
+    result = controller.run_follow_up_turn()
+
+    assert result == ("suite", "two")
+    assert model.snapshot()["messages"][-2:] == [
+        {"speaker": "YOU", "text": "suite"},
+        {"speaker": "JARJAR", "text": "two"},
+    ]
+
+
 def test_voice_can_be_disabled_fail_closed():
     model = HUDModel()
     controller = HUDController(model, lambda text: text, voice_turn_handler=lambda: None)
