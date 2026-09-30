@@ -50,3 +50,14 @@ Success ends with:
 
 This provider returns descriptive text only. It cannot click, type, launch
 applications, or bypass ActionRouter/PermissionPolicy.
+
+
+## Diagnostic note
+
+The first physical smoke uses one fresh image only. This keeps the validation
+focused on API/model correctness before attempting multi-image inference on
+the CPU target.
+
+The vision adapter now preserves HTTP status and the beginning of the server
+error body so failures are diagnosable instead of collapsing to a generic
+"provider unavailable" error.
