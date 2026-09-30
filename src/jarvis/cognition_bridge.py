@@ -100,6 +100,46 @@ class CostAwareCognitionRouter:
         except Exception:
             return None
 
+    def _runtime_state_answer(self) -> str | None:
+        trace = getattr(self.governed_stack, "last_trace", None)
+        if not isinstance(trace, dict) or not trace:
+            return None
+
+        native = trace.get("native_memory_active")
+        memory_mode = trace.get("memory_source_mode") or "UNKNOWN"
+        memory_status = trace.get("memory_status") or "UNKNOWN"
+        authority = trace.get("decision_authority") or "UNKNOWN"
+        readonly = trace.get("readonly")
+        voice_runtime = trace.get("voice_runtime") or "UNKNOWN"
+
+        if native is True:
+            memory_sentence = (
+                "Native Memory est bien active sur le runtime connecté."
+            )
+        elif native is False:
+            memory_sentence = (
+                "Native Memory n'est pas active sur le runtime actuellement connecté ; "
+                f"la source mémoire observée est {memory_mode}."
+            )
+        else:
+            memory_sentence = (
+                "L'état Native Memory n'est pas déterminable avec la dernière trace runtime."
+            )
+
+        readonly_sentence = (
+            "Le runtime est déjà en lecture seule."
+            if readonly is True
+            else f"État readonly observé : {readonly!r}."
+        )
+
+        return (
+            f"{memory_sentence} "
+            f"{readonly_sentence} "
+            f"Runtime Brody : {voice_runtime}. "
+            f"Statut mémoire : {memory_status}. "
+            f"Autorité : {authority}."
+        )
+
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
         try_local = getattr(self.local_presence, "try_respond", None)
         if callable(try_local):
@@ -124,12 +164,24 @@ class CostAwareCognitionRouter:
                 pre_decision = None
 
         if pre_decision is not None and getattr(pre_decision, "is_confident", False):
+            route = getattr(pre_decision, "route", "")
+
+            if route == "runtime_state_readonly":
+                answer = self._runtime_state_answer()
+                if answer is None:
+                    # Populate the runtime trace through the canonical Brody
+                    # boundary, but never surface that semantic answer here.
+                    self._brody(user_input, context)
+                    answer = self._runtime_state_answer()
+                if answer is not None:
+                    self.last_route = "obsidia_local"
+                    return answer
+
             direct = getattr(pre_decision, "direct_answer", None)
             if isinstance(direct, str) and direct.strip():
                 self.last_route = "obsidia_local"
                 return direct.strip()
 
-            route = getattr(pre_decision, "route", "")
             if route in {"brody", "lean_route_only", "domain_bridge", "obsidure_route_only"}:
                 answer = self._brody(user_input, context)
                 if answer:
