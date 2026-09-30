@@ -27,9 +27,13 @@ class PreSynthesizedPhysicalTTS:
         if not text.strip():
             raise ValueError("speech text must not be empty")
         stop = Event()
+        errors = []
 
         def run():
-            self.engine.play(self.audio, stop)
+            try:
+                self.engine.play(self.audio, stop)
+            except BaseException as exc:
+                errors.append(exc)
 
         thread = Thread(target=run, name="jarvis-physical-playback", daemon=True)
         thread.start()
@@ -40,6 +44,8 @@ class PreSynthesizedPhysicalTTS:
 
             def wait(self, timeout=None):
                 thread.join(timeout)
+                if errors:
+                    raise errors[0]
 
             @property
             def stop(self):
