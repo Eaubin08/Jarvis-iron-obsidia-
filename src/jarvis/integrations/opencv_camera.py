@@ -43,12 +43,19 @@ class OpenCVCameraProvider:
         return cv2.VideoCapture(self.device_index)
 
     def probe(self) -> dict:
+        """Probe availability by requiring an actual frame, not only isOpened()."""
         cv2 = self._cv2()
         capture = self._open_capture(cv2)
         try:
             opened = bool(capture.isOpened())
+            frame_ok = False
+            if opened:
+                ok, frame = capture.read()
+                frame_ok = bool(ok and frame is not None)
             return {
-                "available": opened,
+                "available": bool(opened and frame_ok),
+                "opened": opened,
+                "frame_ok": frame_ok,
                 "device_index": self.device_index,
                 "provider": self.name,
             }
