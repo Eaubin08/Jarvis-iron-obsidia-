@@ -135,10 +135,109 @@ class ObsidiaStackCognition:
     transport: Transport = _default_transport
     last_trace: dict = field(default_factory=dict, init=False)
 
+    def _try_local_brody(self, text: str) -> str | None:
+        # A custom transport is an explicit HTTP seam used by tests/injected
+        # callers. Preserve that behavior instead of bypassing it locally.
+        if self.transport is not _default_transport:
+            return None
+
+        enabled = os.getenv("JARJAR_LOCAL_BRODY", "1").strip().lower()
+        if enabled in {"0", "false", "no", "off"}:
+            return None
+
+        try:
+            from jarvis.obsidia_port.local_brody_runtime_adapter import (
+                respond_local_brody,
+            )
+
+            result = respond_local_brody(
+                text,
+                session_id=self.session_id,
+                language="fr",
+            )
+        except Exception as exc:
+            print(
+                "JARJAR_LOCAL_BRODY: FALLBACK "
+                f"error={type(exc).__name__}: {exc}"
+            )
+            return None
+
+        if not isinstance(result, dict):
+            print("JARJAR_LOCAL_BRODY: FALLBACK invalid_result")
+            return None
+
+        authority = str(result.get("decision_authority") or "").strip()
+        readonly = result.get("readonly")
+        available = result.get("available") is True
+        answer = result.get("final_answer")
+
+        safe = (
+            available
+            and authority == "KX108_ONLY"
+            and readonly is True
+            and isinstance(answer, str)
+            and bool(answer.strip())
+        )
+
+        self.last_trace = {
+            "source": "LOCAL_BRODY_RUNTIME",
+            "voice_runtime": "BRODY_LOCAL_NATIVE_RUNTIME",
+            "memory_source_mode": result.get("memory_source_mode"),
+            "memory_status": result.get("memory_status"),
+            "memory_retrieval_status": result.get("retrieval_status"),
+            "native_memory_active": (
+                result.get("memory_source_mode") == "OBSIDIA_NATIVE_MEMORY"
+            ),
+            "legacy_memory_active": False,
+            "true_voice_source": result.get("voice_source"),
+            "decision_authority": authority or "KX108_ONLY",
+            "readonly": readonly,
+            "local_brody_status": result.get("status"),
+            "local_memory_required": result.get("memory_required"),
+            "local_memory_query": result.get("memory_query"),
+            "local_cognitive_join_status": result.get(
+                "cognitive_join_status"
+            ),
+            "local_reverse_os_status": result.get("reverse_os_status"),
+            "local_w4_memory_retrieval_status": result.get(
+                "w4_memory_retrieval_status"
+            ),
+        }
+
+        if not safe:
+            print(
+                "JARJAR_LOCAL_BRODY: FALLBACK "
+                f"status={result.get('status')} "
+                f"available={available} "
+                f"authority={authority or 'UNKNOWN'} "
+                f"readonly={readonly}"
+            )
+            return None
+
+        print(
+            "JARJAR_LOCAL_BRODY: PASS "
+            f"voice={result.get('voice_source') or 'UNKNOWN'} "
+            f"memory={result.get('memory_source_mode') or 'UNKNOWN'} "
+            f"memory_required={result.get('memory_required')} "
+            "authority=KX108_ONLY readonly=True"
+        )
+
+        return answer.strip()
+
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
         text = user_input.strip()
         if not text:
             raise ValueError("empty cognition input")
+
+        local_answer = self._try_local_brody(text)
+        if local_answer:
+            return local_answer
+
+        if self.transport is _default_transport:
+            print(
+                "JARJAR_LOCAL_BRODY: using HTTP Brody fallback "
+                f"endpoint={self.endpoint}"
+            )
 
         payload = {
             "message": text,

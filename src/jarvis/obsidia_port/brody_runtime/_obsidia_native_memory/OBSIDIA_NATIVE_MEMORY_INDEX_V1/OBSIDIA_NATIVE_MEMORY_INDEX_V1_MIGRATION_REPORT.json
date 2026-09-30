@@ -1,0 +1,20 @@
+{
+  "content_usable_records_count": 2363,
+  "created_at": "2026-09-07T16:27:06.302792+00:00",
+  "decision_authority": "KX108_ONLY",
+  "emits_act": false,
+  "legacy_source_deleted": false,
+  "legacy_source_modified": false,
+  "memory_write": false,
+  "migration": "C2B_M4A1_R1",
+  "native_records": 3267,
+  "native_sha256": "DBED6240A86CE71F1C6F144194ACB8C03718A9F82D449B31A221E5369D154540",
+  "provider_exact_tags_remaining": 0,
+  "record_parity": true,
+  "runtime_switched": false,
+  "source_records": 3267,
+  "source_sha256": "19CBE49198599F1F94FAFF28EE92BC634592BFD4E6BD5294391674DB2D368693",
+  "status": "PASS",
+  "text_excerpt_records_count": 2363,
+  "unique_native_ids": 3267
+}

@@ -1,0 +1,9 @@
+﻿{
+    "method_id":  "BRODY_NATURAL_LANGUAGE_QUALITY_16",
+    "action_id":  "ACTION_BRODY_NLQ16_20260522",
+    "workflow_id":  "BRODY_RUNTIME_VALIDATION",
+    "audit_trace_path":  "_local_audits/MANUAL_PROGRESS_TRACE/http_audit_20260522_manual_progress.jsonl",
+    "audit_trace_sha256":  "36a2e714e21f13f9067c46c4482e51f94a86055cdfe2c0d189f83cfdb9ade1b0",
+    "proof_id":  "PROOF_BRODY_NLQ16_20260522",
+    "sequence_step_ref":  "SEQ_STEP_BRODY_NLQ16_001"
+}

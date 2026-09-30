@@ -1,0 +1,64 @@
+{
+  "pack": "REVERSE_OS_INTERLANGUAGE_CANON_V1",
+  "canonization_date": "2026-06-03",
+  "p34_commit": "P34_REVERSE_OS_INTERLANGUAGE_CANON_READY",
+  "readonly": true,
+  "runtime_allowed_now": false,
+  "decision_authority": "KX108_ONLY",
+  "files": {
+    "evidence/reverse_os_interlanguage_canon_v1.json": {
+      "sha256": "5df672eeb8c354747dcece451c118e9654622a334d7cf9487929df24d657bded",
+      "bytes": 12593,
+      "role": "CANON_SPEC",
+      "primary": true
+    },
+    "evidence/interlanguage_proof_obligations_v1.md": {
+      "sha256": "86c65e8d6e1379a75c2743559b233d52b1d74c4f516bdb9fa0ba7b50926c876f",
+      "bytes": 1318,
+      "role": "PROOF_OBLIGATIONS",
+      "primary": true
+    },
+    "evidence/interlanguage_transduction_v1.md": {
+      "sha256": "9e6b9dff8ce1d1bd14d72181dbe7b7b31e9a035d2367052a843920ac90d8aad2",
+      "bytes": 2454,
+      "role": "TRANSDUCTION_DOC",
+      "primary": true
+    },
+    "evidence/audience_packet_07_investor.json": {
+      "sha256": "0c57e18a0743cd285af13e39c5f6c0ad25d701c5b06a99b6119d0e91e171b215",
+      "bytes": 5283,
+      "role": "AUDIENCE_INVESTOR",
+      "primary": true
+    },
+    "evidence/audience_packet_08_non_tech.json": {
+      "sha256": "40317c5ff64319c1b82f9ebb4882e226ccc0cb7391d3260234982875651f37b7",
+      "bytes": 3367,
+      "role": "AUDIENCE_NON_TECH",
+      "primary": true
+    },
+    "evidence/architecture_narrative_reverse_os.txt": {
+      "sha256": "6da0cc768666e446ce62b9640067d14223e0084389a31b1a4e9f63777f998192",
+      "bytes": 4070,
+      "role": "DOCX_NARRATIVE",
+      "primary": true
+    },
+    "evidence/architecture_protocoles_os_cognitif.txt": {
+      "sha256": "3c832f4d50f3347607ae98600cf3fa347beaad15520310f8acadb1b637b7ee01",
+      "bytes": 5775,
+      "role": "DOCX_PROTOCOLES",
+      "primary": true
+    },
+    "evidence/plan_execution_industriel.txt": {
+      "sha256": "f461fea70d5db22b46732f4afae385a082a528ca0e367b80ed07582b21730544",
+      "bytes": 10509,
+      "role": "DOCX_PLAN",
+      "primary": true
+    },
+    "support/universal_io_matrix_samples/matrix_cell_0181_code_python_dev_plain_fr.json": {
+      "sha256": "047a854488baff5cc25df992b22d0477195f67c0d1941a5f01d7bb1df97d9c0b",
+      "bytes": 2231,
+      "role": "MATRIX_SAMPLE",
+      "primary": false
+    }
+  }
+}

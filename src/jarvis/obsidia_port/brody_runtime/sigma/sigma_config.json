@@ -1,0 +1,17 @@
+{
+    "tau_min": 0.05,
+    "tau_max": 5.0,
+    "accel_limit": 0.6,
+    "calibration_date": "2026-03-12",
+    "calibration_method": "3-sigma_safe_ceiling",
+    "source_report": "proofs/PROOFKIT_REPORT.json",
+    "stats": {
+        "n_observations": 30,
+        "v_mean": 858.231497,
+        "v_std": 2187.594628,
+        "v_max": 7243.053028,
+        "tau_max_3sigma": 7421.015,
+        "tau_max_safe_ceiling": 8691.664
+    },
+    "reasoning": "Bas\u00e9 sur 30 observations de vitesse. \u03bc=858.2315, \u03c3=2187.5946. R\u00e8gle 3-sigma : \u03bc+3\u03c3=7421.015. Safe ceiling (1.2\u00d7max) : 8691.664. Valeur retenue : 5.000."
+}

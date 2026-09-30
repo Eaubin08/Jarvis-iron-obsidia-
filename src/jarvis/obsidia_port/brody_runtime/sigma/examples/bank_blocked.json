@@ -1,0 +1,21 @@
+{
+  "transaction_type": "transfer",
+  "amount": 90000.0,
+  "channel": "web",
+  "counterparty_known": false,
+  "counterparty_age_days": 0,
+  "account_balance": 95000.0,
+  "available_cash": 94000.0,
+  "historical_avg_amount": 150.0,
+  "behavior_shift_score": 0.99,
+  "fraud_score": 0.99,
+  "policy_limit": 1000.0,
+  "affordability_score": 0.02,
+  "urgency_score": 0.99,
+  "identity_mismatch_score": 0.98,
+  "narrative_conflict_score": 0.97,
+  "device_trust_score": 0.01,
+  "recent_failed_attempts": 8,
+  "elapsed_s": 2.0,
+  "min_required_elapsed_s": 108.0
+}

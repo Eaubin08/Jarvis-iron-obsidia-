@@ -1,0 +1,170 @@
+{
+  "schema": "OBSIDIA_REVERSE_OS_AUDIENCE_ADAPTER_PACKET_V1",
+  "status": "PASS",
+  "query": "balance exponentielle mémoire fractale",
+  "reverse_packet_status": "PASS",
+  "audience_adapter": {
+    "audience": "investor",
+    "audience_label": "Investisseur",
+    "style": "moat_risk_market_evidence",
+    "focus": [
+      "différenciation",
+      "risque",
+      "preuve",
+      "marché",
+      "scalabilité"
+    ],
+    "adapted_output": [
+      "Vue investisseur: la valeur est dans la séparation entre intelligence d'interface et autorité de décision.",
+      "Le même noyau peut parler à plusieurs marchés sans changer ses invariants.",
+      "Différenciation: OS cognitif avec boundary auditée, pas simple chatbot de présentation.",
+      "Risque contrôlé: l'adaptateur vend la lisibilité, pas une autorité non prouvée."
+    ],
+    "concept_lines": [
+      "alphabet_ir: FR=Alphabet IR | EN=IR alphabet | HANZI=中介字 | IR=VALUE,STATE,READ,WRITE,FLOW,COND,LOOP,CALL,RETURN,EVENT,TIME,ERROR | MATH=Σ_IR={12}",
+      "balance_exponentielle: FR=Balance exponentielle | EN=Exponential balance | HANZI=指数衡 | IR=VALUE,TIME | MATH=λ(t)=e^t / scale",
+      "memoire_fractale: FR=Mémoire fractale | EN=Fractal memory | HANZI=记忆分形 | IR=STATE,READ,WRITE | MATH=log(n)/φ",
+      "balance_fractale: FR=Balance fractale | EN=Fractal balance | HANZI=平衡系 | IR=STATE,VALUE,FLOW | MATH=Σ(+) = Σ(-)",
+      "x108: FR=X-108 | EN=X-108 temporal lock | HANZI=时锁 | IR=TIME,COND,ERROR | MATH=t≥τ",
+      "auto_similarite: FR=Auto-similarité | EN=Self-similarity | HANZI=自相似 | IR=LOOP,COND | MATH=f(f(x))",
+      "chemin_fractal: FR=Chemin fractal | EN=Fractal path | HANZI=分形路 | IR=FLOW,LOOP | MATH=path(n)=path(n-1)+branch",
+      "generation_fractale: FR=Génération fractale | EN=Fractal generation | HANZI=分形生 | IR=LOOP,FLOW | MATH=2^n"
+    ],
+    "ir_signals": [
+      {
+        "concept_id": "alphabet_ir",
+        "ir_reduction": [
+          "VALUE",
+          "STATE",
+          "READ",
+          "WRITE",
+          "FLOW",
+          "COND",
+          "LOOP",
+          "CALL",
+          "RETURN",
+          "EVENT",
+          "TIME",
+          "ERROR"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "balance_exponentielle",
+        "ir_reduction": [
+          "VALUE",
+          "TIME"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "memoire_fractale",
+        "ir_reduction": [
+          "STATE",
+          "READ",
+          "WRITE"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "balance_fractale",
+        "ir_reduction": [
+          "STATE",
+          "VALUE",
+          "FLOW"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "x108",
+        "ir_reduction": [
+          "TIME",
+          "COND",
+          "ERROR"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "auto_similarite",
+        "ir_reduction": [
+          "LOOP",
+          "COND"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "chemin_fractal",
+        "ir_reduction": [
+          "FLOW",
+          "LOOP"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "generation_fractale",
+        "ir_reduction": [
+          "LOOP",
+          "FLOW"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      }
+    ],
+    "source_packet_status": "PASS",
+    "concepts_found": 8,
+    "unknown_or_refuse": false
+  },
+  "authority": {
+    "decision_authority": "KX108_ONLY",
+    "allowed_to_decide": false,
+    "readonly": true,
+    "advisory_only": true,
+    "context_signal_only": true,
+    "allowed_to_inform_kx108": true,
+    "emits_allow_hold_block": false,
+    "emits_verdict": false,
+    "emits_act": false,
+    "modules_execution": false,
+    "gates_execution": false,
+    "gates_decision": false,
+    "kernel_mutation": false,
+    "x108_mutation": false,
+    "memory_decision": false,
+    "documentation_decision": false
+  },
+  "boundary": {
+    "same_reverse_signal_projected": true,
+    "presentation_only": true,
+    "readonly": true,
+    "advisory_only": true,
+    "context_signal_only": true,
+    "allowed_to_decide": false,
+    "emits_allow_hold_block": false,
+    "kernel_mutation": false,
+    "x108_mutation": false,
+    "decision_authority": "KX108_ONLY"
+  }
+}

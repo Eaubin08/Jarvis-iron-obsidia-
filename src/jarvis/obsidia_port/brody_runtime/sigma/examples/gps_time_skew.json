@@ -1,0 +1,16 @@
+{
+  "mission_id": "gps-skew-001",
+  "gps_available": true,
+  "inertial_available": true,
+  "radio_available": true,
+  "elapsed_s": 180.0,
+  "min_required_elapsed_s": 108.0,
+  "position_confidence": 0.70,
+  "trajectory_drift_score": 0.22,
+  "source_conflict_score": 0.12,
+  "brownout_score": 0.05,
+  "time_skew_score": 0.86,
+  "environment_risk_score": 0.28,
+  "rollback_possible": true,
+  "attestation_ready": true
+}

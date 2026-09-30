@@ -1,0 +1,36 @@
+{
+  "boundary": {
+    "auto_promotion": false,
+    "decision_authority": "KX108_ONLY",
+    "emits_act": false,
+    "emits_verdict": false,
+    "kernel_mutation": false,
+    "memory_write": false,
+    "readonly": true,
+    "x108_mutation": false
+  },
+  "content_preservation": {
+    "source_original_path": "PRESERVED",
+    "source_sha256": "PRESERVED_WHEN_AVAILABLE",
+    "taxonomy": "PRESERVED_WHEN_AVAILABLE",
+    "text_excerpt": "PRESERVED_VERBATIM",
+    "text_sha256": "PRESERVED_OR_RECOMPUTED"
+  },
+  "content_usable_records_count": 2363,
+  "created_at": "2026-09-07T16:27:06.302564+00:00",
+  "legacy_migration_source": "_graphiti_readonly_indexes\\GRAPHITI_READONLY_INDEX_V2_FUSION_20260512_224854\\graphiti_readonly_records_v2.jsonl",
+  "native_index_file": "_obsidia_native_memory/OBSIDIA_NATIVE_MEMORY_INDEX_V1/obsidia_native_memory_records_v1.jsonl",
+  "native_index_sha256": "DBED6240A86CE71F1C6F144194ACB8C03718A9F82D449B31A221E5369D154540",
+  "provider_specific_runtime_metadata_removed": [
+    "provider identity from source_type",
+    "provider-specific exact tags",
+    "provider write permissions",
+    "provider availability state"
+  ],
+  "record_count": 3267,
+  "runtime_bound": true,
+  "schema_version": "OBSIDIA_NATIVE_MEMORY_INDEX_V1",
+  "source_file_sha256": "19CBE49198599F1F94FAFF28EE92BC634592BFD4E6BD5294391674DB2D368693",
+  "status": "MATERIALIZED_READONLY",
+  "text_excerpt_records_count": 2363
+}

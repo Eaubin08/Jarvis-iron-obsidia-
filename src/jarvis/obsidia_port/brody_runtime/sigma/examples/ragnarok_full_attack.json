@@ -1,0 +1,24 @@
+﻿{
+  "domain_aggregate": {
+    "domain": "gps_defense_aviation",
+    "confidence": 0.85,
+    "agent_votes": [
+      {
+        "agent_id": "A1_MEM",
+        "vote": "HOLD",
+        "confidence": 0.9
+      },
+      {
+        "agent_id": "A2_SIGMA",
+        "vote": "BLOCK",
+        "confidence": 0.7
+      }
+    ]
+  },
+  "x149_state": {
+    "mission_id": "RAGNAROK_01",
+    "flight_id": "OBS-X",
+    "gps_available": false,
+    "system_health_index": 0.4
+  }
+}

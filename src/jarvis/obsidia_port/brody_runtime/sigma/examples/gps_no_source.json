@@ -1,0 +1,16 @@
+{
+  "mission_id": "gps-nosource-001",
+  "gps_available": false,
+  "inertial_available": false,
+  "radio_available": false,
+  "elapsed_s": 180.0,
+  "min_required_elapsed_s": 108.0,
+  "position_confidence": 0.10,
+  "trajectory_drift_score": 0.35,
+  "source_conflict_score": 0.20,
+  "brownout_score": 0.15,
+  "time_skew_score": 0.10,
+  "environment_risk_score": 0.40,
+  "rollback_possible": true,
+  "attestation_ready": false
+}

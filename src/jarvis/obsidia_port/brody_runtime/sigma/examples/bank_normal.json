@@ -1,0 +1,21 @@
+{
+  "transaction_type": "transfer",
+  "amount": 120.0,
+  "channel": "mobile",
+  "counterparty_known": true,
+  "counterparty_age_days": 240,
+  "account_balance": 5000.0,
+  "available_cash": 3000.0,
+  "historical_avg_amount": 110.0,
+  "behavior_shift_score": 0.08,
+  "fraud_score": 0.05,
+  "policy_limit": 1000.0,
+  "affordability_score": 0.95,
+  "urgency_score": 0.10,
+  "identity_mismatch_score": 0.02,
+  "narrative_conflict_score": 0.01,
+  "device_trust_score": 0.98,
+  "recent_failed_attempts": 0,
+  "elapsed_s": 140.0,
+  "min_required_elapsed_s": 108.0
+}

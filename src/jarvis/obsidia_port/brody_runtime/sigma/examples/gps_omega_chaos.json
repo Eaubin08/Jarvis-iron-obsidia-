@@ -1,0 +1,23 @@
+{
+    "mission_id": "OMEGA-X-99",
+    "flight_id": "OBS-SATURATION",
+    "timestamp_ms": 1625000000000,
+    "lat": 48.8566,
+    "lon": 2.3522,
+    "altitude_ft": 35000.0,
+    "ground_speed_kt": 450.0,
+    "heading_deg": 270.0,
+    "gps_available": false,
+    "gps_signal_quality": 0.0,
+    "inertial_available": true,
+    "adsb_available": false,
+    "position_confidence": 0.1,
+    "trajectory_drift_score": 0.95,
+    "source_conflict_score": 0.98,
+    "time_skew_score": 0.85,
+    "brownout_score": 0.9,
+    "environment_risk_score": 1.0,
+    "system_health_index": 0.15,
+    "elapsed_s": 10.0,
+    "min_required_elapsed_s": 108.0
+}

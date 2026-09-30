@@ -1,0 +1,203 @@
+{
+  "stress_test_version": "v1.4.0",
+  "timestamp": "2026-03-12T19:52:30Z",
+  "scenarios": [
+    {
+      "scenario": "linear_escalation",
+      "drift_step": 1,
+      "steps": [
+        {
+          "step": 0,
+          "severity": "S0",
+          "mean_velocity": 0.0,
+          "status": "PASS",
+          "violations": []
+        },
+        {
+          "step": 1,
+          "severity": "S1",
+          "mean_velocity": 5667.978378,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT"
+          ]
+        },
+        {
+          "step": 2,
+          "severity": "S2",
+          "mean_velocity": 5698.950937,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "step": 3,
+          "severity": "S3",
+          "mean_velocity": 6618.053313,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "step": 4,
+          "severity": "S4",
+          "mean_velocity": 7243.053028,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        }
+      ],
+      "conclusion": "Drift d\u00e9clench\u00e9 \u00e0 l'\u00e9tape 1"
+    },
+    {
+      "scenario": "semantic_shock",
+      "instability_at_contradictions": 2,
+      "steps": [
+        {
+          "contradictions": 1,
+          "acceleration": 0.0,
+          "accel_status": "OK",
+          "violations": [
+            "LATENT_DRIFT"
+          ]
+        },
+        {
+          "contradictions": 2,
+          "acceleration": 3568915.280377,
+          "accel_status": "VOLATILE",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "contradictions": 3,
+          "acceleration": 11248507.59488,
+          "accel_status": "VOLATILE",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "contradictions": 4,
+          "acceleration": 56391965.199959,
+          "accel_status": "VOLATILE",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "contradictions": 5,
+          "acceleration": 30839511.872867,
+          "accel_status": "VOLATILE",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "contradictions": 6,
+          "acceleration": 13824574.708981,
+          "accel_status": "VOLATILE",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "contradictions": 7,
+          "acceleration": 12725338.080482,
+          "accel_status": "VOLATILE",
+          "violations": [
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        }
+      ],
+      "conclusion": "Instabilit\u00e9 d\u00e9clench\u00e9e \u00e0 2 contradictions"
+    },
+    {
+      "scenario": "temporal_sensitivity",
+      "breakpoint_delay_s": 0.2,
+      "steps": [
+        {
+          "delay_s": 1.0,
+          "mean_velocity": 0.299957,
+          "status": "PASS",
+          "violations": []
+        },
+        {
+          "delay_s": 0.5,
+          "mean_velocity": 0.599733,
+          "status": "PASS",
+          "violations": []
+        },
+        {
+          "delay_s": 0.2,
+          "mean_velocity": 1.4985,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "LATENT_DRIFT"
+          ]
+        },
+        {
+          "delay_s": 0.1,
+          "mean_velocity": 2.991793,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "LATENT_DRIFT"
+          ]
+        },
+        {
+          "delay_s": 0.05,
+          "mean_velocity": 5.975133,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "LATENT_DRIFT"
+          ]
+        },
+        {
+          "delay_s": 0.02,
+          "mean_velocity": 14.8457,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        },
+        {
+          "delay_s": 0.01,
+          "mean_velocity": 29.393642,
+          "status": "FAIL",
+          "violations": [
+            "LATENT_DRIFT",
+            "LATENT_DRIFT",
+            "HIGH_CURVATURE_INSTABILITY"
+          ]
+        }
+      ],
+      "conclusion": "Point de rupture \u00e0 0.2s \u2014 augmenter tau_max si ce d\u00e9lai est attendu en production"
+    }
+  ],
+  "synthesis": {
+    "tau_max_current": 0.75,
+    "accel_limit_current": 0.4,
+    "recommendations": [
+      "tau_max trop bas : drift \u00e0 l'\u00e9tape 1. Envisager tau_max=1.20.",
+      "accel_limit=0.40 : instabilit\u00e9 \u00e0 2 contradictions. Seuil appropri\u00e9.",
+      "Sensibilit\u00e9 temporelle : rupture \u00e0 0.2s. Augmenter tau_max si d\u00e9cisions < 0.2s en production."
+    ]
+  }
+}

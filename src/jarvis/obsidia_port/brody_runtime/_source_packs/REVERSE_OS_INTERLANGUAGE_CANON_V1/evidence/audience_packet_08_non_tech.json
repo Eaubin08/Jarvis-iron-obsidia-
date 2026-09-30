@@ -1,0 +1,109 @@
+{
+  "schema": "OBSIDIA_REVERSE_OS_AUDIENCE_ADAPTER_PACKET_V1",
+  "status": "PASS",
+  "query": "reverse os explique moi simplement",
+  "reverse_packet_status": "PASS",
+  "audience_adapter": {
+    "audience": "non_tech",
+    "audience_label": "Humain non technique",
+    "style": "simple_explanation",
+    "focus": [
+      "ce que ça fait",
+      "pourquoi c'est utile",
+      "ce que ça ne fait pas"
+    ],
+    "adapted_output": [
+      "Version simple: Obsidia traduit une idée en structure lisible.",
+      "Il peut ensuite expliquer cette structure différemment selon la personne en face.",
+      "Mais cette couche ne décide pas et ne lance aucune action.",
+      "Le kernel X108 reste le seul endroit où une décision critique peut être validée."
+    ],
+    "concept_lines": [
+      "reverse_os: FR=Reverse OS | EN=Bidirectional Reverse OS | HANZI=逆系 | IR=FLOW,CALL,RETURN | MATH=L₁↔IR↔L₂",
+      "x108: FR=X-108 | EN=X-108 temporal lock | HANZI=时锁 | IR=TIME,COND,ERROR | MATH=t≥τ",
+      "os_trad: FR=OS Trad | EN=OS translation layer | HANZI=译系 | IR=CALL,RETURN | MATH=translate(x,target)",
+      "reciproque_miroir: FR=Réciproque / miroir | EN=Reciprocal mirror | HANZI=镜逆 | IR=FLOW,RETURN | MATH=f(x)=f⁻¹(x)"
+    ],
+    "ir_signals": [
+      {
+        "concept_id": "reverse_os",
+        "ir_reduction": [
+          "FLOW",
+          "CALL",
+          "RETURN"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "x108",
+        "ir_reduction": [
+          "TIME",
+          "COND",
+          "ERROR"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "os_trad",
+        "ir_reduction": [
+          "CALL",
+          "RETURN"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      },
+      {
+        "concept_id": "reciproque_miroir",
+        "ir_reduction": [
+          "FLOW",
+          "RETURN"
+        ],
+        "kernel_readable": true,
+        "decision": null,
+        "verdict": null,
+        "authority": "KX108_ONLY"
+      }
+    ],
+    "source_packet_status": "PASS",
+    "concepts_found": 4,
+    "unknown_or_refuse": false
+  },
+  "authority": {
+    "decision_authority": "KX108_ONLY",
+    "allowed_to_decide": false,
+    "readonly": true,
+    "advisory_only": true,
+    "context_signal_only": true,
+    "allowed_to_inform_kx108": true,
+    "emits_allow_hold_block": false,
+    "emits_verdict": false,
+    "emits_act": false,
+    "modules_execution": false,
+    "gates_execution": false,
+    "gates_decision": false,
+    "kernel_mutation": false,
+    "x108_mutation": false,
+    "memory_decision": false,
+    "documentation_decision": false
+  },
+  "boundary": {
+    "same_reverse_signal_projected": true,
+    "presentation_only": true,
+    "readonly": true,
+    "advisory_only": true,
+    "context_signal_only": true,
+    "allowed_to_decide": false,
+    "emits_allow_hold_block": false,
+    "kernel_mutation": false,
+    "x108_mutation": false,
+    "decision_authority": "KX108_ONLY"
+  }
+}
