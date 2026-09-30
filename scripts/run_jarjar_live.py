@@ -30,7 +30,7 @@ def build_live_controller() -> HUDController:
         os.getenv("JARVIS_STT_MODEL", "tiny"),
         device="cpu",
         compute_type="int8",
-        language=os.getenv("JARVIS_STT_LANGUAGE") or None,
+        language=os.getenv("JARVIS_STT_LANGUAGE", "fr") or None,
     )
     wake = TranscriptWakeWordProvider(
         stt,
@@ -62,13 +62,11 @@ def build_live_controller() -> HUDController:
             bridge.speak_text_reply(reply)
         return reply
 
-    def voice_handler():
-        return bridge.run_turn()
-
     controller = HUDController(
         model=model,
         text_handler=text_handler,
-        voice_turn_handler=voice_handler,
+        voice_turn_handler=bridge.run_wake_turn,
+        follow_up_turn_handler=bridge.run_follow_up_turn,
     )
     controller_ref["controller"] = controller
     return controller
