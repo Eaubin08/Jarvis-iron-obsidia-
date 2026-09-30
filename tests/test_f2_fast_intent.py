@@ -49,3 +49,30 @@ def test_open_app_accepts_generic_installed_app_name():
     match = FastIntentRouter().route("lance spotify")
     assert match is not None
     assert match.request.arguments == {"app": "spotify"}
+
+
+def test_volume_down_never_cross_matches_volume_up():
+    match = FastIntentRouter().route("baisse le volume de 15")
+    assert match is not None
+    assert match.request.capability == "audio.adjust_volume"
+    assert match.request.arguments == {"delta": -15}
+
+
+def test_volume_up_accepts_observed_stt_noise_and_spoken_number():
+    match = FastIntentRouter().route("manque le volume de dix")
+    assert match is not None
+    assert match.request.capability == "audio.adjust_volume"
+    assert match.request.arguments == {"delta": 10}
+
+
+def test_absolute_volume_accepts_spoken_number():
+    match = FastIntentRouter().route("mets le volume a trente")
+    assert match is not None
+    assert match.request.capability == "audio.set_volume"
+    assert match.request.arguments == {"percent": 30}
+
+
+def test_conflicting_volume_directions_fail_closed():
+    router = FastIntentRouter()
+    assert router.route("monte le volume baisse le volume") is None
+    assert router.local_guard_response("monte le volume baisse le volume") is not None
