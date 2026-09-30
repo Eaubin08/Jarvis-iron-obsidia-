@@ -23,4 +23,7 @@ class JarvisCore:
             match = self.fast_intent.route(text, session_id="jarvis-core")
             if match is not None:
                 return self.actions.execute(match.request, context).message
+            guarded = self.fast_intent.local_guard_response(text)
+            if guarded is not None:
+                return guarded
         return self.cognition.respond(text, context)
