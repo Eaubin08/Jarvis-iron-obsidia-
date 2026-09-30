@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .obsidia_port.router_core.decision import decide
+from .obsidia_port.brody_readonly_intent_guard import detect_readonly_runtime_state_intent
 
 
 _MEMORY_INDEX = Path(__file__).resolve().parent / "obsidia_port" / "router_core" / "memory_index.json"
@@ -52,6 +53,37 @@ class ObsidiaPreInferenceAdapter:
             return {}
 
     def route(self, user_input: str) -> PreInferenceDecision:
+        readonly_intent = detect_readonly_runtime_state_intent(user_input)
+        if readonly_intent.get("status") == "RUNTIME_STATE_READONLY_INTENT_PASS":
+            decision = PreInferenceDecision(
+                route="runtime_state_readonly",
+                level=0,
+                reason="canonical Brody readonly runtime-state intent guard",
+                ir={
+                    "intent_type": "runtime_state_query",
+                    "target_layer": "runtime",
+                    "action_type": "read",
+                    "risk_level": "low",
+                },
+                gate={
+                    "verdict": "ALLOW",
+                    "invariants": ["readonly", "KX108_ONLY"],
+                },
+                topic={
+                    "topic": "RUNTIME_STATE_READONLY",
+                    "is_canonical": True,
+                    "route": "BRODY_READONLY_INTENT_GUARD",
+                },
+            )
+            self.last_decision = decision
+            print(
+                "JARJAR_PRE_ROUTE: "
+                "route=runtime_state_readonly level=0 "
+                "intent=runtime_state_query layer=runtime gate=ALLOW "
+                "authority=KX108_ONLY readonly=True"
+            )
+            return decision
+
         raw = decide(user_input, memory_index=self._memory_index)
         route = str(raw.get("route") or "")
         direct_answer = None
