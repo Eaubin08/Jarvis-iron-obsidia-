@@ -18,6 +18,7 @@ tts = ["kokoro>=0.9.4,<1", "numpy>=1.26", "soundfile>=0.12", "sounddevice>=0.5"]
 wakeword = ["openwakeword==0.6.0", "numpy>=1.26"]
 microphone = ["sounddevice>=0.5", "numpy>=1.26"]
 visual = ["pyautogui>=0.9.54", "pillow>=10"]
+camera = ["opencv-python>=4.10,<5"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
