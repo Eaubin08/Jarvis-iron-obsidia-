@@ -84,23 +84,8 @@ class Win32Driver:
 
 
     def close_window(self, title: str) -> dict:
-        win32con, win32gui, _ = self._modules()
-        wanted = title.casefold()
-        matches = []
-
-        def collect(hwnd, _):
-            if win32gui.IsWindowVisible(hwnd):
-                current = win32gui.GetWindowText(hwnd).strip()
-                if current and wanted in current.casefold():
-                    matches.append((hwnd, current))
-            return True
-
-        win32gui.EnumWindows(collect, None)
-        if not matches:
-            raise ValueError(f"window not found: {title}")
-        hwnd, current = matches[0]
-        win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-        return {"hwnd": int(hwnd), "title": current, "requested": "close"}
+        hwnd, _ = self._find_window(title)
+        return self._close_window_hwnd(int(hwnd))
 
     def media_key(self, key: str) -> dict:
         virtual_keys = {
@@ -274,9 +259,11 @@ $items
             raise ValueError(f"ambiguous window title: {title}")
         return matches[0]
 
-    def window_state(self, title: str, state: str) -> dict:
+    def _window_state_hwnd(self, hwnd: int, state: str) -> dict:
         win32con, win32gui, _ = self._modules()
-        hwnd, current = self._find_window(title)
+        if not win32gui.IsWindow(hwnd):
+            raise ValueError(f"window handle not found: {hwnd}")
+        current = win32gui.GetWindowText(hwnd).strip()
         commands = {
             "minimize": win32con.SW_MINIMIZE,
             "maximize": win32con.SW_MAXIMIZE,
@@ -288,9 +275,15 @@ $items
         win32gui.ShowWindow(hwnd, command)
         return {"hwnd": int(hwnd), "title": current, "state": state}
 
-    def move_window_to_monitor(self, title: str, monitor_index: int) -> dict:
+    def window_state(self, title: str, state: str) -> dict:
+        hwnd, _ = self._find_window(title)
+        return self._window_state_hwnd(int(hwnd), state)
+
+    def _move_window_to_monitor_hwnd(self, hwnd: int, monitor_index: int) -> dict:
         _, win32gui, _ = self._modules()
-        hwnd, current = self._find_window(title)
+        if not win32gui.IsWindow(hwnd):
+            raise ValueError(f"window handle not found: {hwnd}")
+        current = win32gui.GetWindowText(hwnd).strip()
         monitors = []
 
         def collect(monitor, _hdc, _rect):
@@ -329,3 +322,15 @@ $items
             },
             "monitor_count": len(monitors),
         }
+
+    def move_window_to_monitor(self, title: str, monitor_index: int) -> dict:
+        hwnd, _ = self._find_window(title)
+        return self._move_window_to_monitor_hwnd(int(hwnd), monitor_index)
+
+    def _close_window_hwnd(self, hwnd: int) -> dict:
+        win32con, win32gui, _ = self._modules()
+        if not win32gui.IsWindow(hwnd):
+            raise ValueError(f"window handle not found: {hwnd}")
+        current = win32gui.GetWindowText(hwnd).strip()
+        win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+        return {"hwnd": int(hwnd), "title": current, "requested": "close"}
