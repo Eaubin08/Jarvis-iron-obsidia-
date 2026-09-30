@@ -29,7 +29,7 @@ def build_live_controller() -> HUDController:
     )
     wake = OpenWakeWordProvider.builtin(
         os.getenv("JARVIS_WAKEWORD_MODEL", "hey_jarvis"),
-        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.5")),
+        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.20")),
         inference_framework="onnx",
     )
     kokoro = KokoroEngine(lang_code="f", voice="ff_siwis")
@@ -40,7 +40,7 @@ def build_live_controller() -> HUDController:
     stt.warmup()
     print("JARJAR_BOOT: loading Kokoro...")
     kokoro.warmup()
-    print("JARJAR_BOOT: voice stack ready")
+    print(f"JARJAR_BOOT: voice stack ready (wake threshold={wake.threshold:.2f})")
 
     conversation = ConversationVoiceRuntime(stt, LocalTTS(kokoro))
     ingress = StreamingVoiceIngress(
