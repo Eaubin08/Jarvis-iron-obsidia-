@@ -19,6 +19,7 @@ from jarvis.integrations.local_tts import LocalTTS
 from jarvis.integrations.microphone import SoundDeviceMicrophone
 from jarvis.integrations.openwakeword_provider import OpenWakeWordProvider
 from jarvis.cognition_bridge import CostAwareCognitionRouter
+from jarvis.obsidia_pre_inference import ObsidiaPreInferenceAdapter
 from jarvis.camera_rig import CameraRig
 from jarvis.integrations.live_environment_timeline import LiveEnvironmentTimeline
 from jarvis.integrations.local_qwen_cognition import from_environment as qwen_cognition_from_environment
@@ -91,11 +92,13 @@ def build_live_controller() -> HUDController:
 
     qwen = qwen_cognition_from_environment(live_timeline=live_timeline)
     vision = vision_cognition_from_environment(live_timeline=live_timeline)
+    pre_inference = ObsidiaPreInferenceAdapter()
     cognition = CostAwareCognitionRouter(
         local_presence=local_presence,
         governed_stack=governed_stack,
         qwen=qwen,
         vision=vision,
+        pre_inference=pre_inference,
     )
     registry = LocalCapabilityRegistry()
     for name, family in (
@@ -152,6 +155,10 @@ def build_live_controller() -> HUDController:
     print(
         "JARJAR_BOOT: cognition bridge ready "
         f"(Obsidia={governed_stack.endpoint}, provider-routing={'on' if governed_stack.allow_provider else 'off'})"
+    )
+    print(
+        "JARJAR_BOOT: Obsidia pre-inference router ready "
+        "(UnifiedInputIR + gates + local solvers + semantic topics, KX108_ONLY)"
     )
     print(
         "JARJAR_BOOT: cost router ready "
