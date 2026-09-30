@@ -30,7 +30,14 @@ class WakeInputRuntime:
         if not self.wake_word.detect(audio):
             return WakeInputResult(woke=False)
 
-        transcript = self.stt.transcribe(audio).strip()
+        # Transcript-based wake providers already ran STT during detect().
+        # Reuse that transcript instead of paying a second CPU inference.
+        cached = getattr(self.wake_word, "last_transcript", None)
+        if isinstance(cached, str) and cached.strip():
+            transcript = cached.strip()
+        else:
+            transcript = self.stt.transcribe(audio).strip()
+
         if not transcript:
             raise ValueError("empty transcript after wake detection")
 
