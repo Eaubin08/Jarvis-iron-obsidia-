@@ -68,6 +68,7 @@ class StreamingVoiceIngress:
                         return None
                     transcript = self.stt.transcribe(audio).strip()
                     if not transcript:
+                        self.conversation.follow_up_open = False
                         print("JARJAR_SESSION: CLOSED (empty wake transcript)")
                         return None
                     return self.conversation.accept_transcript(transcript)
