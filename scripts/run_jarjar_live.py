@@ -79,7 +79,7 @@ def build_live_controller() -> HUDController:
         follow_up_turn_handler=bridge.run_follow_up_turn,
     )
     controller_ref["controller"] = controller
-    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis », fais une courte pause, puis parle.")
+    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis » ; je réponds, puis parle normalement.")
     return controller
 
 
