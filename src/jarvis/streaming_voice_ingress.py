@@ -96,8 +96,7 @@ class StreamingVoiceIngress:
             speech_start_timeout=self.follow_up_start_timeout,
         )
         if not audio:
-            self.conversation.follow_up_open = False
-            print("JARJAR_SESSION: CLOSED (inactivity)")
+            print("JARJAR_SESSION: IDLE_WINDOW (no speech yet)")
             raise ValueError("empty follow-up transcript")
         transcript = self.stt.transcribe(audio).strip()
         if not transcript:
