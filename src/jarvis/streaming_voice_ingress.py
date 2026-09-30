@@ -6,6 +6,7 @@ wake detector fires and the utterance recorder reaches end-of-speech.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 import time
 
 from .voice_runtime import ConversationVoiceRuntime
@@ -23,6 +24,7 @@ class StreamingVoiceIngress:
     rms_threshold: int = 300
     wake_speech_start_timeout: float = 3.0
     follow_up_start_timeout: float = 2.0
+    on_wake: Callable[[], None] | None = None
 
     def capture_and_begin_turn(self, _duration_seconds: float = 0.0) -> str | None:
         reset = getattr(self.wake_word, "reset", None)
@@ -42,11 +44,27 @@ class StreamingVoiceIngress:
                     f"score={score:.3f} threshold={getattr(self.wake_word, 'threshold', 0.0):.3f}"
                 )
                 print("JARJAR_SESSION: OPEN")
-                # Wake detection is the opening turn. Do not force the user to
-                # squeeze a command into a second recording immediately after
-                # saying the wake phrase. Jarjar acknowledges first ("Oui ?"),
-                # then the normal wake-free follow-up captures the request.
-                return self.conversation.accept_transcript("Hey Jarvis")
+                if self.on_wake is not None:
+                    self.on_wake()
+
+                # Wake is only a gate. Capture the user's actual command
+                # immediately instead of generating an artificial "Hey Jarvis"
+                # conversation turn and speaking "Oui ?" first.
+                audio = self.microphone.capture_until_silence(
+                    max_seconds=self.max_utterance_seconds,
+                    silence_seconds=self.silence_seconds,
+                    rms_threshold=self.rms_threshold,
+                    speech_start_timeout=self.wake_speech_start_timeout,
+                )
+                if not audio:
+                    self.conversation.follow_up_open = False
+                    print("JARJAR_SESSION: CLOSED (no speech after wake)")
+                    return None
+                transcript = self.stt.transcribe(audio).strip()
+                if not transcript:
+                    print("JARJAR_SESSION: CLOSED (empty wake transcript)")
+                    return None
+                return self.conversation.accept_transcript(transcript)
             if now - last_report >= 4.0:
                 if peak >= 0.10:
                     print(
