@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from .core import JarvisCore
 from .voice_ingress_runtime import VoiceIngressRuntime
@@ -14,12 +15,18 @@ class HUDLiveVoiceBridge:
     core: JarvisCore
     conversation: ConversationVoiceRuntime
     capture_seconds: float = 5.0
+    on_thinking: Callable[[], None] | None = None
+    on_speaking: Callable[[], None] | None = None
 
     def _respond(self, transcript: str) -> tuple[str, str]:
+        if self.on_thinking is not None:
+            self.on_thinking()
         reply = self.core.handle_text(transcript).strip()
         if not reply:
             raise ValueError("empty cognition response")
 
+        if self.on_speaking is not None:
+            self.on_speaking()
         handle = self.conversation.speak(reply, open_follow_up=True)
         wait = getattr(handle, "wait", None)
         if callable(wait):
