@@ -17,6 +17,10 @@ def _wake_variants(phrase: str) -> tuple[str, ...]:
     if normalized == "hey jarvis":
         variants.update({
             "hey jarvis",
+            "hé jarvis",
+            "eh jarvis",
+            "et jarvis",
+            "jarvis",
             "hey j arvisse",
             "j arvisse hey j arvisse",
             "j ai revis",
@@ -31,8 +35,8 @@ class TranscriptWakeWordProvider:
     """Detect a configurable wake phrase using a local STT provider.
 
     Matching is exact after normalization, with a narrowly scoped compatibility
-    set for the default "hey jarvis" phrase based on observed local Whisper
-    transcriptions on the target Windows microphone.
+    set for the default "hey jarvis" phrase based on observed/local likely
+    Whisper transcriptions on the target Windows microphone.
     """
 
     stt: SpeechToTextProvider
