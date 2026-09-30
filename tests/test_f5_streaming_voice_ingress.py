@@ -46,7 +46,7 @@ class Conversation:
         return text
 
 
-def test_streaming_wake_invokes_stt_only_after_detection():
+def test_streaming_wake_returns_immediate_opening_turn_without_whisper():
     mic = Mic()
     wake = Wake()
     stt = STT()
@@ -54,11 +54,11 @@ def test_streaming_wake_invokes_stt_only_after_detection():
 
     result = ingress.capture_and_begin_turn()
 
-    assert result == "bonjour"
+    assert result == "Hey Jarvis"
     assert wake.calls == [b"a", b"wake"]
-    assert stt.calls == 1
+    assert stt.calls == 0
     assert wake.resets == 1
-    assert mic.capture_kwargs[0]["speech_start_timeout"] == 3.0
+    assert mic.capture_kwargs == []
 
 
 def test_follow_up_skips_wake_detector_and_uses_short_start_timeout():
