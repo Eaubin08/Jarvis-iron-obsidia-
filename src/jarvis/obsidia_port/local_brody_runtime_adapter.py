@@ -140,6 +140,7 @@ class LocalBrodyRuntimeAdapter:
             semantic["memory_retrieval_query"] = (
                 memory_query if memory_required else ""
             )
+            requested_memory_query = memory_query if memory_required else ""
 
             memory = build_native_memory_response(
                 user_message=message,
@@ -289,15 +290,26 @@ class LocalBrodyRuntimeAdapter:
                     + semantic_query_for_model
                 )
 
+            requested_target_for_model = str(
+                requested_memory_query
+                or ""
+            ).strip()
+
             retrieval_target_for_model = str(
                 memory.get("effective_query")
                 or memory_query
                 or ""
             ).strip()
 
+            if requested_target_for_model:
+                qwen_context_parts.append(
+                    "[REQUESTED MEMORY TARGET]\n"
+                    + requested_target_for_model
+                )
+
             if retrieval_target_for_model:
                 qwen_context_parts.append(
-                    "[MEMORY RETRIEVAL TARGET]\n"
+                    "[EFFECTIVE MEMORY TARGET]\n"
                     + retrieval_target_for_model
                 )
 
@@ -525,12 +537,34 @@ class LocalBrodyRuntimeAdapter:
                         or micro.get("project_context_relevant") is True
                     )
 
+                    qwen_candidate_lower = qwen_candidate_answer.lower()
+                    qwen_grounded_insufficiency = any(
+                        marker in qwen_candidate_lower
+                        for marker in (
+                            "n'a pas été explicitement",
+                            "n’est pas explicitement",
+                            "ne permet pas d'établir",
+                            "ne permet pas d’etablir",
+                            "ne l'établit pas",
+                            "ne l’etablit pas",
+                            "pas décrit",
+                            "pas de donnée",
+                            "pas d'information",
+                            "pas d’information",
+                            "does not establish",
+                            "not established",
+                            "not described",
+                            "insufficient context",
+                        )
+                    )
+
                     qwen_critical_underanswer = bool(
                         project_scoped_query
                         and qwen_mismatch_signals.get("structural_gap")
                         and qwen_mismatch_signals.get(
                             "sigma_high_but_answer_empty"
                         )
+                        and not qwen_grounded_insufficiency
                     )
 
                     qwen_quality_gate_pass = (
@@ -721,7 +755,8 @@ class LocalBrodyRuntimeAdapter:
                 "memory_status": memory.get("status"),
                 "memory_source_mode": memory.get("source_mode"),
                 "retrieval_status": memory.get("retrieval_status"),
-                "selected_items_count": memory.get("selected_items_count"),
+                "selected_items_count": memory.get("selected_items_count"),                "memory_requested_query": requested_memory_query,
+
                 "memory_effective_query": memory.get("effective_query"),
                 "memory_selected_titles": [
                     str(item.get("title") or item.get("id") or "")
@@ -793,6 +828,11 @@ class LocalBrodyRuntimeAdapter:
                 ),
                 "qwen_quality_gate_pass": qwen_quality_gate_pass,
                 "qwen_quality_gate_reason": qwen_quality_gate_reason,
+                "qwen_grounded_insufficiency": (
+                    qwen_grounded_insufficiency
+                    if "qwen_grounded_insufficiency" in locals()
+                    else False
+                ),
                 "qwen_stage_status": qwen_stage.get("status"),
                 "qwen_model_call_used": qwen_stage.get("model_call_used"),
                 "qwen_tokens_local": qwen_stage.get("tokens_local"),
