@@ -182,6 +182,7 @@ def build_live_controller() -> HUDController:
         text_handler=text_handler,
         voice_turn_handler=bridge.run_wake_turn,
         follow_up_turn_handler=bridge.run_follow_up_turn,
+        response_source=lambda: core.last_source,
     )
     controller_ref["controller"] = controller
     model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis » ; je réponds, puis parle normalement.")
