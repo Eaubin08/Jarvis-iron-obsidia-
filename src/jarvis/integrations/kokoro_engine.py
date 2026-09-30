@@ -26,6 +26,39 @@ class KokoroEngine:
         """Load the Kokoro pipeline before the first spoken reply."""
         self._load()
 
+    def stream_speak(self, text: str, stop: Event) -> None:
+        """Generate and play Kokoro chunks incrementally.
+
+        This avoids waiting for the complete response waveform before playback
+        starts, materially reducing perceived response latency on CPU.
+        """
+        if not text.strip():
+            raise ValueError("text must not be empty")
+        try:
+            import numpy as np
+            import sounddevice as sd
+        except ImportError as exc:
+            raise RuntimeError("numpy and sounddevice are required for streaming Kokoro playback") from exc
+
+        with sd.OutputStream(
+            samplerate=self.sample_rate,
+            channels=1,
+            dtype="float32",
+        ) as stream:
+            produced = False
+            for _, _, audio in self._load()(text, voice=self.voice):
+                if stop.is_set():
+                    break
+                if audio is None:
+                    continue
+                chunk = np.asarray(audio, dtype=np.float32).reshape(-1, 1)
+                if chunk.size == 0:
+                    continue
+                produced = True
+                stream.write(chunk)
+            if not produced and not stop.is_set():
+                raise RuntimeError("Kokoro produced no audio")
+
     def synthesize(self, text: str) -> bytes:
         if not text.strip():
             raise ValueError("text must not be empty")
