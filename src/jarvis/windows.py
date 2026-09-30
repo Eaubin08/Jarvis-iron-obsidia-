@@ -17,6 +17,9 @@ class WindowsDriver(Protocol):
     def focus_window(self, title: str) -> dict: ...
     def close_window(self, title: str) -> dict: ...
     def media_key(self, key: str) -> dict: ...
+    def audio_status(self) -> dict: ...
+    def audio_set_volume(self, percent: int) -> dict: ...
+    def audio_set_mute(self, muted: bool) -> dict: ...
     def battery_status(self) -> dict: ...
     def wifi_status(self) -> dict: ...
     def wifi_set_enabled(self, enabled: bool) -> dict: ...
@@ -40,6 +43,9 @@ class NativeWindowsBackend:
         "audio.volume_up",
         "audio.volume_down",
         "audio.mute_toggle",
+        "audio.status",
+        "audio.set_volume",
+        "audio.set_mute",
         "media.play_pause",
         "media.next",
         "media.previous",
@@ -75,6 +81,18 @@ class NativeWindowsBackend:
                 data = self.driver.media_key("volume_down")
             elif request.capability == "audio.mute_toggle":
                 data = self.driver.media_key("volume_mute")
+            elif request.capability == "audio.status":
+                data = self.driver.audio_status()
+            elif request.capability == "audio.set_volume":
+                raw = request.arguments.get("percent")
+                if not isinstance(raw, int):
+                    raise ValueError("missing or invalid Windows argument: percent")
+                data = self.driver.audio_set_volume(raw)
+            elif request.capability == "audio.set_mute":
+                raw = request.arguments.get("muted")
+                if not isinstance(raw, bool):
+                    raise ValueError("missing or invalid Windows argument: muted")
+                data = self.driver.audio_set_mute(raw)
             elif request.capability == "media.play_pause":
                 data = self.driver.media_key("media_play_pause")
             elif request.capability == "media.next":
