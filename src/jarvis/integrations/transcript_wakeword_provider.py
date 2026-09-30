@@ -20,7 +20,6 @@ def _wake_variants(phrase: str) -> tuple[str, ...]:
             "hé jarvis",
             "eh jarvis",
             "et jarvis",
-            "jarvis",
             "hey j arvisse",
             "j arvisse hey j arvisse",
             "j ai revis",
