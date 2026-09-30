@@ -77,4 +77,4 @@ def test_live_core_routes_battery_read_only():
 def test_live_core_opens_bounded_app():
     core, driver = build_core()
     assert core.handle_text("ouvre la calculatrice") == "Windows action completed"
-    assert driver.calls == [("open_app", "calc.exe")]
+    assert driver.calls == [("open_app", "calculatrice")]
