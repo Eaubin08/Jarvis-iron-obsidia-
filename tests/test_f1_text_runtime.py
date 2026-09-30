@@ -1,7 +1,7 @@
 import pytest
 
 from jarvis.events import EventBus
-from jarvis.providers.local_stub import StubCognition, StubMemory
+from jarvis.providers.local_stub import DeterministicStubCognition, StubCognition, StubMemory
 from jarvis.runtime import TextRuntime
 
 
@@ -10,7 +10,7 @@ def test_text_runtime_emits_canonical_event_sequence():
     bus = EventBus()
     bus.subscribe_all(seen.append)
     memory = StubMemory()
-    runtime = TextRuntime(StubCognition(), memory, bus, session_id="s1")
+    runtime = TextRuntime(DeterministicStubCognition(), memory, bus, session_id="s1")
 
     assert runtime.handle("status") == "JARVIS_V0: status"
     assert [e.kind for e in seen] == [
