@@ -29,6 +29,19 @@ class LocalVisionCognition:
         if self.live_timeline is None:
             return [], []
         rows = self.live_timeline.query(user_input, limit=10)
+        query = user_input.casefold()
+        camera_terms = ("caméra", "camera", "webcam")
+        screen_terms = ("écran", "ecran", "screen", "desktop", "moniteur")
+
+        def priority(row):
+            source = row.source.casefold()
+            if any(term in query for term in camera_terms):
+                return 0 if "live-camera" in source else 1
+            if any(term in query for term in screen_terms):
+                return 0 if "live-screen" in source else 1
+            return 0
+
+        rows = sorted(rows, key=priority)
         images: list[dict] = []
         context_lines: list[str] = []
         for row in rows:
