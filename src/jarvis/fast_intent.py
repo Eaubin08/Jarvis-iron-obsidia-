@@ -26,6 +26,10 @@ class FastIntentRouter:
             ("media_next", self._media_next),
             ("media_previous", self._media_previous),
             ("battery", self._battery),
+            ("wifi", self._wifi),
+            ("bluetooth", self._bluetooth),
+            ("window_state", self._window_state),
+            ("window_monitor", self._window_monitor),
             ("open_app", self._open_app),
         ]
 
@@ -112,3 +116,58 @@ class FastIntentRouter:
                 if app:
                     return ActionRequest("app.open", {"app": app})
         return None
+
+
+    @staticmethod
+    def _wifi(text: str) -> ActionRequest | None:
+        if text in {"wifi", "wi fi", "état wifi", "etat wifi", "statut wifi"}:
+            return ActionRequest("wifi.status", risk=RiskClass.READ_ONLY)
+        if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi"}:
+            return ActionRequest("wifi.enable", risk=RiskClass.SENSITIVE)
+        if text in {"désactive le wifi", "desactive le wifi", "coupe le wifi", "coupe wifi"}:
+            return ActionRequest("wifi.disable", risk=RiskClass.SENSITIVE)
+        return None
+
+    @staticmethod
+    def _bluetooth(text: str) -> ActionRequest | None:
+        if text in {"bluetooth", "état bluetooth", "etat bluetooth", "statut bluetooth"}:
+            return ActionRequest("bluetooth.status", risk=RiskClass.READ_ONLY)
+        if text in {"active le bluetooth", "active bluetooth", "allume le bluetooth"}:
+            return ActionRequest("bluetooth.enable", risk=RiskClass.SENSITIVE)
+        if text in {"désactive le bluetooth", "desactive le bluetooth", "coupe le bluetooth"}:
+            return ActionRequest("bluetooth.disable", risk=RiskClass.SENSITIVE)
+        return None
+
+    @staticmethod
+    def _window_state(text: str) -> ActionRequest | None:
+        import re
+        patterns = (
+            (r"^(?:minimise|minimize) (.+)$", "window.minimize"),
+            (r"^(?:maximise|maximize) (.+)$", "window.maximize"),
+            (r"^(?:restaure|restore) (.+)$", "window.restore"),
+        )
+        for pattern, capability in patterns:
+            match = re.match(pattern, text)
+            if match:
+                title = match.group(1).strip()
+                if title:
+                    return ActionRequest(capability, {"title": title})
+        return None
+
+    @staticmethod
+    def _window_monitor(text: str) -> ActionRequest | None:
+        import re
+        match = re.match(
+            r"^(?:mets|déplace|deplace) (.+?) (?:sur |vers )?(?:l )?[ée]cran (\d+)$",
+            text,
+        )
+        if not match:
+            return None
+        title = match.group(1).strip()
+        monitor_index = int(match.group(2))
+        if not title or monitor_index < 1:
+            return None
+        return ActionRequest(
+            "window.move_monitor",
+            {"title": title, "monitor_index": monitor_index},
+        )
