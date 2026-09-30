@@ -35,6 +35,10 @@ class FasterWhisperSTT:
             )
         return self._model
 
+    def warmup(self) -> None:
+        """Load model weights without requiring a microphone turn."""
+        self._load()
+
     def transcribe(self, audio: bytes) -> str:
         if not audio:
             raise ValueError("audio must not be empty")
