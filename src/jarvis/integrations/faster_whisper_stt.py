@@ -44,7 +44,15 @@ class FasterWhisperSTT:
             raise ValueError("audio must not be empty")
         path = self._write_pcm16_wav(audio)
         try:
-            kwargs = {"vad_filter": True}
+            kwargs = {
+                "vad_filter": True,
+                "initial_prompt": (
+                    "Assistant Jarvis en français. "
+                    "Commandes possibles : monte le volume, baisse le volume, coupe le son, "
+                    "mets en sourdine, play, pause, piste suivante, piste précédente, "
+                    "ouvre une application, ferme une application."
+                ),
+            }
             if self.language:
                 kwargs["language"] = self.language
             segments, _ = self._load().transcribe(str(path), **kwargs)
