@@ -13,6 +13,8 @@ from jarvis.integrations.kokoro_engine import KokoroEngine
 from jarvis.integrations.local_tts import LocalTTS
 from jarvis.integrations.microphone import SoundDeviceMicrophone
 from jarvis.integrations.openwakeword_provider import OpenWakeWordProvider
+from jarvis.cognition_bridge import GovernedCognitionBridge
+from jarvis.integrations.obsidia_stack_cognition import from_environment as obsidia_cognition_from_environment
 from jarvis.providers.local_stub import StubCognition, StubMemory
 from jarvis.streaming_voice_ingress import StreamingVoiceIngress
 from jarvis.voice_runtime import ConversationVoiceRuntime
@@ -54,7 +56,17 @@ def build_live_controller() -> HUDController:
         wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "3.0")),
         follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "4.0")),
     )
-    core = JarvisCore(StubCognition(), StubMemory())
+    local_presence = StubCognition()
+    governed_stack = obsidia_cognition_from_environment()
+    cognition = GovernedCognitionBridge(
+        local_presence=local_presence,
+        governed_stack=governed_stack,
+    )
+    core = JarvisCore(cognition, StubMemory())
+    print(
+        "JARJAR_BOOT: cognition bridge ready "
+        f"(Obsidia={governed_stack.endpoint}, provider-routing={'on' if governed_stack.allow_provider else 'off'})"
+    )
     bridge = HUDLiveVoiceBridge(
         ingress=ingress,
         core=core,
