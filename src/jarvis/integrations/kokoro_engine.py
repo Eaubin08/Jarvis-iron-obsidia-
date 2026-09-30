@@ -13,7 +13,7 @@ class KokoroEngine:
         lang_code: str = "f",
         voice: str = "ff_siwis",
         sample_rate: int = 24000,
-        speed: float = 1.18,
+        speed: float = 1.0,
     ):
         if speed <= 0:
             raise ValueError("speed must be positive")
