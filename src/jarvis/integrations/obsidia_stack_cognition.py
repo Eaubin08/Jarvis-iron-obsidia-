@@ -101,9 +101,19 @@ class ObsidiaStackCognition:
             + (" ".join(trace_bits) if trace_bits else "no routing metadata returned")
         )
 
-        answer = packet.get("final_answer") or packet.get("response")
+        true_voice = packet.get("true_voice_snapshot")
+        true_voice_answer = (
+            true_voice.get("final_answer")
+            if isinstance(true_voice, dict)
+            else None
+        )
+        answer = (
+            true_voice_answer
+            or packet.get("response")
+            or packet.get("final_answer")
+        )
         if not isinstance(answer, str) or not answer.strip():
-            raise RuntimeError("Obsidia cognition returned no final answer")
+            raise RuntimeError("Obsidia cognition returned no conversational answer")
 
         return answer.strip()
 
