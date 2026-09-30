@@ -21,9 +21,10 @@ from jarvis.contracts import ContextSnapshot
 class LocalVisionCognition:
     endpoint: str = "http://127.0.0.1:8081/v1/chat/completions"
     model: str = "Qwen2.5-VL-3B-Instruct"
-    timeout_seconds: float = 45.0
+    timeout_seconds: float = 180.0
     live_timeline: object | None = None
     max_images: int = 3
+    max_tokens: int = 96
 
     def _collect_images(self, user_input: str) -> tuple[list[dict], list[str]]:
         if self.live_timeline is None:
@@ -90,6 +91,7 @@ class LocalVisionCognition:
                 {"role": "user", "content": content},
             ],
             "temperature": 0.1,
+            "max_tokens": self.max_tokens,
             "stream": False,
         }
         request = Request(
@@ -130,7 +132,8 @@ def from_environment(*, live_timeline=None) -> LocalVisionCognition:
             "http://127.0.0.1:8081/v1/chat/completions",
         ),
         model=os.getenv("JARJAR_VISION_MODEL", "Qwen2.5-VL-3B-Instruct"),
-        timeout_seconds=float(os.getenv("JARJAR_VISION_TIMEOUT", "45")),
+        timeout_seconds=float(os.getenv("JARJAR_VISION_TIMEOUT", "180")),
         live_timeline=live_timeline,
         max_images=int(os.getenv("JARJAR_VISION_MAX_IMAGES", "1")),
+        max_tokens=int(os.getenv("JARJAR_VISION_MAX_TOKENS", "96")),
     )
