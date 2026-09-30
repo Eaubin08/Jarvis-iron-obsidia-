@@ -105,6 +105,56 @@ class Win32Driver:
         user32.keybd_event(vk, 0, 0x0002, 0)
         return {"key": key, "virtual_key": vk}
 
+
+    def _endpoint_volume(self):
+        try:
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        except ImportError as exc:
+            raise RuntimeError(
+                "pycaw is not installed; install the windows optional dependency"
+            ) from exc
+
+        speakers = AudioUtilities.GetSpeakers()
+        endpoint = getattr(speakers, "EndpointVolume", None)
+        if endpoint is not None:
+            return endpoint
+
+        try:
+            from comtypes import CLSCTX_ALL
+            from ctypes import POINTER, cast
+
+            interface = speakers.Activate(
+                IAudioEndpointVolume._iid_,
+                CLSCTX_ALL,
+                None,
+            )
+            return cast(interface, POINTER(IAudioEndpointVolume))
+        except Exception as exc:
+            raise RuntimeError(f"Core Audio endpoint unavailable: {exc}") from exc
+
+    def audio_status(self) -> dict:
+        endpoint = self._endpoint_volume()
+        scalar = float(endpoint.GetMasterVolumeLevelScalar())
+        muted = bool(endpoint.GetMute())
+        return {
+            "volume_scalar": scalar,
+            "volume_percent": int(round(scalar * 100)),
+            "muted": muted,
+            "backend": "pycaw",
+        }
+
+    def audio_set_volume(self, percent: int) -> dict:
+        if not isinstance(percent, int) or not 0 <= percent <= 100:
+            raise ValueError("volume percent must be an integer from 0 to 100")
+        endpoint = self._endpoint_volume()
+        endpoint.SetMasterVolumeLevelScalar(percent / 100.0, None)
+        return self.audio_status()
+
+    def audio_set_mute(self, muted: bool) -> dict:
+        endpoint = self._endpoint_volume()
+        endpoint.SetMute(1 if muted else 0, None)
+        return self.audio_status()
+
     def battery_status(self) -> dict:
         class SYSTEM_POWER_STATUS(ctypes.Structure):
             _fields_ = [
