@@ -60,3 +60,31 @@ def test_obsidia_stack_provider_records_routing_metadata():
     assert provider.last_trace["provider_status"] == "DISABLED_BY_POLICY"
     assert provider.last_trace["provider_called"] is False
     assert provider.last_trace["decision_authority"] == "KX108_ONLY"
+
+
+def test_obsidia_stack_rejects_legacy_memory_pass_without_native_memory():
+    def transport(request, timeout):
+        return json.dumps({
+            "source": "REAL_BRODY_RUNTIME_NO_GRAPHITI",
+            "voice_runtime": "BRODY_OBSIDIEN_V1_4_12A",
+            "memory_response_chain_snapshot": {
+                "source_mode": "LOCAL_GRAPHITI_INDEX_FALLBACK",
+                "chain_source": "local_graphiti_index→hydrate_packet→local_response_engine",
+                "status": "BRODY_MEMORY_RESPONSE_CHAIN_PASS",
+                "material_quality": "USABLE_MATERIAL",
+                "response_md": "Legacy memory material that should not be trusted.",
+            },
+            "true_voice_snapshot": {
+                "final_answer": "Legacy answer presented as a successful chain.",
+                "final_answer_source": "MEMORY_RESPONSE_CHAIN",
+            },
+            "decision_authority": "KX108_ONLY",
+            "readonly": True,
+        }).encode("utf-8")
+
+    provider = ObsidiaStackCognition(transport=transport)
+    answer = provider.respond("Explique-moi Obsidia", ctx())
+
+    assert "ancien fallback Graphiti" in answer
+    assert provider.last_trace["native_memory_active"] is False
+    assert provider.last_trace["legacy_memory_active"] is True
