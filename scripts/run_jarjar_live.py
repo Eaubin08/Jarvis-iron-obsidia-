@@ -168,6 +168,9 @@ def build_live_controller() -> HUDController:
         capture_seconds=0.1,
         on_thinking=lambda: model.set_state(HUDState.THINKING),
         on_speaking=lambda: model.set_state(HUDState.SPEAKING),
+        post_speech_cooldown_seconds=float(
+            os.getenv("JARVIS_POST_SPEECH_COOLDOWN_SECONDS", "0.45")
+        ),
     )
 
     controller_ref = {}
