@@ -243,6 +243,12 @@ class JarjarHUD(tk.Tk):
             try:
                 result = self.controller.run_voice_turn()
                 if result is None:
+                    # Wake was detected but no usable command survived capture/STT.
+                    # Fully reset the transient session so the next loop returns
+                    # immediately to wake-word monitoring.
+                    self.controller.model.set_session_open(False)
+                    self.controller.model.set_state(HUDState.IDLE)
+                    print("JARJAR_WAKE: READY (reset after empty wake turn)")
                     continue
                 self.controller.voice_finished()
                 self.controller.model.set_session_open(True)
