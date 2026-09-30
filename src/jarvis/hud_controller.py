@@ -61,7 +61,10 @@ class HUDController:
         try:
             result = handler()
             if result is None:
-                self.model.set_state(HUDState.IDLE)
+                if self.model.session_open:
+                    self.model.set_state(HUDState.LISTENING)
+                else:
+                    self.model.set_state(HUDState.IDLE)
                 return None
             transcript, reply = result
             transcript = transcript.strip()
@@ -69,9 +72,11 @@ class HUDController:
             if not transcript or not reply:
                 raise ValueError("voice turn returned empty transcript or reply")
             self.model.append("YOU", transcript)
-            self.model.set_state(HUDState.THINKING)
             self.model.append(self._jarjar_label(), reply)
-            self.model.set_state(HUDState.SPEAKING)
+            if self.model.session_open:
+                self.model.set_state(HUDState.LISTENING)
+            else:
+                self.model.set_state(HUDState.IDLE)
             return transcript, reply
         except Exception:
             self.model.set_state(HUDState.ERROR)
@@ -90,7 +95,10 @@ class HUDController:
         )
 
     def voice_finished(self) -> None:
-        self.model.set_state(HUDState.IDLE)
+        if self.model.session_open:
+            self.model.set_state(HUDState.LISTENING)
+        else:
+            self.model.set_state(HUDState.IDLE)
 
     def toggle_voice(self) -> bool:
         new_value = not self.model.voice_enabled
