@@ -1,6 +1,6 @@
 # F5 PHYSICAL BARGE-IN GATE
 
-Status: READY / LOCAL PHYSICAL RUN REQUIRED
+Status: PASS / PHYSICAL PLAYBACK VERIFIED; FRENCH VOICE RETEST REQUIRED
 
 This gate verifies that real local speaker playback can be interrupted through
 the Jarvis-owned ConversationVoiceRuntime.barge_in() path.
@@ -12,7 +12,7 @@ playback yet and the synthesis thread can still be alive.
 
 Therefore this gate deliberately separates synthesis from playback:
 
-    KokoroEngine.synthesize()
+    KokoroEngine(lang_code='f', voice='ff_siwis').synthesize()
         -> complete WAV prepared first
         -> ConversationVoiceRuntime.speak()
         -> real KokoroEngine.play()
@@ -23,7 +23,7 @@ Therefore this gate deliberately separates synthesis from playback:
         -> sounddevice stop
         -> LISTENING
 
-This proves the current V0 barge-in contract at the playback boundary without
+The physical playback cancellation gate already passed on the target machine (`1 passed in 28.83s`). The French rerun keeps the same boundary while switching Jarvis to the supported Kokoro French voice `ff_siwis`. This proves the current V0 barge-in contract at the playback boundary without
 misclassifying Kokoro generation latency as a playback cancellation failure.
 
 ## Run
@@ -58,3 +58,15 @@ A PASS plus audible early cutoff proves:
 This does NOT yet prove cancellation of Kokoro while synthesis itself is in
 progress, nor acoustic echo cancellation / simultaneous microphone recognition.
 Those are separate capabilities and must not be claimed by this gate.
+
+
+## French Jarvis voice
+
+The default Jarvis Kokoro adapter now uses:
+
+    lang_code = "f"
+    voice = "ff_siwis"
+
+This matches the current Kokoro-82M French catalogue. French currently has one
+published voice in that catalogue, so voice choice is intentionally explicit
+rather than guessed.
