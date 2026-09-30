@@ -49,7 +49,7 @@ def build_live_controller() -> HUDController:
         stt=stt,
         conversation=conversation,
         max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "8.0")),
-        silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.65")),
+        silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.35")),
         rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
     )
     core = JarvisCore(StubCognition(), StubMemory())
