@@ -21,27 +21,45 @@ def _dump(label: str, value: object) -> None:
     print(f"{label}: {json.dumps(value, ensure_ascii=False, default=str)}")
 
 
-def _title_for_pid(pid: int, timeout: float = 8.0) -> str:
+def _visible_windows() -> dict[int, str]:
     import win32gui
-    import win32process
 
+    windows: dict[int, str] = {}
+
+    def collect(hwnd, _):
+        if win32gui.IsWindowVisible(hwnd):
+            title = win32gui.GetWindowText(hwnd).strip()
+            if title:
+                windows[int(hwnd)] = title
+        return True
+
+    win32gui.EnumWindows(collect, None)
+    return windows
+
+
+def _new_window_title(before: set[int], timeout: float = 8.0) -> str:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        matches = []
-
-        def collect(hwnd, _):
-            if win32gui.IsWindowVisible(hwnd):
-                _, current_pid = win32process.GetWindowThreadProcessId(hwnd)
-                title = win32gui.GetWindowText(hwnd).strip()
-                if current_pid == pid and title:
-                    matches.append(title)
-            return True
-
-        win32gui.EnumWindows(collect, None)
-        if matches:
-            return matches[0]
+        current = _visible_windows()
+        created = [
+            (hwnd, title)
+            for hwnd, title in current.items()
+            if hwnd not in before
+        ]
+        if created:
+            # Prefer the newly created Notepad window when Windows 11 launches
+            # it through a transient parent/launcher process.
+            preferred = [
+                (hwnd, title)
+                for hwnd, title in created
+                if any(
+                    token in title.casefold()
+                    for token in ("notepad", "bloc-notes", "bloc notes")
+                )
+            ]
+            return (preferred or created)[0][1]
         time.sleep(0.2)
-    raise RuntimeError(f"no visible window found for pid={pid}")
+    raise RuntimeError("no new visible window appeared after app launch")
 
 
 def main() -> int:
@@ -67,12 +85,10 @@ def main() -> int:
             if decision.value != "ask":
                 raise RuntimeError(f"network toggle not gated: {phrase}")
 
+        before = set(_visible_windows())
         opened = driver.open_app("bloc notes")
         _dump("APP_OPEN", opened)
-        pid = opened.get("pid")
-        if not isinstance(pid, int):
-            raise RuntimeError("Notepad launch returned no process id")
-        title = _title_for_pid(pid)
+        title = _new_window_title(before)
         print(f"WINDOW_TARGET: {title}")
 
         _dump("WINDOW_MAXIMIZE", driver.window_state(title, "maximize"))
