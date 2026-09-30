@@ -543,6 +543,11 @@ class LocalBrodyRuntimeAdapter:
                         for marker in (
                             "n'a pas été explicitement",
                             "n’est pas explicitement",
+                            "n'est pas explicitement",
+                            "n’est pas explicitement décrit",
+                            "n'est pas explicitement décrit",
+                            "n’est pas explicitement décrite",
+                            "n'est pas explicitement décrite",
                             "ne permet pas d'établir",
                             "ne permet pas d’etablir",
                             "ne l'établit pas",
@@ -682,6 +687,12 @@ class LocalBrodyRuntimeAdapter:
                 final_adapter.get("final_answer") or ""
             ).strip()
 
+           
+            canonical_voice_priority = (
+                str(semantic.get("topic") or "")
+                in {"OBSIDIA_BRODY_ROLE"}
+            )
+
             governed_selected = (
                 isinstance(final_adapter, dict)
                 and final_adapter.get(
@@ -689,6 +700,7 @@ class LocalBrodyRuntimeAdapter:
                 ) is True
                 and governed_projection.get("status") == "READY"
                 and bool(governed_answer)
+                and not canonical_voice_priority
             )
 
             if governed_selected:
@@ -735,6 +747,7 @@ class LocalBrodyRuntimeAdapter:
                 "true_voice_final_answer": voice.get("final_answer"),
                 "true_voice_source": voice.get("voice_source"),
                 "governed_final_selected": governed_selected,
+                "canonical_voice_priority": canonical_voice_priority,
                 "v1412a_projection_selected": (
                     final_adapter.get(
                         "governed_model_projection_selected"
