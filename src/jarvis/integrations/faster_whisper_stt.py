@@ -90,8 +90,9 @@ class FasterWhisperSTT:
                 no_speech_prob = float(getattr(segment, "no_speech_prob", 0.0) or 0.0)
                 avg_logprob = float(getattr(segment, "avg_logprob", 0.0) or 0.0)
 
-                # Reject weak speech hypotheses before they reach cognition.
-                if no_speech_prob >= 0.70 and avg_logprob <= -0.80:
+                # Reject only extreme no-speech hypotheses. Normal speech can
+                # legitimately have weak confidence on a noisy desktop mic.
+                if no_speech_prob >= 0.92 and avg_logprob <= -1.20:
                     print(
                         "JARJAR_STT: REJECTED low-confidence "
                         f"no_speech={no_speech_prob:.2f} avg_logprob={avg_logprob:.2f} "
@@ -106,6 +107,7 @@ class FasterWhisperSTT:
                 accepted.append(text)
 
             transcript = " ".join(accepted).strip()
+            print(f"JARJAR_STT: transcript={transcript!r}")
             if transcript and _known_hallucination(transcript):
                 print(f"JARJAR_STT: REJECTED known-hallucination transcript={transcript!r}")
                 return ""
