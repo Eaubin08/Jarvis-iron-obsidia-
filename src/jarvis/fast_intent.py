@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from .contracts import ActionRequest
+from .contracts import ActionRequest, RiskClass
 
 
 @dataclass(frozen=True)
@@ -96,20 +96,15 @@ class FastIntentRouter:
     @staticmethod
     def _battery(text: str) -> ActionRequest | None:
         if text in {"batterie", "niveau batterie", "état batterie", "etat batterie"}:
-            return ActionRequest("system.battery", risk=__import__("jarvis.contracts", fromlist=["RiskClass"]).RiskClass.READ_ONLY)
+            return ActionRequest("system.battery", risk=RiskClass.READ_ONLY)
         return None
 
     @staticmethod
     def _open_app(text: str) -> ActionRequest | None:
-        apps = {
-            "ouvre le bloc notes": "notepad.exe",
-            "ouvre bloc notes": "notepad.exe",
-            "ouvre la calculatrice": "calc.exe",
-            "ouvre calculatrice": "calc.exe",
-            "ouvre l explorateur": "explorer.exe",
-            "ouvre explorateur": "explorer.exe",
-        }
-        app = apps.get(text)
-        if app:
-            return ActionRequest("app.open", {"app": app})
+        prefixes = ("ouvre ", "lance ", "démarre ", "demarre ")
+        for prefix in prefixes:
+            if text.startswith(prefix):
+                app = text[len(prefix):].strip()
+                if app:
+                    return ActionRequest("app.open", {"app": app})
         return None
