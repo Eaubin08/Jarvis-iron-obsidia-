@@ -61,3 +61,19 @@ the CPU target.
 The vision adapter now preserves HTTP status and the beginning of the server
 error body so failures are diagnosable instead of collapsing to a generic
 "provider unavailable" error.
+
+
+## CPU timeout calibration
+
+On the target CPU machine, the first multimodal request was still processing
+normally when the previous 45-second client timeout cancelled it. The server
+had processed 1594 tokens and reported no model failure.
+
+Defaults are therefore now:
+
+- `JARJAR_VISION_TIMEOUT=180`
+- `JARJAR_VISION_MAX_TOKENS=96`
+- smoke output limited to 48 tokens
+
+These remain configurable. The longer timeout reflects CPU inference latency;
+it is not evidence of a provider failure.
