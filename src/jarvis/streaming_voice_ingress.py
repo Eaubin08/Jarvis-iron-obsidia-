@@ -21,6 +21,8 @@ class StreamingVoiceIngress:
     max_utterance_seconds: float = 8.0
     silence_seconds: float = 0.65
     rms_threshold: int = 300
+    wake_speech_start_timeout: float = 3.0
+    follow_up_start_timeout: float = 2.0
 
     def capture_and_begin_turn(self, _duration_seconds: float = 0.0) -> str | None:
         reset = getattr(self.wake_word, "reset", None)
@@ -52,6 +54,7 @@ class StreamingVoiceIngress:
             max_seconds=self.max_utterance_seconds,
             silence_seconds=self.silence_seconds,
             rms_threshold=self.rms_threshold,
+            speech_start_timeout=self.wake_speech_start_timeout,
         )
         if not audio:
             return None
@@ -67,8 +70,10 @@ class StreamingVoiceIngress:
             max_seconds=self.max_utterance_seconds,
             silence_seconds=self.silence_seconds,
             rms_threshold=self.rms_threshold,
+            speech_start_timeout=self.follow_up_start_timeout,
         )
         if not audio:
+            self.conversation.follow_up_open = False
             raise ValueError("empty follow-up transcript")
         transcript = self.stt.transcribe(audio).strip()
         if not transcript:
