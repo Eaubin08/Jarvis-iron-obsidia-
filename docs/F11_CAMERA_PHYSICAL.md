@@ -38,3 +38,31 @@ python -m scripts.smoke_f11_camera
 Expected final line on success:
 
 `F11_PHYSICAL: PASS`
+
+
+## Dual-camera mode
+
+Jarjar can keep multiple physical cameras as independent capture sources.
+The canonical V0 composition is `CameraRig`, where every camera has its own
+`CameraRuntime` and observation identity.
+
+Automatic discovery/validation:
+
+```powershell
+python -m scripts.smoke_f11_dual_camera
+```
+
+The default scan is bounded to indices 0..4. To pin known cameras:
+
+```powershell
+$env:JARJAR_CAMERA_INDICES="0,1"
+python -m scripts.smoke_f11_dual_camera
+```
+
+Success requires two independent fresh evidence frames and ends with:
+
+`F11_DUAL_PHYSICAL: PASS`
+
+Camera feeds are not fused at this stage. Keeping observations separate avoids
+inventing cross-camera identity or spatial correspondence before a later
+calibration layer exists.
