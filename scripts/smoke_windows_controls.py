@@ -37,7 +37,7 @@ def _visible_windows() -> dict[int, str]:
     return windows
 
 
-def _new_window_title(before: set[int], timeout: float = 8.0) -> str:
+def _new_window(before: set[int], timeout: float = 8.0) -> tuple[int, str]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         current = _visible_windows()
@@ -57,7 +57,7 @@ def _new_window_title(before: set[int], timeout: float = 8.0) -> str:
                     for token in ("notepad", "bloc-notes", "bloc notes")
                 )
             ]
-            return (preferred or created)[0][1]
+            return (preferred or created)[0]
         time.sleep(0.2)
     raise RuntimeError("no new visible window appeared after app launch")
 
@@ -88,16 +88,16 @@ def main() -> int:
         before = set(_visible_windows())
         opened = driver.open_app("bloc notes")
         _dump("APP_OPEN", opened)
-        title = _new_window_title(before)
-        print(f"WINDOW_TARGET: {title}")
+        hwnd, title = _new_window(before)
+        print(f"WINDOW_TARGET: hwnd={hwnd} title={title}")
 
-        _dump("WINDOW_MAXIMIZE", driver.window_state(title, "maximize"))
+        _dump("WINDOW_MAXIMIZE", driver._window_state_hwnd(hwnd, "maximize"))
         time.sleep(0.4)
-        _dump("WINDOW_RESTORE", driver.window_state(title, "restore"))
+        _dump("WINDOW_RESTORE", driver._window_state_hwnd(hwnd, "restore"))
         time.sleep(0.4)
 
         try:
-            moved = driver.move_window_to_monitor(title, 2)
+            moved = driver._move_window_to_monitor_hwnd(hwnd, 2)
             _dump("WINDOW_MONITOR_2", moved)
             print("WINDOW_MULTI_MONITOR: PASS")
         except ValueError as exc:
@@ -106,7 +106,7 @@ def main() -> int:
             else:
                 raise
 
-        _dump("WINDOW_CLOSE", driver.close_window(title))
+        _dump("WINDOW_CLOSE", driver._close_window_hwnd(hwnd))
 
     except Exception as exc:
         print(f"WINDOWS_CONTROLS_PHYSICAL: FAIL {type(exc).__name__}: {exc}")
