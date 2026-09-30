@@ -20,7 +20,7 @@ Write-Host "JARJAR_VISION: starting Qwen2.5-VL-3B-Instruct Q4_K_M on port $Port"
 Write-Host "JARJAR_VISION: first launch may download the model from Hugging Face"
 
 if ($llama.Name -eq "llama-server.exe" -or $llama.Name -eq "llama-server") {
-    & $llama.Source -hf $Model --host 127.0.0.1 --port $Port -c $CtxSize
+    & $llama.Source -hf $Model --host 127.0.0.1 --port $Port -c $CtxSize --image-min-tokens 1024
 } else {
-    & $llama.Source serve -hf $Model --host 127.0.0.1 --port $Port -c $CtxSize
+    & $llama.Source serve -hf $Model --host 127.0.0.1 --port $Port -c $CtxSize --image-min-tokens 1024
 }
