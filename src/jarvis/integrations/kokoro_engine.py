@@ -7,7 +7,7 @@ from threading import Event
 
 
 class KokoroEngine:
-    def __init__(self, *, lang_code: str = "a", voice: str = "af_heart", sample_rate: int = 24000):
+    def __init__(self, *, lang_code: str = "f", voice: str = "ff_siwis", sample_rate: int = 24000):
         self.lang_code = lang_code
         self.voice = voice
         self.sample_rate = sample_rate
