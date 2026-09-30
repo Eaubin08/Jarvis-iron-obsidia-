@@ -2,21 +2,29 @@
 
 Status: READY / LOCAL PHYSICAL RUN REQUIRED
 
-This gate verifies that the real local TTS playback can be interrupted through
-the Jarvis-owned ConversationVoiceRuntime.bar​ge_in() path.
+This gate verifies that real local speaker playback can be interrupted through
+the Jarvis-owned ConversationVoiceRuntime.barge_in() path.
 
-It exercises:
+The first physical attempt exposed an important distinction: Kokoro synthesis
+can take longer than the two-second interruption delay. Cancelling during that
+generation phase sets the SpeechHandle stop flag, but there may be no audible
+playback yet and the synthesis thread can still be alive.
 
-    ConversationVoiceRuntime
-        -> LocalTTS
-        -> KokoroEngine
-        -> physical speaker playback
+Therefore this gate deliberately separates synthesis from playback:
+
+    KokoroEngine.synthesize()
+        -> complete WAV prepared first
+        -> ConversationVoiceRuntime.speak()
+        -> real KokoroEngine.play()
+        -> physical speakers
+        -> wait about 2 seconds
         -> barge_in()
         -> SpeechHandle.cancel()
         -> sounddevice stop
         -> LISTENING
 
-No donor owns the cancellation state.
+This proves the current V0 barge-in contract at the playback boundary without
+misclassifying Kokoro generation latency as a playback cancellation failure.
 
 ## Run
 
@@ -24,21 +32,29 @@ Enable the physical test:
 
     $env:JARVIS_REAL_BARGE_IN_TEST = "1"
 
-Run with the prepared Python runtime:
+Run:
 
     python -m pytest -q tests/test_f5_physical_barge_in.py -s
 
 Expected physical observation:
 
-- Jarvis begins speaking a deliberately long sentence.
-- Roughly two seconds later, playback stops before the sentence finishes.
-- The automated assertions pass with runtime state LISTENING and the follow-up
-  window still open.
+- there may be an initial synthesis delay before any sound;
+- Jarvis then begins speaking;
+- approximately two seconds after playback starts, the voice stops before the
+  sentence finishes;
+- pytest passes;
+- runtime ends in LISTENING with follow-up open.
 
 ## PASS meaning
 
-A PASS plus audible early cutoff proves the real Kokoro/local-audio SpeechHandle
-can be cancelled through the canonical Jarvis barge-in path.
+A PASS plus audible early cutoff proves:
 
-It does not yet prove acoustic echo cancellation or simultaneous
-microphone-during-speaker speech recognition. Those remain separate concerns.
+- real Kokoro-generated audio is played locally;
+- the canonical Jarvis SpeechHandle cancellation reaches physical playback;
+- sounddevice playback stops;
+- ConversationVoiceRuntime transitions to LISTENING;
+- follow-up remains open.
+
+This does NOT yet prove cancellation of Kokoro while synthesis itself is in
+progress, nor acoustic echo cancellation / simultaneous microphone recognition.
+Those are separate capabilities and must not be claimed by this gate.
