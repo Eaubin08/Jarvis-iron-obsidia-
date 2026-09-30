@@ -52,6 +52,15 @@ class StubCognition:
             "a plus": "À plus.",
             "ok": "D'accord.",
             "d accord": "D'accord.",
+            "comment vas tu": "Ça va, je suis opérationnel.",
+            "comment va tu": "Ça va, je suis opérationnel.",
+            "comment vas tu aujourd hui": "Ça va, je suis opérationnel.",
+            "comment va tu aujourd hui": "Ça va, je suis opérationnel.",
+            "qui es tu": "Je suis Jarjar, ton assistant local en construction.",
+            "qui est tu": "Je suis Jarjar, ton assistant local en construction.",
+            "quelles sont tes capacités": "Pour l'instant, je t'écoute, je te réponds et je garde une courte conversation ouverte.",
+            "quelle sont tes capacités": "Pour l'instant, je t'écoute, je te réponds et je garde une courte conversation ouverte.",
+            "que peux tu faire": "Pour l'instant, je t'écoute, je te réponds et je garde une courte conversation ouverte.",
         }
         if text in exact:
             return exact[text]
@@ -62,6 +71,10 @@ class StubCognition:
             return "Je t'écoute et je comprends ta phrase."
         if "on peut encore continuer" in text or text.startswith("on continue"):
             return "Oui, on continue."
+        if "comment vas tu" in text or "comment va tu" in text:
+            return "Ça va, je suis opérationnel."
+        if "capacités" in text or "capacites" in text or "que peux tu faire" in text:
+            return "Pour l'instant, je t'écoute, je te réponds et je garde une courte conversation ouverte."
         if text.startswith("hey jarvis"):
             remainder = text.removeprefix("hey jarvis").strip()
             if not remainder:
