@@ -9,6 +9,7 @@ Safe policy:
 from __future__ import annotations
 
 import json
+import os
 import time
 
 from jarvis.contracts import ActionRequest, ContextSnapshot, RiskClass
@@ -99,6 +100,11 @@ def main() -> int:
         try:
             moved = driver._move_window_to_monitor_hwnd(hwnd, 2)
             _dump("WINDOW_MONITOR_2", moved)
+            hold_seconds = float(os.getenv("JARJAR_SMOKE_WINDOW_HOLD_SECONDS", "5"))
+            print(
+                f"WINDOW_MULTI_MONITOR: moved to screen 2; holding {hold_seconds:.1f}s for visual confirmation"
+            )
+            time.sleep(max(0.0, hold_seconds))
             print("WINDOW_MULTI_MONITOR: PASS")
         except ValueError as exc:
             if "detected 1" in str(exc):
