@@ -1,6 +1,6 @@
 param(
     [int]$Port = 8081,
-    [int]$CtxSize = 4096,
+    [int]$CtxSize = 8192,
     [string]$Model = "ggml-org/Qwen2.5-VL-3B-Instruct-GGUF:Q4_K_M"
 )
 
