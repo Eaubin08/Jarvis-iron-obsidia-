@@ -6,6 +6,7 @@ not required for this standalone desktop milestone.
 from __future__ import annotations
 
 import os
+import threading
 
 from jarvis.core import JarvisCore
 from jarvis.hud_app import run_hud
@@ -36,9 +37,10 @@ def build_live_controller() -> HUDController:
         stt,
         os.getenv("JARVIS_WAKE_PHRASE", "hey jarvis"),
     )
+    kokoro = KokoroEngine(lang_code="f", voice="ff_siwis")
     conversation = ConversationVoiceRuntime(
         stt,
-        LocalTTS(KokoroEngine(lang_code="f", voice="ff_siwis")),
+        LocalTTS(kokoro),
     )
     ingress = VoiceIngressRuntime(
         WakeInputRuntime(microphone, wake, stt),
@@ -49,8 +51,19 @@ def build_live_controller() -> HUDController:
         ingress=ingress,
         core=core,
         conversation=conversation,
-        capture_seconds=float(os.getenv("JARVIS_VOICE_CAPTURE_SECONDS", "5.0")),
+        capture_seconds=float(os.getenv("JARVIS_VOICE_CAPTURE_SECONDS", "2.5")),
     )
+
+    # Load the heavier local models while the HUD is appearing so the first
+    # real interaction does not pay all initialization cost.
+    def warm_models():
+        for provider in (stt, kokoro):
+            try:
+                provider.warmup()
+            except Exception as exc:
+                model.append("SYSTEM", f"warmup {type(provider).__name__}: {exc}")
+
+    threading.Thread(target=warm_models, name="jarjar-model-warmup", daemon=True).start()
 
     controller_ref = {}
 
