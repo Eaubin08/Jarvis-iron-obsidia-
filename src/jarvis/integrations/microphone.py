@@ -78,10 +78,18 @@ class SoundDeviceMicrophone:
         min_seconds: float = 0.35,
         rms_threshold: int = 300,
         chunk_samples: int = 800,
+        speech_start_timeout: float | None = None,
     ) -> bytes:
-        """Capture one utterance and stop after sustained post-speech silence."""
+        """Capture one utterance and stop after sustained post-speech silence.
+
+        When speech_start_timeout is set, return empty if no speech starts in
+        that window. This is used for conversational follow-up so ambient audio
+        cannot keep Jarjar engaged indefinitely.
+        """
         if max_seconds <= 0 or silence_seconds <= 0 or min_seconds < 0:
             raise ValueError("invalid speech-boundary timing")
+        if speech_start_timeout is not None and speech_start_timeout <= 0:
+            raise ValueError("speech_start_timeout must be positive")
         if rms_threshold < 0 or chunk_samples <= 0:
             raise ValueError("invalid speech-boundary threshold")
 
@@ -111,6 +119,13 @@ class SoundDeviceMicrophone:
                     silence = 0.0
                 elif started:
                     silence += chunk_seconds
+
+                if (
+                    not started
+                    and speech_start_timeout is not None
+                    and elapsed >= speech_start_timeout
+                ):
+                    return b""
 
                 if started and elapsed >= min_seconds and silence >= silence_seconds:
                     break
