@@ -199,6 +199,7 @@ class JarjarHUD(tk.Tk):
             try:
                 self.controller.submit_text(text)
             except Exception as exc:
+                print(f"JARJAR_VOICE_LOOP: ERROR {type(exc).__name__}: {exc}")
                 self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
 
     def _start_voice_turn(self) -> None:
@@ -217,8 +218,12 @@ class JarjarHUD(tk.Tk):
             self._voice_busy.release()
 
     def _ensure_auto_voice(self) -> None:
+        if self._closing:
+            return
+
+        snap = self.controller.model.snapshot()
         if (
-            self.controller.model.snapshot()["voice_enabled"]
+            snap["voice_enabled"]
             and (self._voice_thread is None or not self._voice_thread.is_alive())
         ):
             self._voice_stop.clear()
@@ -228,8 +233,14 @@ class JarjarHUD(tk.Tk):
                 daemon=True,
             )
             self._voice_thread.start()
+            print("JARJAR_VOICE_LOOP: STARTED")
+
+        # Watchdog: if the always-listening thread ever exits unexpectedly,
+        # restart it automatically instead of leaving the HUD silently deaf.
+        self.after(1000, self._ensure_auto_voice)
 
     def _auto_voice_loop(self) -> None:
+        print("JARJAR_VOICE_LOOP: LISTENING")
         while not self._voice_stop.is_set():
             snap = self.controller.model.snapshot()
             if not snap["voice_enabled"]:
