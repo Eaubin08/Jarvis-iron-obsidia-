@@ -288,7 +288,7 @@ class JarjarHUD(tk.Tk):
         session_open = snap.get("session_open", False)
 
         if state == HUDState.LISTENING.value and session_open:
-            status_text = "● CONVERSATION // ÉCOUTE"
+            status_text = "● PARLE // ÉCOUTE"
             color = SESSION_COLOR
         elif state == HUDState.LISTENING.value:
             status_text = "● WAKE // ÉCOUTE"
@@ -297,7 +297,7 @@ class JarjarHUD(tk.Tk):
             status_text = "● RÉFLEXION"
             color = STATE_COLORS[state]
         elif state == HUDState.SPEAKING.value:
-            status_text = "● PARLE"
+            status_text = "● JARJAR PARLE"
             color = STATE_COLORS[state]
         elif session_open:
             status_text = "● CONVERSATION OUVERTE"
@@ -311,7 +311,7 @@ class JarjarHUD(tk.Tk):
         if not snap["voice_enabled"]:
             caption = "DESKTOP COMPANION // VOICE PAUSED"
         elif session_open:
-            caption = "CONVERSATION OPEN // PARLE NATURELLEMENT"
+            caption = "PARLE // JE T'ÉCOUTE"
         else:
             caption = "WAKE MODE // DIS « HEY JARVIS »"
         self.avatar_caption.configure(text=caption, fg=color)
