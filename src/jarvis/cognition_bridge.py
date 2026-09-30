@@ -195,11 +195,11 @@ class CostAwareCognitionRouter:
                     # Rewrite only this already-classified identity alias so the
                     # real 8012 Domain Raccord can answer structurally.
                     brody_input = (
-                        "Explique le rôle de Brody dans les contrats et l'architecture Obsidia."
+                        "Qui peut faire quoi entre Brody, X108 et humain mémoire ?"
                     )
                     print(
                         "JARJAR_BRODY_ALIAS: "
-                        "Jarjar identity -> canonical Brody architecture/contract role query"
+                        "Jarjar identity -> canonical Brody capability/governance query"
                     )
                 answer = self._brody(brody_input, context)
                 if answer:
