@@ -74,3 +74,17 @@ def test_empty_text_fails_without_fake_message():
         pass
 
     assert model.snapshot()["messages"] == []
+
+
+def test_hud_model_tracks_conversation_session_separately_from_voice_state():
+    model = HUDModel()
+    assert model.snapshot()["session_open"] is False
+
+    model.set_session_open(True)
+    model.set_state(HUDState.LISTENING)
+    snap = model.snapshot()
+    assert snap["session_open"] is True
+    assert snap["state"] == "listening"
+
+    model.set_voice_enabled(False)
+    assert model.snapshot()["session_open"] is False
