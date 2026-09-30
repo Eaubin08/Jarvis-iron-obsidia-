@@ -59,7 +59,7 @@ def _discover_local_endpoint(timeout: float = 0.6) -> str:
 
 @dataclass
 class ObsidiaStackCognition:
-    endpoint: str = "http://127.0.0.1:8000/api/brody/chat"
+    endpoint: str = "http://127.0.0.1:8012/api/brody/chat"
     api_key: str = ""
     timeout_seconds: float = 20.0
     allow_provider: bool = True
@@ -121,6 +121,10 @@ class ObsidiaStackCognition:
         if not isinstance(true_voice, dict):
             true_voice = {}
 
+        domain_raccord = true_voice.get("domain_raccord_snapshot")
+        if not isinstance(domain_raccord, dict):
+            domain_raccord = {}
+
         memory_source_mode = str(
             memory_snapshot.get("source_mode") or ""
         ).strip()
@@ -152,6 +156,12 @@ class ObsidiaStackCognition:
                 true_voice.get("final_answer_source")
                 or true_voice.get("voice_source")
             ),
+            "domain_raccord_status": domain_raccord.get("status"),
+            "domain_voice_mode": true_voice.get("domain_voice_mode"),
+            "domain_structural_answer_available": domain_raccord.get(
+                "structural_answer_available"
+            ),
+            "domain_memory_dependency": domain_raccord.get("memory_dependency"),
             "provider_status": packet.get("provider_status"),
             "provider_called": packet.get("provider_called"),
             "selected_provider": packet.get("selected_provider"),
@@ -185,6 +195,14 @@ class ObsidiaStackCognition:
             + f" readonly={packet.get('readonly')}"
         )
 
+        structural_answer = domain_raccord.get("structural_answer")
+        structural_answer_safe = (
+            domain_raccord.get("structural_answer_available") is True
+            and str(domain_raccord.get("memory_dependency") or "").upper() == "NONE"
+            and isinstance(structural_answer, str)
+            and bool(structural_answer.strip())
+        )
+
         candidates = (
             true_voice.get("final_answer"),
             packet.get("response"),
@@ -216,17 +234,25 @@ class ObsidiaStackCognition:
                 "native_memory_active=False"
             )
 
-        answer = next(
-            (
-                candidate.strip()
+        if structural_answer_safe:
+            answer = structural_answer.strip()
+            print(
+                "JARJAR_BRODY_DOMAIN: ACCEPT_STRUCTURAL "
+                f"mode={true_voice.get('domain_voice_mode') or 'UNKNOWN'} "
+                "memory_dependency=NONE"
+            )
+        else:
+            answer = next(
+                (
+                    candidate.strip()
                 for candidate in candidates
                 if isinstance(candidate, str)
                 and candidate.strip()
                 and not _is_legacy_graphiti_text(candidate)
-                and not (legacy_memory_active and memory_derived_voice)
-            ),
-            "",
-        )
+                    and not (legacy_memory_active and memory_derived_voice)
+                ),
+                "",
+            )
 
         # If the connected Brody runtime exposes the current Native Memory
         # snapshot but its presentation layer still leaks an old Graphiti
