@@ -1,10 +1,10 @@
 import os
 import time
+from threading import Event, Thread
 
 import pytest
 
 from jarvis.integrations.kokoro_engine import KokoroEngine
-from jarvis.integrations.local_tts import LocalTTS
 from jarvis.voice_runtime import ConversationVoiceRuntime, VoiceState
 
 
@@ -16,25 +16,70 @@ class UnusedSTT:
         raise AssertionError("STT must not be used by the physical barge-in gate")
 
 
+class PreSynthesizedPhysicalTTS:
+    """Physical TTS test double: synthesis happens before speak(), playback stays real."""
+
+    def __init__(self, engine, audio):
+        self.engine = engine
+        self.audio = audio
+
+    def speak(self, text):
+        if not text.strip():
+            raise ValueError("speech text must not be empty")
+        stop = Event()
+
+        def run():
+            self.engine.play(self.audio, stop)
+
+        thread = Thread(target=run, name="jarvis-physical-playback", daemon=True)
+        thread.start()
+
+        class Handle:
+            def cancel(self):
+                stop.set()
+
+            def wait(self, timeout=None):
+                thread.join(timeout)
+
+            @property
+            def stop(self):
+                return stop
+
+            @property
+            def thread(self):
+                return thread
+
+        return Handle()
+
+
 @pytest.mark.skipif(
     os.environ.get(ENV) != "1",
     reason="JARVIS_REAL_BARGE_IN_TEST=1 required for physical TTS interruption",
 )
-def test_physical_tts_is_cancelled_by_barge_in():
-    runtime = ConversationVoiceRuntime(UnusedSTT(), LocalTTS(KokoroEngine()))
+def test_physical_tts_playback_is_cancelled_by_barge_in():
+    engine = KokoroEngine()
 
-    handle = runtime.speak(
+    # Synthesize before starting the timed interruption. This separates slow
+    # model generation from the thing this gate is proving: live audio cutoff.
+    audio = engine.synthesize(
         "This is a deliberately long Jarvis response used to verify physical "
-        "barge in. The speech should stop before this sentence finishes. "
-        "If you can still hear this final sentence, interruption did not work."
+        "barge in. You should hear this sentence begin, and then the playback "
+        "must stop before I finish speaking the rest of this message."
     )
+
+    runtime = ConversationVoiceRuntime(
+        UnusedSTT(),
+        PreSynthesizedPhysicalTTS(engine, audio),
+    )
+
+    handle = runtime.speak("pre-synthesized physical playback")
     assert runtime.state is VoiceState.SPEAKING
 
-    # Give synthesis/playback enough time to become audible on the target machine.
+    # At this point audio playback has started; make the cutoff audible.
     time.sleep(2.0)
     runtime.barge_in()
 
-    handle.wait(10.0)
+    handle.wait(5.0)
 
     assert handle.stop.is_set()
     assert not handle.thread.is_alive()
