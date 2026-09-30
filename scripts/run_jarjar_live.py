@@ -68,7 +68,7 @@ def build_live_controller() -> HUDController:
         silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.35")),
         rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
         wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "6.0")),
-        follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "4.0")),
+        follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "3.0")),
         on_wake=lambda: model.set_session_open(True),
     )
     local_presence = StubCognition()
@@ -186,9 +186,10 @@ def build_live_controller() -> HUDController:
         voice_turn_handler=bridge.run_wake_turn,
         follow_up_turn_handler=bridge.run_follow_up_turn,
         response_source=lambda: core.last_source,
+        conversation_idle_seconds=float(os.getenv("JARVIS_SESSION_IDLE_SECONDS", "20.0")),
     )
     controller_ref["controller"] = controller
-    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis », puis parle dès que le HUD affiche PARLE.")
+    model.append("SYSTEM", "Voix prête. Un « Hey Jarvis » ouvre une conversation ; ensuite parle naturellement sans répéter le wake word.")
     return controller
 
 
