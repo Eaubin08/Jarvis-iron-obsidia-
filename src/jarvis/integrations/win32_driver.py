@@ -2,10 +2,15 @@
 from __future__ import annotations
 
 import ctypes
+import os
 import subprocess
+
+from .windows_app_inventory import WindowsAppInventory
 
 
 class Win32Driver:
+    def __init__(self, app_inventory: WindowsAppInventory | None = None) -> None:
+        self.app_inventory = app_inventory or WindowsAppInventory()
     def _modules(self):
         try:
             import win32con
@@ -16,8 +21,23 @@ class Win32Driver:
         return win32con, win32gui, win32process
 
     def open_app(self, app: str) -> dict:
-        process = subprocess.Popen([app])
-        return {"app": app, "pid": process.pid}
+        entry = self.app_inventory.resolve(app)
+        target = entry.target if entry is not None else app
+        if target.casefold().endswith(".lnk"):
+            os.startfile(target)
+            return {
+                "app": app,
+                "target": target,
+                "source": entry.source if entry else "direct",
+                "pid": None,
+            }
+        process = subprocess.Popen([target])
+        return {
+            "app": app,
+            "target": target,
+            "source": entry.source if entry else "direct",
+            "pid": process.pid,
+        }
 
     def list_windows(self) -> dict:
         _, win32gui, win32process = self._modules()
