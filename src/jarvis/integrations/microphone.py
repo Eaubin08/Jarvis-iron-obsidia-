@@ -98,6 +98,7 @@ class SoundDeviceMicrophone:
         started = False
         silence = 0.0
         elapsed = 0.0
+        max_rms = 0
         chunk_seconds = chunk_samples / self.sample_rate
 
         with sd.RawInputStream(
@@ -113,6 +114,7 @@ class SoundDeviceMicrophone:
                 chunks.append(raw)
                 elapsed += chunk_seconds
                 rms = audioop.rms(raw, 2)
+                max_rms = max(max_rms, rms)
 
                 if rms >= rms_threshold:
                     started = True
@@ -125,11 +127,24 @@ class SoundDeviceMicrophone:
                     and speech_start_timeout is not None
                     and elapsed >= speech_start_timeout
                 ):
+                    print(
+                        f"JARJAR_MIC: NO_SPEECH max_rms={max_rms} "
+                        f"threshold={rms_threshold} elapsed={elapsed:.2f}s"
+                    )
                     return b""
 
                 if started and elapsed >= min_seconds and silence >= silence_seconds:
                     break
 
         if not started:
+            print(
+                f"JARJAR_MIC: NO_SPEECH max_rms={max_rms} "
+                f"threshold={rms_threshold} elapsed={elapsed:.2f}s"
+            )
             return b""
-        return b"".join(chunks)
+        audio = b"".join(chunks)
+        print(
+            f"JARJAR_MIC: CAPTURED bytes={len(audio)} max_rms={max_rms} "
+            f"threshold={rms_threshold} elapsed={elapsed:.2f}s"
+        )
+        return audio
