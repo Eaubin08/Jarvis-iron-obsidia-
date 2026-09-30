@@ -38,6 +38,25 @@ def _default_transport(request: Request, timeout: float) -> bytes:
         return response.read()
 
 
+def _discover_local_endpoint(timeout: float = 0.6) -> str:
+    candidates = (
+        "http://127.0.0.1:8012/api/brody/chat",
+        "http://127.0.0.1:8000/api/brody/chat",
+    )
+    for candidate in candidates:
+        status_url = candidate.rsplit("/api/brody/chat", 1)[0] + "/api/status"
+        try:
+            request = Request(status_url, method="GET")
+            with urlopen(request, timeout=timeout):
+                print(f"JARJAR_OBSIDIA: discovered {candidate}")
+                return candidate
+        except Exception:
+            continue
+    fallback = candidates[0]
+    print(f"JARJAR_OBSIDIA: no local status endpoint detected, fallback={fallback}")
+    return fallback
+
+
 @dataclass
 class ObsidiaStackCognition:
     endpoint: str = "http://127.0.0.1:8000/api/brody/chat"
@@ -200,11 +219,10 @@ class ObsidiaStackCognition:
 
 
 def from_environment() -> ObsidiaStackCognition:
+    configured_endpoint = os.getenv("JARJAR_OBSIDIA_CHAT_URL", "").strip()
+    endpoint = configured_endpoint or _discover_local_endpoint()
     return ObsidiaStackCognition(
-        endpoint=os.getenv(
-            "JARJAR_OBSIDIA_CHAT_URL",
-            "http://127.0.0.1:8000/api/brody/chat",
-        ),
+        endpoint=endpoint,
         api_key=os.getenv("OBSIDIA_API_KEY", ""),
         timeout_seconds=float(os.getenv("JARJAR_OBSIDIA_TIMEOUT", "20")),
         allow_provider=os.getenv("JARJAR_OBSIDIA_ALLOW_PROVIDER", "1").strip().lower()
