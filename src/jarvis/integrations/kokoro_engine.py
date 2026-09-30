@@ -22,6 +22,10 @@ class KokoroEngine:
             self._pipeline = KPipeline(lang_code=self.lang_code)
         return self._pipeline
 
+    def warmup(self) -> None:
+        """Load the Kokoro pipeline before the first spoken reply."""
+        self._load()
+
     def synthesize(self, text: str) -> bytes:
         if not text.strip():
             raise ValueError("text must not be empty")
