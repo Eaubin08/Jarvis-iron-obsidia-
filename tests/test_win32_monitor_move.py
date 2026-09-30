@@ -17,7 +17,7 @@ class Layout:
 
 
 class Provider:
-    def snapshot(self):
+    def layout(self):
         return Layout()
 
 
