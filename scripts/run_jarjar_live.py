@@ -29,7 +29,7 @@ def build_live_controller() -> HUDController:
     )
     wake = OpenWakeWordProvider.builtin(
         os.getenv("JARVIS_WAKEWORD_MODEL", "hey_jarvis"),
-        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.20")),
+        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.35")),
         inference_framework="onnx",
     )
     kokoro = KokoroEngine(lang_code="f", voice="ff_siwis")
@@ -51,6 +51,8 @@ def build_live_controller() -> HUDController:
         max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "8.0")),
         silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.35")),
         rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
+        wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "3.0")),
+        follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "2.0")),
     )
     core = JarvisCore(StubCognition(), StubMemory())
     bridge = HUDLiveVoiceBridge(
