@@ -275,6 +275,51 @@ def build_true_brody_answer(
         if not voice_source:
             voice_source = "PROJECT_MEMORY"
 
+    # 5B. Known semantic topic without memory activation.
+    # MEMZUM remains authoritative on memory activation; semantic routing can
+    # still provide a canonical readonly answer without forcing retrieval.
+    semantic_snapshot = (
+        ctx.get("semantic_query_snapshot", {})
+        if isinstance(ctx.get("semantic_query_snapshot", {}), dict)
+        else {}
+    )
+    semantic_topic = str(
+        semantic_snapshot.get("topic")
+        or ""
+    ).strip()
+
+    if (
+        not domain_answered
+        and not action_boundary_already
+        and not creator_detected
+        and chain.get("status") == "MEMORY_NOT_REQUIRED"
+        and semantic_topic
+        and semantic_topic != "GENERAL"
+    ):
+        if fr:
+            answer_parts = [
+                _synthesize_auditor_response_fr(
+                    user_message,
+                    semantic_topic,
+                    "",
+                    [],
+                    0,
+                    "NO_MATERIAL",
+                )
+            ]
+        else:
+            answer_parts = [
+                _synthesize_auditor_response_en(
+                    user_message,
+                    semantic_topic,
+                    "",
+                    [],
+                    0,
+                    "NO_MATERIAL",
+                )
+            ]
+        voice_source = "SEMANTIC_ADVISORY_NO_MEMORY"
+
     # 6. Operator loop / freeze state
     op = freeze.get("operator_loop", {})
     if op.get("status"):
