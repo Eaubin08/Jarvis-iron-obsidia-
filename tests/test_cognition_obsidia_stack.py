@@ -88,3 +88,38 @@ def test_obsidia_stack_rejects_legacy_memory_pass_without_native_memory():
     assert "ancien fallback Graphiti" in answer
     assert provider.last_trace["native_memory_active"] is False
     assert provider.last_trace["legacy_memory_active"] is True
+
+
+def test_obsidia_stack_accepts_memory_independent_domain_raccord_on_legacy_memory():
+    def transport(request, timeout):
+        return json.dumps({
+            "source": "REAL_BRODY_RUNTIME_NO_GRAPHITI",
+            "voice_runtime": "BRODY_OBSIDIEN_V1_4_12A",
+            "memory_response_chain_snapshot": {
+                "source_mode": "LOCAL_GRAPHITI_INDEX_FALLBACK",
+                "chain_source": "local_graphiti_index→hydrate_packet→local_response_engine",
+                "status": "BRODY_MEMORY_RESPONSE_CHAIN_PASS",
+            },
+            "true_voice_snapshot": {
+                "final_answer": "Legacy memory answer that must not win.",
+                "final_answer_source": "MEMORY_RESPONSE_CHAIN",
+                "domain_voice_mode": "DOMAIN_RACCORD_READONLY_STATE",
+                "domain_raccord_snapshot": {
+                    "status": "DOMAIN_RACCORD_READY",
+                    "structural_answer_available": True,
+                    "structural_answer": "Brody observe le runtime en lecture seule. Autorité : KX108_ONLY.",
+                    "memory_dependency": "NONE",
+                    "memory_enrichment": "OPTIONAL",
+                },
+            },
+            "decision_authority": "KX108_ONLY",
+            "readonly": True,
+        }).encode("utf-8")
+
+    provider = ObsidiaStackCognition(transport=transport)
+    answer = provider.respond("Quel est ton rôle en tant que Jarjar ?", ctx())
+
+    assert answer == "Brody observe le runtime en lecture seule. Autorité : KX108_ONLY."
+    assert provider.last_trace["legacy_memory_active"] is True
+    assert provider.last_trace["domain_structural_answer_available"] is True
+    assert provider.last_trace["domain_memory_dependency"] == "NONE"
