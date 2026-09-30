@@ -63,14 +63,14 @@ class PreSynthesizedPhysicalTTS:
     reason="JARVIS_REAL_BARGE_IN_TEST=1 required for physical TTS interruption",
 )
 def test_physical_tts_playback_is_cancelled_by_barge_in():
-    engine = KokoroEngine()
+    engine = KokoroEngine(lang_code="f", voice="ff_siwis")
 
     # Synthesize before starting the timed interruption. This separates slow
     # model generation from the thing this gate is proving: live audio cutoff.
     audio = engine.synthesize(
-        "This is a deliberately long Jarvis response used to verify physical "
-        "barge in. You should hear this sentence begin, and then the playback "
-        "must stop before I finish speaking the rest of this message."
+        "Bonjour, je suis Jarvis. Cette phrase est volontairement assez longue "
+        "pour vérifier que mon audio peut être interrompu pendant que je parle. "
+        "La lecture doit s'arrêter avant que je termine complètement ce message."
     )
 
     runtime = ConversationVoiceRuntime(
@@ -78,7 +78,7 @@ def test_physical_tts_playback_is_cancelled_by_barge_in():
         PreSynthesizedPhysicalTTS(engine, audio),
     )
 
-    handle = runtime.speak("pre-synthesized physical playback")
+    handle = runtime.speak("lecture physique pré-synthétisée")
     assert runtime.state is VoiceState.SPEAKING
 
     # At this point audio playback has started; make the cutoff audible.
