@@ -46,6 +46,21 @@ def is_visual_query(text: str) -> bool:
     return _matches(text, _VISUAL_PATTERNS)
 
 
+def is_short_followup(text: str) -> bool:
+    value = " ".join(text.casefold().split())
+    if not value:
+        return False
+    tokens = value.split()
+    if len(tokens) > 14:
+        return False
+    starters = (
+        "oui", "non", "continue", "continues", "pourquoi", "comment",
+        "explique", "developpe", "développe", "et ", "donc ", "mais ",
+        "dans tout ça", "dans tout ca", "et après", "et apres",
+    )
+    return any(value == item.strip() or value.startswith(item) for item in starters)
+
+
 @dataclass
 class CostAwareCognitionRouter:
     local_presence: object
@@ -91,6 +106,21 @@ class CostAwareCognitionRouter:
             if isinstance(local, str) and local.strip():
                 self.last_route = "local"
                 return local.strip()
+
+        # Preserve conversational continuity: a short follow-up after a
+        # successful Brody turn stays on Brody unless the user explicitly asks
+        # for visual/environment context. This avoids stateless Qwen detours on
+        # "oui", "pourquoi ?", "continue", "et après ?", etc.
+        if (
+            self.last_route in {"brody", "brody_fallback"}
+            and is_short_followup(user_input)
+            and not is_visual_query(user_input)
+            and not is_live_environment_query(user_input)
+        ):
+            answer = self._brody(user_input, context)
+            if answer:
+                self.last_route = "brody"
+                return answer
 
         # Visual semantics require an actual vision provider. Fall back to
         # structured live metadata if vision is unavailable.
