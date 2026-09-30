@@ -6,6 +6,7 @@ wake detector fires and the utterance recorder reaches end-of-speech.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 
 from .voice_runtime import ConversationVoiceRuntime
 
@@ -26,9 +27,26 @@ class StreamingVoiceIngress:
         if callable(reset):
             reset()
 
+        peak = 0.0
+        last_report = time.monotonic()
         for chunk in self.microphone.iter_chunks(chunk_samples=self.chunk_samples):
-            if self.wake_word.detect(chunk):
+            detected = self.wake_word.detect(chunk)
+            score = float(getattr(self.wake_word, "last_score", 0.0))
+            peak = max(peak, score)
+            now = time.monotonic()
+            if detected:
+                print(
+                    f"JARJAR_WAKE: DETECTED model={getattr(self.wake_word, 'last_model', '')} "
+                    f"score={score:.3f} threshold={getattr(self.wake_word, 'threshold', 0.0):.3f}"
+                )
                 break
+            if now - last_report >= 2.0:
+                print(
+                    f"JARJAR_WAKE: listening peak={peak:.3f} "
+                    f"threshold={getattr(self.wake_word, 'threshold', 0.0):.3f}"
+                )
+                peak = 0.0
+                last_report = now
 
         audio = self.microphone.capture_until_silence(
             max_seconds=self.max_utterance_seconds,
