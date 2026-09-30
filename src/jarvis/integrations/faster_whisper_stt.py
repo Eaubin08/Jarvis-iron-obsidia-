@@ -1,10 +1,30 @@
 """Local faster-whisper adapter for Jarvis SpeechToTextProvider."""
 from __future__ import annotations
 
+import re
 import tempfile
+import unicodedata
 import wave
 from pathlib import Path
 
+
+_KNOWN_HALLUCINATIONS = (
+    "sous titres realises par la communaute d amara org",
+    "les sous titres de cette session ont ete realises par la communaute d amara org",
+    "merci d avoir regarde cette video",
+    "merci d avoir visionne cette video",
+    "n oubliez pas de vous abonner",
+)
+
+def _normalize_gate_text(text: str) -> str:
+    value = unicodedata.normalize("NFKD", text.casefold())
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return " ".join(value.split())
+
+def _known_hallucination(text: str) -> bool:
+    value = _normalize_gate_text(text)
+    return any(phrase in value for phrase in _KNOWN_HALLUCINATIONS)
 
 class FasterWhisperSTT:
     def __init__(
@@ -61,7 +81,35 @@ class FasterWhisperSTT:
             if self.language:
                 kwargs["language"] = self.language
             segments, _ = self._load().transcribe(str(path), **kwargs)
-            return " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+            accepted: list[str] = []
+            for segment in segments:
+                text = segment.text.strip()
+                if not text:
+                    continue
+
+                no_speech_prob = float(getattr(segment, "no_speech_prob", 0.0) or 0.0)
+                avg_logprob = float(getattr(segment, "avg_logprob", 0.0) or 0.0)
+
+                # Reject weak speech hypotheses before they reach cognition.
+                if no_speech_prob >= 0.70 and avg_logprob <= -0.80:
+                    print(
+                        "JARJAR_STT: REJECTED low-confidence "
+                        f"no_speech={no_speech_prob:.2f} avg_logprob={avg_logprob:.2f} "
+                        f"text={text!r}"
+                    )
+                    continue
+
+                if _known_hallucination(text):
+                    print(f"JARJAR_STT: REJECTED known-hallucination text={text!r}")
+                    continue
+
+                accepted.append(text)
+
+            transcript = " ".join(accepted).strip()
+            if transcript and _known_hallucination(transcript):
+                print(f"JARJAR_STT: REJECTED known-hallucination transcript={transcript!r}")
+                return ""
+            return transcript
         finally:
             path.unlink(missing_ok=True)
 
