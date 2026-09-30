@@ -183,7 +183,21 @@ class CostAwareCognitionRouter:
                 return direct.strip()
 
             if route in {"brody", "lean_route_only", "domain_bridge", "obsidure_route_only"}:
-                answer = self._brody(user_input, context)
+                brody_input = user_input
+                topic = getattr(pre_decision, "topic", {})
+                if (
+                    isinstance(topic, dict)
+                    and topic.get("topic") == "OBSIDIA_BRODY_ROLE"
+                    and "jarjar" in user_input.casefold()
+                ):
+                    # Jarjar is the local surface identity; Brody's canonical
+                    # semantic/domain adapters know the underlying role as Brody.
+                    # Rewrite only this already-classified identity alias so the
+                    # real 8012 Domain Raccord can answer structurally.
+                    brody_input = (
+                        "Qu'est-ce que tu sais du projet Obsidia et de ton rôle Brody ?"
+                    )
+                answer = self._brody(brody_input, context)
                 if answer:
                     self.last_route = "brody"
                     return answer
