@@ -759,16 +759,33 @@ def _synthesize_auditor_response_fr(
             )
 
     elif topic == "OBSIDIA_BRODY_ROLE":
-        lines.append(
-            "Obsidia est une architecture structure-first : kernel X108 pour la decision, "
-            "la mémoire Obsidia native pour le contexte mémoire, OS Trad pour la traduction langage humain/structure, "
-            "Reverse OS pour la réponse naturelle. Brody est la surface de réponse du Reverse OS : "
-            "consultatif, structuré, jamais décisionnaire."
-        )
+        if "jarjar" in user_message.lower():
+            lines.append(
+                "En tant que Jarjar, je suis la surface locale de dialogue raccordée à la cognition Brody/Obsidia. "
+                "Mon rôle est de comprendre la demande, mobiliser le contexte readonly utile, structurer la réponse "
+                "et proposer sans jamais prendre l'autorité de décision. X108/KX108 reste seul décisionnaire."
+            )
+        else:
+            lines.append(
+                "Obsidia est une architecture structure-first : kernel X108 pour la decision, "
+                "la mémoire Obsidia native pour le contexte mémoire, OS Trad pour la traduction langage humain/structure, "
+                "Reverse OS pour la réponse naturelle. Brody est la surface de réponse du Reverse OS : "
+                "consultatif, structuré, jamais décisionnaire."
+            )
         if has_material:
             lines.append(
                 f"La mémoire du projet contient {item_count} sources sur l'architecture Obsidia, "
                 "les agents, les preuves et les rôles."
+            )
+
+    elif topic == "OBSIDIA_PROJECT":
+        lines.append(
+            "Obsidia est le cadre structure-first du projet : cognition et contexte en périphérie, "
+            "mémoire native en lecture seule, traduction par les couches OS, et autorité de décision réservée à X108/KX108."
+        )
+        if has_material:
+            lines.append(
+                f"La mémoire a fourni {item_count} source(s) readonly pour enrichir cette réponse."
             )
 
     elif topic == "OPERATOR_LOOP":
