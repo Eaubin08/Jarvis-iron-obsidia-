@@ -141,3 +141,22 @@ def test_readonly_mode_question_does_not_escalate_to_qwen():
 
     assert "déjà en lecture seule" in answer
     assert qwen.calls == []
+
+
+def test_jarjar_role_alias_calls_brody_with_canonical_role_query():
+    brody = Provider("brody role answer")
+    qwen = Provider("qwen")
+    router = CostAwareCognitionRouter(
+        StubCognition(),
+        brody,
+        qwen,
+        pre_inference=ObsidiaPreInferenceAdapter(),
+    )
+
+    answer = router.respond("Quel est ton rôle en tant que Jarjar ?", ctx())
+
+    assert answer == "brody role answer"
+    assert brody.calls == [
+        ("Qu'est-ce que tu sais du projet Obsidia et de ton rôle Brody ?", False)
+    ]
+    assert qwen.calls == []
