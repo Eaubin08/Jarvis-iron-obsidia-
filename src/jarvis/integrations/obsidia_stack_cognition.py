@@ -131,6 +131,13 @@ class ObsidiaStackCognition:
             memory_source_mode == "OBSIDIA_NATIVE_MEMORY"
             or memory_chain_source.startswith("obsidia_native_memory")
         )
+        legacy_memory_active = (
+            not native_memory_active
+            and (
+                "GRAPHITI" in memory_source_mode.upper()
+                or "graphiti" in memory_chain_source.casefold()
+            )
+        )
 
         self.last_trace = {
             "source": packet.get("source"),
@@ -140,6 +147,7 @@ class ObsidiaStackCognition:
             "memory_status": memory_snapshot.get("status"),
             "memory_retrieval_status": memory_snapshot.get("retrieval_status"),
             "native_memory_active": native_memory_active,
+            "legacy_memory_active": legacy_memory_active,
             "true_voice_source": (
                 true_voice.get("final_answer_source")
                 or true_voice.get("voice_source")
@@ -183,6 +191,31 @@ class ObsidiaStackCognition:
             packet.get("final_answer"),
         )
 
+        true_voice_source = str(
+            true_voice.get("final_answer_source")
+            or true_voice.get("voice_source")
+            or ""
+        ).strip()
+        memory_derived_voice = (
+            true_voice_source in {
+                "MEMORY_RESPONSE_CHAIN",
+                "LOCAL_GRAPHITI_INDEX_FALLBACK",
+            }
+            or "MEMORY" in true_voice_source.upper()
+            or "GRAPHITI" in true_voice_source.upper()
+        )
+
+        if (
+            legacy_memory_active
+            and memory_snapshot.get("status") == "BRODY_MEMORY_RESPONSE_CHAIN_PASS"
+        ):
+            print(
+                "JARJAR_BRODY_MEMORY: UNTRUSTED_PASS "
+                f"source={memory_source_mode or 'UNKNOWN'} "
+                f"chain={memory_chain_source or 'UNKNOWN'} "
+                "native_memory_active=False"
+            )
+
         answer = next(
             (
                 candidate.strip()
@@ -190,6 +223,7 @@ class ObsidiaStackCognition:
                 if isinstance(candidate, str)
                 and candidate.strip()
                 and not _is_legacy_graphiti_text(candidate)
+                and not (legacy_memory_active and memory_derived_voice)
             ),
             "",
         )
@@ -207,7 +241,10 @@ class ObsidiaStackCognition:
                 answer = native_response.strip()
 
         if not answer:
-            legacy_seen = any(_is_legacy_graphiti_text(value) for value in candidates)
+            legacy_seen = (
+                legacy_memory_active
+                or any(_is_legacy_graphiti_text(value) for value in candidates)
+            )
             if legacy_seen:
                 return (
                     "Le runtime Brody connecté a renvoyé un ancien fallback Graphiti. "
