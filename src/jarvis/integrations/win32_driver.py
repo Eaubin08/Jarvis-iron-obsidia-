@@ -142,3 +142,190 @@ class Win32Driver:
             if status.BatteryLifeTime == 0xFFFFFFFF
             else int(status.BatteryLifeTime),
         }
+
+
+    def _run_powershell_json(self, script: str) -> object:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script + " | ConvertTo-Json -Compress -Depth 4",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=12,
+        )
+        if result.returncode != 0:
+            message = (result.stderr or result.stdout or "PowerShell command failed").strip()
+            raise RuntimeError(message[:1000])
+        raw = result.stdout.strip()
+        if not raw:
+            return None
+        import json
+        return json.loads(raw)
+
+    def wifi_status(self) -> dict:
+        script = r"""
+$items = Get-NetAdapter -Physical -ErrorAction SilentlyContinue |
+  Where-Object {
+    $_.Name -match 'Wi-Fi|Wireless|WLAN' -or
+    $_.InterfaceDescription -match 'Wi-Fi|Wireless|802\.11|WLAN'
+  } |
+  Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed
+$items
+"""
+        data = self._run_powershell_json(script)
+        if data is None:
+            adapters = []
+        elif isinstance(data, list):
+            adapters = data
+        else:
+            adapters = [data]
+        return {"adapters": adapters, "available": bool(adapters)}
+
+    def wifi_set_enabled(self, enabled: bool) -> dict:
+        status = self.wifi_status()
+        adapters = status["adapters"]
+        if not adapters:
+            raise ValueError("Wi-Fi adapter not found")
+        if len(adapters) != 1:
+            raise ValueError("multiple Wi-Fi adapters found; explicit adapter selection required")
+        name = adapters[0].get("Name")
+        if not isinstance(name, str) or not name:
+            raise ValueError("Wi-Fi adapter has no usable name")
+        escaped = name.replace("'", "''")
+        verb = "Enable-NetAdapter" if enabled else "Disable-NetAdapter"
+        script = (
+            f"Get-NetAdapter -Name '{escaped}' -ErrorAction Stop | "
+            f"{verb} -Confirm:$false -PassThru | "
+            "Select-Object Name, Status, InterfaceDescription"
+        )
+        data = self._run_powershell_json(script)
+        return {"enabled": enabled, "adapter": data}
+
+    def bluetooth_status(self) -> dict:
+        script = r"""
+$items = Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue |
+  Where-Object {
+    $_.FriendlyName -match 'adapter|radio|bluetooth' -and
+    $_.InstanceId -notmatch '^BTHENUM'
+  } |
+  Select-Object FriendlyName, Status, InstanceId, Class
+$items
+"""
+        data = self._run_powershell_json(script)
+        if data is None:
+            devices = []
+        elif isinstance(data, list):
+            devices = data
+        else:
+            devices = [data]
+        return {"devices": devices, "available": bool(devices)}
+
+    def bluetooth_set_enabled(self, enabled: bool) -> dict:
+        status = self.bluetooth_status()
+        devices = status["devices"]
+        candidates = [
+            device for device in devices
+            if isinstance(device.get("FriendlyName"), str)
+            and any(
+                token in device["FriendlyName"].casefold()
+                for token in ("adapter", "radio")
+            )
+        ]
+        if len(candidates) != 1:
+            raise ValueError(
+                "Bluetooth radio identity is ambiguous; explicit physical validation required"
+            )
+        instance_id = candidates[0].get("InstanceId")
+        if not isinstance(instance_id, str) or not instance_id:
+            raise ValueError("Bluetooth radio has no usable InstanceId")
+        escaped = instance_id.replace("'", "''")
+        verb = "Enable-PnpDevice" if enabled else "Disable-PnpDevice"
+        script = (
+            f"Get-PnpDevice -InstanceId '{escaped}' -ErrorAction Stop | "
+            f"{verb} -Confirm:$false -PassThru | "
+            "Select-Object FriendlyName, Status, InstanceId"
+        )
+        data = self._run_powershell_json(script)
+        return {"enabled": enabled, "device": data}
+
+    def _find_window(self, title: str):
+        _, win32gui, _ = self._modules()
+        wanted = title.casefold()
+        matches = []
+
+        def collect(hwnd, _):
+            if win32gui.IsWindowVisible(hwnd):
+                current = win32gui.GetWindowText(hwnd).strip()
+                if current and wanted in current.casefold():
+                    matches.append((hwnd, current))
+            return True
+
+        win32gui.EnumWindows(collect, None)
+        if not matches:
+            raise ValueError(f"window not found: {title}")
+        if len(matches) > 1:
+            exact = [item for item in matches if item[1].casefold() == wanted]
+            if len(exact) == 1:
+                return exact[0]
+            raise ValueError(f"ambiguous window title: {title}")
+        return matches[0]
+
+    def window_state(self, title: str, state: str) -> dict:
+        win32con, win32gui, _ = self._modules()
+        hwnd, current = self._find_window(title)
+        commands = {
+            "minimize": win32con.SW_MINIMIZE,
+            "maximize": win32con.SW_MAXIMIZE,
+            "restore": win32con.SW_RESTORE,
+        }
+        command = commands.get(state)
+        if command is None:
+            raise ValueError(f"unsupported window state: {state}")
+        win32gui.ShowWindow(hwnd, command)
+        return {"hwnd": int(hwnd), "title": current, "state": state}
+
+    def move_window_to_monitor(self, title: str, monitor_index: int) -> dict:
+        _, win32gui, _ = self._modules()
+        hwnd, current = self._find_window(title)
+        monitors = []
+
+        def collect(monitor, _hdc, _rect):
+            info = win32gui.GetMonitorInfo(monitor)
+            monitors.append(info)
+            return True
+
+        win32gui.EnumDisplayMonitors(None, None, collect)
+        if monitor_index > len(monitors):
+            raise ValueError(
+                f"monitor {monitor_index} unavailable; detected {len(monitors)}"
+            )
+
+        target = monitors[monitor_index - 1]["Work"]
+        left, top, right, bottom = target
+        win_left, win_top, win_right, win_bottom = win32gui.GetWindowRect(hwnd)
+        width = max(320, win_right - win_left)
+        height = max(200, win_bottom - win_top)
+        width = min(width, right - left)
+        height = min(height, bottom - top)
+
+        if win32gui.IsIconic(hwnd):
+            import win32con
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+
+        win32gui.MoveWindow(hwnd, left, top, width, height, True)
+        return {
+            "hwnd": int(hwnd),
+            "title": current,
+            "monitor_index": monitor_index,
+            "bounds": {
+                "left": int(left),
+                "top": int(top),
+                "width": int(width),
+                "height": int(height),
+            },
+            "monitor_count": len(monitors),
+        }
