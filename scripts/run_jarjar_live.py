@@ -1,8 +1,4 @@
-"""Launch Jarjar HUD with the real local microphone/STT/TTS chain.
-
-Cognition remains a replaceable V0 provider. Brody/Obsidia are deliberately
-not required for this standalone desktop milestone.
-"""
+"""Launch Jarjar HUD with streaming wake word + local STT/TTS."""
 from __future__ import annotations
 
 import os
@@ -16,11 +12,10 @@ from jarvis.integrations.faster_whisper_stt import FasterWhisperSTT
 from jarvis.integrations.kokoro_engine import KokoroEngine
 from jarvis.integrations.local_tts import LocalTTS
 from jarvis.integrations.microphone import SoundDeviceMicrophone
-from jarvis.integrations.transcript_wakeword_provider import TranscriptWakeWordProvider
+from jarvis.integrations.openwakeword_provider import OpenWakeWordProvider
 from jarvis.providers.local_stub import StubCognition, StubMemory
-from jarvis.voice_ingress_runtime import VoiceIngressRuntime
+from jarvis.streaming_voice_ingress import StreamingVoiceIngress
 from jarvis.voice_runtime import ConversationVoiceRuntime
-from jarvis.wake_input_runtime import WakeInputRuntime
 
 
 def build_live_controller() -> HUDController:
@@ -32,35 +27,37 @@ def build_live_controller() -> HUDController:
         compute_type="int8",
         language=os.getenv("JARVIS_STT_LANGUAGE", "fr") or None,
     )
-    wake = TranscriptWakeWordProvider(
-        stt,
-        os.getenv("JARVIS_WAKE_PHRASE", "hey jarvis"),
+    wake = OpenWakeWordProvider.builtin(
+        os.getenv("JARVIS_WAKEWORD_MODEL", "hey_jarvis"),
+        threshold=float(os.getenv("JARVIS_WAKEWORD_THRESHOLD", "0.5")),
+        inference_framework="onnx",
     )
     kokoro = KokoroEngine(lang_code="f", voice="ff_siwis")
 
-    # Warm heavy local providers before the HUD starts its always-listening
-    # thread. Concurrent first-load + microphone/STT caused startup stalls on
-    # CPU-only target machines.
+    print("JARJAR_BOOT: loading openWakeWord...")
+    wake.warmup()
     print("JARJAR_BOOT: loading Whisper...")
     stt.warmup()
     print("JARJAR_BOOT: loading Kokoro...")
     kokoro.warmup()
     print("JARJAR_BOOT: voice stack ready")
 
-    conversation = ConversationVoiceRuntime(
-        stt,
-        LocalTTS(kokoro),
-    )
-    ingress = VoiceIngressRuntime(
-        WakeInputRuntime(microphone, wake, stt),
-        conversation,
+    conversation = ConversationVoiceRuntime(stt, LocalTTS(kokoro))
+    ingress = StreamingVoiceIngress(
+        microphone=microphone,
+        wake_word=wake,
+        stt=stt,
+        conversation=conversation,
+        max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "8.0")),
+        silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.65")),
+        rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
     )
     core = JarvisCore(StubCognition(), StubMemory())
     bridge = HUDLiveVoiceBridge(
         ingress=ingress,
         core=core,
         conversation=conversation,
-        capture_seconds=float(os.getenv("JARVIS_VOICE_CAPTURE_SECONDS", "2.5")),
+        capture_seconds=0.1,
     )
 
     controller_ref = {}
@@ -80,7 +77,7 @@ def build_live_controller() -> HUDController:
         follow_up_turn_handler=bridge.run_follow_up_turn,
     )
     controller_ref["controller"] = controller
-    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis ».")
+    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis », fais une courte pause, puis parle.")
     return controller
 
 
