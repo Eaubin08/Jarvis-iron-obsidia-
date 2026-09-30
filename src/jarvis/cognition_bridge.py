@@ -56,7 +56,9 @@ def is_short_followup(text: str) -> bool:
     starters = (
         "oui", "non", "continue", "continues", "pourquoi", "comment",
         "explique", "developpe", "développe", "et ", "donc ", "mais ",
-        "dans tout ça", "dans tout ca", "et après", "et apres",
+        "du coup", "alors", "attends", "attend", "je veux dire",
+        "ce que je veux dire", "dans tout ça", "dans tout ca",
+        "et après", "et apres",
     )
     return any(value == item.strip() or value.startswith(item) for item in starters)
 
