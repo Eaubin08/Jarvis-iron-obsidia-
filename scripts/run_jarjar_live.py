@@ -7,7 +7,9 @@ from jarvis.actions import ActionRouter
 from jarvis.capabilities import LocalCapabilityRegistry
 from jarvis.contracts import Capability
 from jarvis.core import JarvisCore
+from jarvis.fast_intent import FastIntentRouter
 from jarvis.hud_app import run_hud
+from jarvis.filesystem import NativeFilesystemBackend
 from jarvis.hud_controller import HUDController
 from jarvis.hud_live_runtime import HUDLiveVoiceBridge
 from jarvis.hud_state import HUDModel, HUDState
