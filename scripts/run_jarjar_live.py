@@ -6,7 +6,6 @@ not required for this standalone desktop milestone.
 from __future__ import annotations
 
 import os
-import threading
 
 from jarvis.core import JarvisCore
 from jarvis.hud_app import run_hud
@@ -38,6 +37,16 @@ def build_live_controller() -> HUDController:
         os.getenv("JARVIS_WAKE_PHRASE", "hey jarvis"),
     )
     kokoro = KokoroEngine(lang_code="f", voice="ff_siwis")
+
+    # Warm heavy local providers before the HUD starts its always-listening
+    # thread. Concurrent first-load + microphone/STT caused startup stalls on
+    # CPU-only target machines.
+    print("JARJAR_BOOT: loading Whisper...")
+    stt.warmup()
+    print("JARJAR_BOOT: loading Kokoro...")
+    kokoro.warmup()
+    print("JARJAR_BOOT: voice stack ready")
+
     conversation = ConversationVoiceRuntime(
         stt,
         LocalTTS(kokoro),
@@ -53,17 +62,6 @@ def build_live_controller() -> HUDController:
         conversation=conversation,
         capture_seconds=float(os.getenv("JARVIS_VOICE_CAPTURE_SECONDS", "2.5")),
     )
-
-    # Load the heavier local models while the HUD is appearing so the first
-    # real interaction does not pay all initialization cost.
-    def warm_models():
-        for provider in (stt, kokoro):
-            try:
-                provider.warmup()
-            except Exception as exc:
-                model.append("SYSTEM", f"warmup {type(provider).__name__}: {exc}")
-
-    threading.Thread(target=warm_models, name="jarjar-model-warmup", daemon=True).start()
 
     controller_ref = {}
 
@@ -82,6 +80,7 @@ def build_live_controller() -> HUDController:
         follow_up_turn_handler=bridge.run_follow_up_turn,
     )
     controller_ref["controller"] = controller
+    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis ».")
     return controller
 
 
