@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .actions import ActionRouter
 from .fast_intent import FastIntentRouter
@@ -16,14 +16,32 @@ class JarvisCore:
     memory: MemoryProvider
     fast_intent: FastIntentRouter | None = None
     actions: ActionRouter | None = None
+    last_source: str = field(default="LOCAL", init=False)
 
     def handle_text(self, text: str) -> str:
         context = self.memory.context()
         if self.fast_intent is not None and self.actions is not None:
             match = self.fast_intent.route(text, session_id="jarvis-core")
             if match is not None:
-                return self.actions.execute(match.request, context).message
+                result = self.actions.execute(match.request, context)
+                backend = (result.backend or "ACTION").upper()
+                self.last_source = f"ACTION/{backend}"
+                return result.message
             guarded = self.fast_intent.local_guard_response(text)
             if guarded is not None:
+                self.last_source = "LOCAL/GUARD"
                 return guarded
-        return self.cognition.respond(text, context)
+        reply = self.cognition.respond(text, context)
+        route = getattr(self.cognition, "last_route", None)
+        labels = {
+            "local": "LOCAL",
+            "vision": "QWEN-VL",
+            "qwen_live": "QWEN/LIVE",
+            "qwen": "QWEN",
+            "qwen_fallback": "QWEN/FALLBACK",
+            "brody": "BRODY/OBSIDIA",
+            "brody_fallback": "BRODY/OBSIDIA/FALLBACK",
+            "local_fallback": "LOCAL/FALLBACK",
+        }
+        self.last_source = labels.get(route, "COGNITION")
+        return reply
