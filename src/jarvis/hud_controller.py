@@ -16,6 +16,7 @@ class HUDController:
     model: HUDModel
     text_handler: Callable[[str], str]
     voice_turn_handler: Callable[[], tuple[str, str] | None] | None = None
+    follow_up_turn_handler: Callable[[], tuple[str, str] | None] | None = None
 
     def submit_text(self, text: str) -> str:
         clean = text.strip()
@@ -37,15 +38,20 @@ class HUDController:
             if self.model.state is not HUDState.ERROR:
                 self.model.set_state(HUDState.IDLE)
 
-    def run_voice_turn(self) -> tuple[str, str] | None:
+    def _run_voice_handler(
+        self,
+        handler: Callable[[], tuple[str, str] | None] | None,
+        *,
+        missing_message: str,
+    ) -> tuple[str, str] | None:
         if not self.model.voice_enabled:
             raise RuntimeError("voice mode is disabled")
-        if self.voice_turn_handler is None:
-            raise RuntimeError("voice turn handler is not configured")
+        if handler is None:
+            raise RuntimeError(missing_message)
 
         self.model.set_state(HUDState.LISTENING)
         try:
-            result = self.voice_turn_handler()
+            result = handler()
             if result is None:
                 self.model.set_state(HUDState.IDLE)
                 return None
@@ -62,6 +68,18 @@ class HUDController:
         except Exception:
             self.model.set_state(HUDState.ERROR)
             raise
+
+    def run_voice_turn(self) -> tuple[str, str] | None:
+        return self._run_voice_handler(
+            self.voice_turn_handler,
+            missing_message="voice turn handler is not configured",
+        )
+
+    def run_follow_up_turn(self) -> tuple[str, str] | None:
+        return self._run_voice_handler(
+            self.follow_up_turn_handler,
+            missing_message="follow-up voice handler is not configured",
+        )
 
     def voice_finished(self) -> None:
         self.model.set_state(HUDState.IDLE)
