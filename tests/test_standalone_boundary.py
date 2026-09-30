@@ -1,9 +1,9 @@
 from jarvis.core import JarvisCore
-from jarvis.providers.local_stub import StubCognition, StubMemory
+from jarvis.providers.local_stub import DeterministicStubCognition, StubMemory
 
 
 def test_jarvis_runs_without_obsidia_runtime():
-    jarvis = JarvisCore(cognition=StubCognition(), memory=StubMemory())
+    jarvis = JarvisCore(cognition=DeterministicStubCognition(), memory=StubMemory())
     assert jarvis.handle_text("status") == "JARVIS_V0: status"
 
 
