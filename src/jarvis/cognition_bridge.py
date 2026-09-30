@@ -5,7 +5,7 @@ is not yet ready for Jarjar's full live context.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 
 from jarvis.contracts import CognitionProvider, ContextSnapshot
@@ -51,6 +51,7 @@ class CostAwareCognitionRouter:
     governed_stack: CognitionProvider
     qwen: object | None = None
     vision: object | None = None
+    last_route: str | None = field(default=None, init=False)
 
     def _qwen(self, user_input: str, context: ContextSnapshot, *, live: bool) -> str | None:
         if self.qwen is None:
@@ -87,6 +88,7 @@ class CostAwareCognitionRouter:
         if callable(try_local):
             local = try_local(user_input, context)
             if isinstance(local, str) and local.strip():
+                self.last_route = "local"
                 return local.strip()
 
         # Visual semantics require an actual vision provider. Fall back to
@@ -94,41 +96,51 @@ class CostAwareCognitionRouter:
         if is_visual_query(user_input):
             answer = self._vision(user_input, context)
             if answer:
+                self.last_route = "vision"
                 return answer
             answer = self._qwen(user_input, context, live=True)
             if answer:
+                self.last_route = "qwen_live"
                 return answer
             answer = self._brody(user_input, context)
             if answer:
+                self.last_route = "brody_fallback"
                 return answer
 
         # Environment topology/status: cheap local Qwen + live metadata first.
         elif is_live_environment_query(user_input):
             answer = self._qwen(user_input, context, live=True)
             if answer:
+                self.last_route = "qwen_live"
                 return answer
             answer = self._brody(user_input, context)
             if answer:
+                self.last_route = "brody_fallback"
                 return answer
 
         # Project/corpus: Brody has the better retrieval context.
         elif is_project_query(user_input):
             answer = self._brody(user_input, context)
             if answer:
+                self.last_route = "brody"
                 return answer
             answer = self._qwen(user_input, context, live=False)
             if answer:
+                self.last_route = "qwen_fallback"
                 return answer
 
         # General free-form: local Qwen is the cheaper default.
         else:
             answer = self._qwen(user_input, context, live=False)
             if answer:
+                self.last_route = "qwen"
                 return answer
             answer = self._brody(user_input, context)
             if answer:
+                self.last_route = "brody_fallback"
                 return answer
 
+        self.last_route = "local_fallback"
         return self.local_presence.respond(user_input, context).strip()
 
 
