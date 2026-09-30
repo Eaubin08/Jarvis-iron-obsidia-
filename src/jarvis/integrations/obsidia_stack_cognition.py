@@ -19,6 +19,19 @@ from jarvis.contracts import ContextSnapshot
 
 Transport = Callable[[Request, float], bytes]
 
+_LEGACY_GRAPHITI_MARKERS = (
+    "index graphiti local",
+    "local graphiti index",
+    "neo4j unavailable",
+    "graphiti offline",
+)
+
+def _is_legacy_graphiti_text(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = value.casefold()
+    return any(marker in text for marker in _LEGACY_GRAPHITI_MARKERS)
+
 
 def _default_transport(request: Request, timeout: float) -> bytes:
     with urlopen(request, timeout=timeout) as response:
@@ -81,9 +94,37 @@ class ObsidiaStackCognition:
         if not isinstance(packet, dict):
             raise RuntimeError("invalid Obsidia cognition packet")
 
+        memory_snapshot = packet.get("memory_response_chain_snapshot")
+        if not isinstance(memory_snapshot, dict):
+            memory_snapshot = {}
+
+        true_voice = packet.get("true_voice_snapshot")
+        if not isinstance(true_voice, dict):
+            true_voice = {}
+
+        memory_source_mode = str(
+            memory_snapshot.get("source_mode") or ""
+        ).strip()
+        memory_chain_source = str(
+            memory_snapshot.get("chain_source") or ""
+        ).strip()
+        native_memory_active = (
+            memory_source_mode == "OBSIDIA_NATIVE_MEMORY"
+            or memory_chain_source.startswith("obsidia_native_memory")
+        )
+
         self.last_trace = {
             "source": packet.get("source"),
             "voice_runtime": packet.get("voice_runtime"),
+            "memory_source_mode": memory_source_mode or None,
+            "memory_chain_source": memory_chain_source or None,
+            "memory_status": memory_snapshot.get("status"),
+            "memory_retrieval_status": memory_snapshot.get("retrieval_status"),
+            "native_memory_active": native_memory_active,
+            "true_voice_source": (
+                true_voice.get("final_answer_source")
+                or true_voice.get("voice_source")
+            ),
             "provider_status": packet.get("provider_status"),
             "provider_called": packet.get("provider_called"),
             "selected_provider": packet.get("selected_provider"),
@@ -101,21 +142,45 @@ class ObsidiaStackCognition:
             + (" ".join(trace_bits) if trace_bits else "no routing metadata returned")
         )
 
-        true_voice = packet.get("true_voice_snapshot")
-        true_voice_answer = (
-            true_voice.get("final_answer")
-            if isinstance(true_voice, dict)
-            else None
+        candidates = (
+            true_voice.get("final_answer"),
+            packet.get("response"),
+            packet.get("final_answer"),
         )
-        answer = (
-            true_voice_answer
-            or packet.get("response")
-            or packet.get("final_answer")
+
+        answer = next(
+            (
+                candidate.strip()
+                for candidate in candidates
+                if isinstance(candidate, str)
+                and candidate.strip()
+                and not _is_legacy_graphiti_text(candidate)
+            ),
+            "",
         )
-        if not isinstance(answer, str) or not answer.strip():
+
+        # If the connected Brody runtime exposes the current Native Memory
+        # snapshot but its presentation layer still leaks an old Graphiti
+        # phrase, prefer the canonical Native Memory response material.
+        if not answer and native_memory_active:
+            native_response = memory_snapshot.get("response_md")
+            if (
+                isinstance(native_response, str)
+                and native_response.strip()
+                and not _is_legacy_graphiti_text(native_response)
+            ):
+                answer = native_response.strip()
+
+        if not answer:
+            legacy_seen = any(_is_legacy_graphiti_text(value) for value in candidates)
+            if legacy_seen:
+                return (
+                    "Le runtime Brody connecté a renvoyé un ancien fallback Graphiti. "
+                    "Jarjar refuse cette réponse : Native Memory est le chemin mémoire canonique."
+                )
             raise RuntimeError("Obsidia cognition returned no conversational answer")
 
-        return answer.strip()
+        return answer
 
 
 def from_environment() -> ObsidiaStackCognition:
