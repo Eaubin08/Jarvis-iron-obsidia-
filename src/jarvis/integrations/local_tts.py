@@ -5,7 +5,7 @@ so source code, engine package and voice assets can be licensed independently.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Event, Thread
 from typing import Protocol
 
@@ -19,12 +19,17 @@ class SpeechEngine(Protocol):
 class LocalSpeechHandle:
     stop: Event
     thread: Thread
+    errors: list[BaseException] = field(default_factory=list)
 
     def cancel(self) -> None:
         self.stop.set()
 
     def wait(self, timeout: float | None = None) -> None:
         self.thread.join(timeout)
+        if self.thread.is_alive():
+            return
+        if self.errors:
+            raise RuntimeError(f"TTS playback failed: {self.errors[0]}") from self.errors[0]
 
 
 class LocalTTS:
@@ -35,20 +40,24 @@ class LocalTTS:
         if not text.strip():
             raise ValueError("speech text must not be empty")
         stop = Event()
+        errors: list[BaseException] = []
 
         def run() -> None:
-            # Prefer streaming playback when the engine exposes it so speech
-            # can begin on the first generated chunk instead of waiting for
-            # synthesis of the complete utterance.
-            stream_speak = getattr(self.engine, "stream_speak", None)
-            if callable(stream_speak):
-                stream_speak(text, stop)
-                return
+            try:
+                # Prefer streaming playback when the engine exposes it so speech
+                # can begin on the first generated chunk instead of waiting for
+                # synthesis of the complete utterance.
+                stream_speak = getattr(self.engine, "stream_speak", None)
+                if callable(stream_speak):
+                    stream_speak(text, stop)
+                    return
 
-            audio = self.engine.synthesize(text)
-            if not stop.is_set():
-                self.engine.play(audio, stop)
+                audio = self.engine.synthesize(text)
+                if not stop.is_set():
+                    self.engine.play(audio, stop)
+            except BaseException as exc:
+                errors.append(exc)
 
         thread = Thread(target=run, name="jarvis-tts", daemon=True)
         thread.start()
-        return LocalSpeechHandle(stop, thread)
+        return LocalSpeechHandle(stop, thread, errors)
