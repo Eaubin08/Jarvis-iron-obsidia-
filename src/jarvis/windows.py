@@ -18,6 +18,12 @@ class WindowsDriver(Protocol):
     def close_window(self, title: str) -> dict: ...
     def media_key(self, key: str) -> dict: ...
     def battery_status(self) -> dict: ...
+    def wifi_status(self) -> dict: ...
+    def wifi_set_enabled(self, enabled: bool) -> dict: ...
+    def bluetooth_status(self) -> dict: ...
+    def bluetooth_set_enabled(self, enabled: bool) -> dict: ...
+    def window_state(self, title: str, state: str) -> dict: ...
+    def move_window_to_monitor(self, title: str, monitor_index: int) -> dict: ...
 
 
 @dataclass
@@ -38,6 +44,16 @@ class NativeWindowsBackend:
         "media.next",
         "media.previous",
         "system.battery",
+        "wifi.status",
+        "wifi.enable",
+        "wifi.disable",
+        "bluetooth.status",
+        "bluetooth.enable",
+        "bluetooth.disable",
+        "window.minimize",
+        "window.maximize",
+        "window.restore",
+        "window.move_monitor",
     })
 
     def can_execute(self, request: ActionRequest, capability: Capability) -> bool:
@@ -67,6 +83,32 @@ class NativeWindowsBackend:
                 data = self.driver.media_key("media_previous")
             elif request.capability == "system.battery":
                 data = self.driver.battery_status()
+            elif request.capability == "wifi.status":
+                data = self.driver.wifi_status()
+            elif request.capability == "wifi.enable":
+                data = self.driver.wifi_set_enabled(True)
+            elif request.capability == "wifi.disable":
+                data = self.driver.wifi_set_enabled(False)
+            elif request.capability == "bluetooth.status":
+                data = self.driver.bluetooth_status()
+            elif request.capability == "bluetooth.enable":
+                data = self.driver.bluetooth_set_enabled(True)
+            elif request.capability == "bluetooth.disable":
+                data = self.driver.bluetooth_set_enabled(False)
+            elif request.capability == "window.minimize":
+                data = self.driver.window_state(self._required(request, "title"), "minimize")
+            elif request.capability == "window.maximize":
+                data = self.driver.window_state(self._required(request, "title"), "maximize")
+            elif request.capability == "window.restore":
+                data = self.driver.window_state(self._required(request, "title"), "restore")
+            elif request.capability == "window.move_monitor":
+                raw = request.arguments.get("monitor_index")
+                if not isinstance(raw, int) or raw < 1:
+                    raise ValueError("missing or invalid Windows argument: monitor_index")
+                data = self.driver.move_window_to_monitor(
+                    self._required(request, "title"),
+                    raw,
+                )
             else:
                 return ActionResult(False, "unsupported Windows capability", backend=self.name)
         except (KeyError, ValueError) as exc:
