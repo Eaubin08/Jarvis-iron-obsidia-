@@ -36,3 +36,16 @@ def test_duplicate_capability_registration_is_rejected():
         pass
     else:
         raise AssertionError("expected duplicate registration to fail")
+
+
+def test_open_app_strips_french_article_before_resolution():
+    match = FastIntentRouter().route("ouvre la calculatrice")
+    assert match is not None
+    assert match.request.capability == "app.open"
+    assert match.request.arguments == {"app": "calculatrice"}
+
+
+def test_open_app_accepts_generic_installed_app_name():
+    match = FastIntentRouter().route("lance spotify")
+    assert match is not None
+    assert match.request.arguments == {"app": "spotify"}
