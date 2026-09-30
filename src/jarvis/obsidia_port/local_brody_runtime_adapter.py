@@ -51,6 +51,9 @@ from jarvis.obsidia_port.structured_capability_hint import (
     build_structured_capability_hint,
     compare_structured_hint_with_p36,
 )
+from jarvis.obsidia_port.structured_p36_shadow_comparator import (
+    build_structured_p36_shadow_comparison,
+)
 from jarvis.obsidia_port.router_core.unified_ir import build_ir
 
 
@@ -401,6 +404,28 @@ class LocalBrodyRuntimeAdapter:
                     "structured_capability_hints"
                 ),
                 p36_required_capabilities=p36_required_capabilities,
+            )
+
+            structured_p36_shadow_comparison = (
+                build_structured_p36_shadow_comparison(
+                    structured_capability_snapshot=structured_capability_hint,
+                    p36_snapshot={
+                        "detected_intents": source_pack.get(
+                            "detected_intents"
+                        ),
+                        "required_capabilities": p36_required_capabilities,
+                        "selected_runtime_path": source_pack.get(
+                            "selected_runtime_path"
+                        ),
+                        "selected_source_families": source_pack.get(
+                            "selected_source_families"
+                        ),
+                        "hydration_plan": source_pack.get("hydration_plan"),
+                    },
+                    unified_ir_snapshot=unified_ir,
+                    semantic_snapshot=semantic,
+                    memzum_snapshot=memzum,
+                )
             )
 
             qwen_anti_mismatch = {}
@@ -757,6 +782,9 @@ class LocalBrodyRuntimeAdapter:
                     capability_route_comparison.get(
                         "capability_route_divergence"
                     )
+                ),
+                "structured_p36_shadow_comparator": (
+                    structured_p36_shadow_comparison
                 ),
 
                 "memzum_status": memzum.get("status"),
