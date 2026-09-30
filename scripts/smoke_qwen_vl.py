@@ -30,6 +30,8 @@ def main() -> int:
     )
     vision = from_environment(live_timeline=timeline)
     vision.max_images = 1
+    vision.max_tokens = 48
+    vision.timeout_seconds = float(os.getenv("JARJAR_VISION_SMOKE_TIMEOUT", "180"))
 
     print(
         "VISION_SMOKE: "
@@ -38,7 +40,7 @@ def main() -> int:
     )
     try:
         answer = vision.respond(
-            "Décris très brièvement uniquement ce que tu peux réellement observer sur la caméra 0.",
+            "En une phrase courte, dis uniquement ce que tu vois sur la caméra 0.",
             ContextSnapshot("physical vision smoke"),
         )
     except Exception as exc:
