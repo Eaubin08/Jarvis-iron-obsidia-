@@ -69,6 +69,7 @@ def build_live_controller() -> HUDController:
         rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
         wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "3.0")),
         follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "4.0")),
+        on_wake=lambda: model.set_session_open(True),
     )
     local_presence = StubCognition()
     governed_stack = obsidia_cognition_from_environment()
@@ -165,6 +166,8 @@ def build_live_controller() -> HUDController:
         core=core,
         conversation=conversation,
         capture_seconds=0.1,
+        on_thinking=lambda: model.set_state(HUDState.THINKING),
+        on_speaking=lambda: model.set_state(HUDState.SPEAKING),
     )
 
     controller_ref = {}
@@ -185,7 +188,7 @@ def build_live_controller() -> HUDController:
         response_source=lambda: core.last_source,
     )
     controller_ref["controller"] = controller
-    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis » ; je réponds, puis parle normalement.")
+    model.append("SYSTEM", "Voix prête. Dis « Hey Jarvis », puis parle dès que le HUD affiche PARLE.")
     return controller
 
 
