@@ -18,6 +18,7 @@ class HUDController:
     voice_turn_handler: Callable[[], tuple[str, str] | None] | None = None
     follow_up_turn_handler: Callable[[], tuple[str, str] | None] | None = None
     response_source: Callable[[], str] | None = None
+    conversation_idle_seconds: float = 20.0
 
     def _jarjar_label(self) -> str:
         if self.response_source is None:
