@@ -15,11 +15,13 @@ def main() -> int:
     )
     vision = from_environment(live_timeline=timeline)
     vision.max_images = 1
-    vision.max_tokens = 64
+    vision.max_tokens = 48
+    vision.screen_max_dimension = 1280
 
     print(
         "VISION_SCREEN_SMOKE: "
-        f"endpoint={vision.endpoint} model={vision.model}"
+        f"endpoint={vision.endpoint} model={vision.model} "
+        f"screen_max_dimension={vision.screen_max_dimension}"
     )
     try:
         answer = vision.respond(
