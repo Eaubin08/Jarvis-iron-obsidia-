@@ -47,6 +47,11 @@ from jarvis.obsidia_port.evidence_qualification import (
     build_evidence_qualification_snapshot,
     build_qualified_context,
 )
+from jarvis.obsidia_port.structured_capability_hint import (
+    build_structured_capability_hint,
+    compare_structured_hint_with_p36,
+)
+from jarvis.obsidia_port.router_core.unified_ir import build_ir
 
 
 class LocalBrodyRuntimeAdapter:
@@ -92,6 +97,7 @@ class LocalBrodyRuntimeAdapter:
             )
 
             semantic = build_semantic_query(message)
+            unified_ir = build_ir(message)
 
             memory_required = bool(memzum.get("memory_required"))
 
@@ -378,6 +384,31 @@ class LocalBrodyRuntimeAdapter:
             if not isinstance(ir_candidate_pre, dict):
                 ir_candidate_pre = {}
 
+            structured_capability_hint = build_structured_capability_hint(
+                ir=unified_ir,
+                semantic=semantic,
+                memzum=memzum,
+            )
+
+            p36_required_capabilities = (
+                source_pack.get("required_capabilities")
+                if isinstance(source_pack, dict)
+                else []
+            )
+
+            capability_route_comparison = compare_structured_hint_with_p36(
+                structured_capability_hints=structured_capability_hint.get(
+                    "structured_capability_hints"
+                ),
+                p36_required_capabilities=p36_required_capabilities,
+            )
+
+            qwen_anti_mismatch = {}
+            qwen_sigma_initial = {}
+            qwen_sigma_final = {}
+            qwen_quality_gate_pass = False
+            qwen_quality_gate_reason = "QWEN_NOT_ENABLED"
+
             if __import__("os").environ.get(
                 "JARJAR_BRODY_QWEN_SHADOW",
                 "0",
@@ -391,10 +422,6 @@ class LocalBrodyRuntimeAdapter:
 
                 evidence = qwen_stage.get("evidence")
 
-                qwen_anti_mismatch = {}
-                qwen_sigma_initial = {}
-                qwen_sigma_final = {}
-                qwen_quality_gate_pass = False
                 qwen_quality_gate_reason = "QWEN_EVIDENCE_NOT_READY"
 
                 if (
@@ -704,6 +731,33 @@ class LocalBrodyRuntimeAdapter:
                 "source_pack_families": source_pack.get("source_pack_families"),
                 "source_pack_entries_used": source_pack.get("source_pack_entries_used"),
                 "source_pack_x108_decision": source_pack.get("x108_decision"),
+                "selected_runtime_path": source_pack.get("selected_runtime_path"),
+                "selected_source_families": source_pack.get("selected_source_families"),
+                "hydration_plan": source_pack.get("hydration_plan"),
+                "structured_capability_hints": (
+                    structured_capability_hint.get(
+                        "structured_capability_hints"
+                    )
+                ),
+                "structured_primary_capability": (
+                    structured_capability_hint.get(
+                        "primary_capability_hint"
+                    )
+                ),
+                "capability_hint_confidence": (
+                    structured_capability_hint.get("confidence_class")
+                ),
+                "p36_required_capabilities": p36_required_capabilities,
+                "capability_route_agreement": (
+                    capability_route_comparison.get(
+                        "capability_route_agreement"
+                    )
+                ),
+                "capability_route_divergence": (
+                    capability_route_comparison.get(
+                        "capability_route_divergence"
+                    )
+                ),
 
                 "memzum_status": memzum.get("status"),
                 "cognitive_join_status": join.get("status"),
