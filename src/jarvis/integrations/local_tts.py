@@ -37,6 +37,14 @@ class LocalTTS:
         stop = Event()
 
         def run() -> None:
+            # Prefer streaming playback when the engine exposes it so speech
+            # can begin on the first generated chunk instead of waiting for
+            # synthesis of the complete utterance.
+            stream_speak = getattr(self.engine, "stream_speak", None)
+            if callable(stream_speak):
+                stream_speak(text, stop)
+                return
+
             audio = self.engine.synthesize(text)
             if not stop.is_set():
                 self.engine.play(audio, stop)
