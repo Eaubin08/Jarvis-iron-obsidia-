@@ -100,3 +100,30 @@ def test_speech_finished_returns_to_idle_after_turn():
 
     conversation.speech_finished()
     assert conversation.state is VoiceState.IDLE
+
+
+class FakeFollowUpIngress:
+    def __init__(self, transcript):
+        self.transcript = transcript
+        self.calls = []
+
+    def capture_follow_up(self, duration_seconds):
+        self.calls.append(duration_seconds)
+        return self.transcript
+
+
+def test_follow_up_turn_goes_directly_to_cognition_and_tts():
+    ingress = FakeFollowUpIngress("second turn")
+    core = FakeCore("continuing")
+    tts = FakeTTS()
+    conversation = ConversationVoiceRuntime(FakeSTT(), tts)
+    conversation.follow_up_open = True
+
+    handle = VoiceTurnRuntime(ingress, core, conversation).run_follow_up_once(0.5)
+
+    assert ingress.calls == [0.5]
+    assert core.calls == ["second turn"]
+    assert tts.calls == ["continuing"]
+    assert handle is tts.handle
+    assert conversation.state is VoiceState.SPEAKING
+    assert conversation.follow_up_open is True
