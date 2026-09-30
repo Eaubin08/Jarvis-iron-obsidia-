@@ -289,6 +289,18 @@ class LocalBrodyRuntimeAdapter:
                     + semantic_query_for_model
                 )
 
+            retrieval_target_for_model = str(
+                memory.get("effective_query")
+                or memory_query
+                or ""
+            ).strip()
+
+            if retrieval_target_for_model:
+                qwen_context_parts.append(
+                    "[MEMORY RETRIEVAL TARGET]\n"
+                    + retrieval_target_for_model
+                )
+
             memory_response_md = str(
                 memory.get("response_md") or ""
             ).strip()
@@ -315,7 +327,9 @@ class LocalBrodyRuntimeAdapter:
                     ).strip()
 
                     content = str(
-                        item.get("content")
+                        item.get("material")
+                        or item.get("excerpt")
+                        or item.get("content")
                         or item.get("content_preview")
                         or item.get("text")
                         or item.get("summary")
@@ -708,6 +722,12 @@ class LocalBrodyRuntimeAdapter:
                 "memory_source_mode": memory.get("source_mode"),
                 "retrieval_status": memory.get("retrieval_status"),
                 "selected_items_count": memory.get("selected_items_count"),
+                "memory_effective_query": memory.get("effective_query"),
+                "memory_selected_titles": [
+                    str(item.get("title") or item.get("id") or "")
+                    for item in (memory.get("selected_items") or [])[:3]
+                    if isinstance(item, dict)
+                ],
 
                 "source_pack_status": source_pack.get("status"),
                 "source_pack_context_used": source_pack.get("source_pack_context_used"),
