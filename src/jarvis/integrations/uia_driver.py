@@ -37,6 +37,38 @@ class UIADriver:
     def window(self, *, title: str):
         return self._desktop().window(title=title)
 
+    def list_controls(self, *, window_title: str) -> dict:
+        """Return a bounded structured snapshot of descendant controls.
+
+        This follows the useful UFO² pattern: refresh live UI state before
+        selecting a control, but return Jarvis-owned serializable data rather
+        than donor wrappers.
+        """
+        win = self.window(title=window_title)
+        win.wait("exists", timeout=10)
+        controls = []
+        for index, control in enumerate(win.descendants()[:200]):
+            info = control.element_info
+            rect = control.rectangle()
+            controls.append(
+                {
+                    "id": str(index),
+                    "name": getattr(info, "name", "") or "",
+                    "control_type": getattr(info, "control_type", "") or "",
+                    "class_name": getattr(info, "class_name", "") or "",
+                    "automation_id": getattr(info, "automation_id", "") or "",
+                    "enabled": bool(control.is_enabled()),
+                    "visible": bool(control.is_visible()),
+                    "bounds": {
+                        "left": int(rect.left),
+                        "top": int(rect.top),
+                        "right": int(rect.right),
+                        "bottom": int(rect.bottom),
+                    },
+                }
+            )
+        return {"window": window_title, "controls": controls}
+
     def set_text(self, *, window_title: str, control_name: str, value: str) -> dict:
         win = self.window(title=window_title)
         control = win.child_window(title=control_name, class_name="Edit")
