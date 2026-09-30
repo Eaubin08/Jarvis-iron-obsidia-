@@ -42,11 +42,12 @@ class StreamingVoiceIngress:
                     f"score={score:.3f} threshold={getattr(self.wake_word, 'threshold', 0.0):.3f}"
                 )
                 break
-            if now - last_report >= 2.0:
-                print(
-                    f"JARJAR_WAKE: listening peak={peak:.3f} "
-                    f"threshold={getattr(self.wake_word, 'threshold', 0.0):.3f}"
-                )
+            if now - last_report >= 4.0:
+                if peak >= 0.10:
+                    print(
+                        f"JARJAR_WAKE: peak={peak:.3f} "
+                        f"threshold={getattr(self.wake_word, 'threshold', 0.0):.3f}"
+                    )
                 peak = 0.0
                 last_report = now
 
@@ -74,6 +75,7 @@ class StreamingVoiceIngress:
         )
         if not audio:
             self.conversation.follow_up_open = False
+            print("JARJAR_SESSION: CLOSED (inactivity)")
             raise ValueError("empty follow-up transcript")
         transcript = self.stt.transcribe(audio).strip()
         if not transcript:
