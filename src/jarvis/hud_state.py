@@ -27,6 +27,7 @@ class HUDMessage:
 class HUDModel:
     state: HUDState = HUDState.IDLE
     voice_enabled: bool = True
+    session_open: bool = False
     messages: list[HUDMessage] = field(default_factory=list)
     _lock: Lock = field(default_factory=Lock, repr=False)
 
@@ -37,6 +38,12 @@ class HUDModel:
     def set_voice_enabled(self, enabled: bool) -> None:
         with self._lock:
             self.voice_enabled = bool(enabled)
+            if not self.voice_enabled:
+                self.session_open = False
+
+    def set_session_open(self, opened: bool) -> None:
+        with self._lock:
+            self.session_open = bool(opened)
 
     def append(self, speaker: str, text: str) -> None:
         clean = text.strip()
@@ -50,6 +57,7 @@ class HUDModel:
             return {
                 "state": self.state.value,
                 "voice_enabled": self.voice_enabled,
+                "session_open": self.session_open,
                 "messages": [
                     {"speaker": item.speaker, "text": item.text}
                     for item in self.messages
