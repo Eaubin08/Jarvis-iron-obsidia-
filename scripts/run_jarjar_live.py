@@ -65,7 +65,7 @@ def build_live_controller() -> HUDController:
         stt=stt,
         conversation=conversation,
         max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "120.0")),
-        silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.35")),
+        silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "1.20")),
         rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
         wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "6.0")),
         follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "3.0")),
@@ -168,6 +168,8 @@ def build_live_controller() -> HUDController:
         capture_seconds=0.1,
         on_thinking=lambda: model.set_state(HUDState.THINKING),
         on_speaking=lambda: model.set_state(HUDState.SPEAKING),
+        # HOLD: true duplex/barge-in while Jarjar is speaking.
+        # Keep current anti-echo path; revisit concurrent capture separately.
         post_speech_cooldown_seconds=float(
             os.getenv("JARVIS_POST_SPEECH_COOLDOWN_SECONDS", "0.45")
         ),
