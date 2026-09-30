@@ -1,0 +1,284 @@
+"""Jarjar desktop HUD.
+
+Donor-inspired patterns:
+- HUD is a presentation shell, not the agent authority.
+- cognition/voice work runs outside the Tk main thread.
+- avatar visual reacts to canonical HUD states.
+"""
+from __future__ import annotations
+
+import math
+import queue
+import threading
+import tkinter as tk
+from tkinter import ttk
+
+from .hud_controller import HUDController
+from .hud_state import HUDState
+
+
+STATE_COLORS = {
+    HUDState.IDLE.value: "#4dd8ff",
+    HUDState.LISTENING.value: "#38ff9c",
+    HUDState.THINKING.value: "#ffb347",
+    HUDState.SPEAKING.value: "#d86cff",
+    HUDState.ERROR.value: "#ff4567",
+}
+
+
+class JarjarHUD(tk.Tk):
+    def __init__(self, controller: HUDController):
+        super().__init__()
+        self.controller = controller
+        self.title("JARJAR // Desktop Companion")
+        self.geometry("1080x720")
+        self.minsize(860, 560)
+        self.configure(bg="#05080d")
+
+        self._ui_queue: queue.Queue[tuple[str, object]] = queue.Queue()
+        self._angle = 0.0
+        self._message_count = 0
+
+        self._build()
+        self.after(30, self._animate_avatar)
+        self.after(75, self._drain_ui_queue)
+        self.after(150, self._sync_model)
+
+    def _build(self) -> None:
+        top = tk.Frame(self, bg="#05080d")
+        top.pack(fill="x", padx=18, pady=(14, 8))
+
+        tk.Label(
+            top,
+            text="JARJAR",
+            fg="#d8f8ff",
+            bg="#05080d",
+            font=("Consolas", 24, "bold"),
+        ).pack(side="left")
+        self.status = tk.Label(
+            top,
+            text="● IDLE",
+            fg=STATE_COLORS[HUDState.IDLE.value],
+            bg="#05080d",
+            font=("Consolas", 12, "bold"),
+        )
+        self.status.pack(side="right")
+
+        body = tk.PanedWindow(
+            self,
+            orient=tk.HORIZONTAL,
+            sashwidth=4,
+            bg="#0c1720",
+            bd=0,
+            relief=tk.FLAT,
+        )
+        body.pack(fill="both", expand=True, padx=18, pady=8)
+
+        avatar_panel = tk.Frame(body, bg="#071019", width=380)
+        chat_panel = tk.Frame(body, bg="#09121a")
+        body.add(avatar_panel, minsize=320)
+        body.add(chat_panel, minsize=440)
+
+        self.canvas = tk.Canvas(
+            avatar_panel,
+            bg="#071019",
+            highlightthickness=0,
+            width=360,
+            height=420,
+        )
+        self.canvas.pack(fill="both", expand=True, padx=8, pady=8)
+
+        self.avatar_caption = tk.Label(
+            avatar_panel,
+            text="DESKTOP COMPANION // ONLINE",
+            fg="#688b9b",
+            bg="#071019",
+            font=("Consolas", 10),
+        )
+        self.avatar_caption.pack(pady=(0, 18))
+
+        transcript_frame = tk.Frame(chat_panel, bg="#09121a")
+        transcript_frame.pack(fill="both", expand=True, padx=14, pady=(14, 8))
+
+        self.transcript = tk.Text(
+            transcript_frame,
+            wrap="word",
+            bg="#071019",
+            fg="#b8dce8",
+            insertbackground="#d8f8ff",
+            relief=tk.FLAT,
+            font=("Consolas", 11),
+            padx=14,
+            pady=14,
+            state="disabled",
+        )
+        scroll = ttk.Scrollbar(
+            transcript_frame, orient="vertical", command=self.transcript.yview
+        )
+        self.transcript.configure(yscrollcommand=scroll.set)
+        self.transcript.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        controls = tk.Frame(chat_panel, bg="#09121a")
+        controls.pack(fill="x", padx=14, pady=(0, 14))
+
+        self.entry = tk.Entry(
+            controls,
+            bg="#0d1a24",
+            fg="#ecfbff",
+            insertbackground="#ecfbff",
+            relief=tk.FLAT,
+            font=("Consolas", 11),
+        )
+        self.entry.pack(side="left", fill="x", expand=True, ipady=10)
+        self.entry.bind("<Return>", lambda _event: self._submit_text())
+
+        tk.Button(
+            controls,
+            text="SEND",
+            command=self._submit_text,
+            bg="#102b39",
+            fg="#bff5ff",
+            activebackground="#17465a",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=18,
+        ).pack(side="left", padx=(8, 0), ipady=6)
+
+        self.voice_button = tk.Button(
+            controls,
+            text="VOICE ON",
+            command=self._toggle_voice,
+            bg="#103428",
+            fg="#a9ffd2",
+            activebackground="#14553d",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=14,
+        )
+        self.voice_button.pack(side="left", padx=(8, 0), ipady=6)
+
+        tk.Button(
+            controls,
+            text="LISTEN",
+            command=self._start_voice_turn,
+            bg="#102b39",
+            fg="#bff5ff",
+            activebackground="#17465a",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=14,
+        ).pack(side="left", padx=(8, 0), ipady=6)
+
+    def _submit_text(self) -> None:
+        text = self.entry.get().strip()
+        if not text:
+            return
+        self.entry.delete(0, tk.END)
+        threading.Thread(target=self._text_worker, args=(text,), daemon=True).start()
+
+    def _text_worker(self, text: str) -> None:
+        try:
+            self.controller.submit_text(text)
+        except Exception as exc:
+            self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+
+    def _start_voice_turn(self) -> None:
+        threading.Thread(target=self._voice_worker, daemon=True).start()
+
+    def _voice_worker(self) -> None:
+        try:
+            result = self.controller.run_voice_turn()
+            if result is not None:
+                self.controller.voice_finished()
+        except Exception as exc:
+            self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+
+    def _toggle_voice(self) -> None:
+        enabled = self.controller.toggle_voice()
+        self.voice_button.configure(
+            text="VOICE ON" if enabled else "VOICE OFF",
+            bg="#103428" if enabled else "#32151c",
+            fg="#a9ffd2" if enabled else "#ff9aaa",
+        )
+
+    def _sync_model(self) -> None:
+        snap = self.controller.model.snapshot()
+        state = snap["state"]
+        color = STATE_COLORS.get(state, "#4dd8ff")
+        self.status.configure(text=f"● {state.upper()}", fg=color)
+
+        messages = snap["messages"]
+        if len(messages) > self._message_count:
+            for item in messages[self._message_count:]:
+                self._append_transcript(item["speaker"], item["text"])
+            self._message_count = len(messages)
+
+        self.after(150, self._sync_model)
+
+    def _append_transcript(self, speaker: str, text: str) -> None:
+        self.transcript.configure(state="normal")
+        self.transcript.insert("end", f"{speaker}> {text}\n\n")
+        self.transcript.see("end")
+        self.transcript.configure(state="disabled")
+
+    def _animate_avatar(self) -> None:
+        self.canvas.delete("all")
+        width = max(self.canvas.winfo_width(), 320)
+        height = max(self.canvas.winfo_height(), 360)
+        cx, cy = width / 2, height / 2
+        state = self.controller.model.snapshot()["state"]
+        color = STATE_COLORS.get(state, "#4dd8ff")
+
+        self._angle = (self._angle + 0.035) % (math.pi * 2)
+        pulse = 1.0 + 0.08 * math.sin(self._angle * 3)
+
+        radius = min(width, height) * 0.19 * pulse
+        for ring in range(4):
+            r = radius + ring * 18
+            start = math.degrees(self._angle * (1 if ring % 2 == 0 else -1))
+            self.canvas.create_arc(
+                cx - r,
+                cy - r,
+                cx + r,
+                cy + r,
+                start=start,
+                extent=210 - ring * 15,
+                style="arc",
+                outline=color,
+                width=max(1, 4 - ring),
+            )
+
+        core_r = radius * 0.47
+        self.canvas.create_oval(
+            cx - core_r,
+            cy - core_r,
+            cx + core_r,
+            cy + core_r,
+            outline=color,
+            width=3,
+        )
+        self.canvas.create_text(
+            cx,
+            cy,
+            text="J",
+            fill=color,
+            font=("Consolas", int(core_r * 0.9), "bold"),
+        )
+
+        for i in range(10):
+            a = self._angle + i * (math.pi * 2 / 10)
+            rr = radius * 1.7
+            x = cx + math.cos(a) * rr
+            y = cy + math.sin(a) * rr
+            self.canvas.create_oval(x - 2, y - 2, x + 2, y + 2, fill=color, outline="")
+
+        self.after(30, self._animate_avatar)
+
+    def _drain_ui_queue(self) -> None:
+        self.after(75, self._drain_ui_queue)
+
+
+def run_hud(controller: HUDController) -> None:
+    app = JarjarHUD(controller)
+    app.mainloop()
