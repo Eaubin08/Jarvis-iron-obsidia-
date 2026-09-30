@@ -90,10 +90,16 @@ class StubCognition:
         return None
 
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
-        local = self.try_respond(user_input, context)
-        if local is not None:
-            return local
-        # Preserve the original deterministic standalone stub contract.
-        # The live router calls try_respond() directly and therefore still
-        # escalates unknown language to Qwen/Brody instead of stopping here.
+        return self.try_respond(user_input, context) or "Oui, je t'écoute."
+
+
+class DeterministicStubCognition:
+    """Plumbing-only cognition stub for runtime/boundary tests.
+
+    Unlike StubCognition, this class is not a user-facing presence layer. It
+    simply echoes the input in a stable marker so orchestration tests can prove
+    that cognition was reached without depending on conversational behavior.
+    """
+
+    def respond(self, user_input: str, context: ContextSnapshot) -> str:
         return f"JARVIS_V0: {user_input.strip()}"
