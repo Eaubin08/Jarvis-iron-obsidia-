@@ -22,6 +22,22 @@ class FakeEngine:
         self.stopped = stop.is_set()
 
 
+class StreamingFakeEngine:
+    def __init__(self):
+        self.streamed = []
+        self.synthesize_called = False
+
+    def stream_speak(self, text, stop):
+        self.streamed.append(text)
+
+    def synthesize(self, text):
+        self.synthesize_called = True
+        return b"should-not-be-used"
+
+    def play(self, audio, stop):
+        raise AssertionError("fallback play must not run for streaming engine")
+
+
 def test_local_tts_returns_cancellable_handle():
     engine = FakeEngine()
     handle = LocalTTS(engine).speak("Ready")
@@ -33,6 +49,14 @@ def test_local_tts_returns_cancellable_handle():
     handle.wait(1)
     assert engine.stopped
     assert engine.synthesized == ["Ready"]
+
+
+def test_local_tts_prefers_streaming_engine():
+    engine = StreamingFakeEngine()
+    handle = LocalTTS(engine).speak("Bonjour")
+    handle.wait(1)
+    assert engine.streamed == ["Bonjour"]
+    assert engine.synthesize_called is False
 
 
 def test_local_tts_rejects_empty_text():
