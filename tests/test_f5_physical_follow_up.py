@@ -77,7 +77,13 @@ def test_physical_follow_up_does_not_require_second_wake_phrase():
 
     print("\nTOUR 1: dites 'Hey Jarvis status'")
     first = runtime.run_once(duration)
-    assert first is not None, "first wake phrase was not detected"
+    if first is None:
+        provider = wake_word.provider
+        raise AssertionError(
+            "first wake phrase was not detected. "
+            f"Whisper heard: {provider.last_transcript!r}; "
+            f"normalized: {provider.last_normalized_transcript!r}"
+        )
     assert wake_word.calls == 1
 
     first.wait(30.0)
