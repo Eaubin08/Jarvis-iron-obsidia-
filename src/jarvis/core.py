@@ -35,6 +35,7 @@ class JarvisCore:
         route = getattr(self.cognition, "last_route", None)
         labels = {
             "local": "LOCAL",
+            "obsidia_local": "OBSIDIA/LOCAL",
             "vision": "QWEN-VL",
             "qwen_live": "QWEN/LIVE",
             "qwen": "QWEN",
