@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import os
 
+from jarvis.actions import ActionRouter
+from jarvis.capabilities import LocalCapabilityRegistry
+from jarvis.contracts import Capability
 from jarvis.core import JarvisCore
 from jarvis.hud_app import run_hud
 from jarvis.hud_controller import HUDController
@@ -19,8 +22,11 @@ from jarvis.integrations.live_environment_timeline import LiveEnvironmentTimelin
 from jarvis.integrations.local_qwen_cognition import from_environment as qwen_cognition_from_environment
 from jarvis.integrations.local_vision_cognition import from_environment as vision_cognition_from_environment
 from jarvis.integrations.pyautogui_visual_driver import PyAutoGUIVisualDriver
+from jarvis.integrations.win32_driver import Win32Driver
 from jarvis.integrations.obsidia_stack_cognition import from_environment as obsidia_cognition_from_environment
+from jarvis.local_actions import LocalPermissionPolicy, SystemBackend
 from jarvis.monitor_layout import WindowsMonitorProvider
+from jarvis.windows import NativeWindowsBackend
 from jarvis.providers.local_stub import StubCognition, StubMemory
 from jarvis.streaming_voice_ingress import StreamingVoiceIngress
 from jarvis.voice_runtime import ConversationVoiceRuntime
@@ -88,7 +94,34 @@ def build_live_controller() -> HUDController:
         qwen=qwen,
         vision=vision,
     )
-    core = JarvisCore(cognition, StubMemory())
+    registry = LocalCapabilityRegistry()
+    for name, family in (
+        ("system.status", "system"),
+        ("app.open", "windows"),
+        ("window.list", "windows"),
+        ("window.focus", "windows"),
+        ("window.close", "windows"),
+        ("audio.volume_up", "windows"),
+        ("audio.volume_down", "windows"),
+        ("audio.mute_toggle", "windows"),
+        ("media.play_pause", "windows"),
+        ("media.next", "windows"),
+        ("media.previous", "windows"),
+        ("system.battery", "windows"),
+    ):
+        registry.register(Capability(name, family))
+
+    actions = ActionRouter(
+        registry=registry,
+        permission_policy=LocalPermissionPolicy(),
+        backends=[SystemBackend(), NativeWindowsBackend(Win32Driver())],
+    )
+    core = JarvisCore(
+        cognition,
+        StubMemory(),
+        fast_intent=FastIntentRouter(),
+        actions=actions,
+    )
     print(
         "JARJAR_BOOT: cognition bridge ready "
         f"(Obsidia={governed_stack.endpoint}, provider-routing={'on' if governed_stack.allow_provider else 'off'})"
