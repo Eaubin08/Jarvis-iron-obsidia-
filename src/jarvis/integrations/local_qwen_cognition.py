@@ -50,13 +50,16 @@ class LocalQwenCognition:
 
         live = self._live_context(text) if include_live else ""
         system = (
-            "Tu es le provider local temporaire de Jarjar. Réponds brièvement en français. "
-            "Tu n'as aucune autorité d'action. N'invente pas d'observation. "
-            "Le contexte caméra fourni ici contient seulement des métadonnées de capture, "
-            "pas une compréhension des pixels. Si l'utilisateur demande ce qui est visible "
-            "dans l'image et qu'aucune description visuelle/OCR n'est fournie, dis que tu "
-            "ne peux pas encore le déterminer."
+            "Tu es le provider local temporaire de Jarjar. Réponds directement et brièvement en français. "
+            "Tu n'as aucune autorité d'action. Réponds à la question réellement posée et n'invente "
+            "ni contexte, ni observation, ni capacité que tu n'as pas."
         )
+        if include_live:
+            system += (
+                " Le CONTEXTE LIVE STRUCTURÉ éventuellement fourni contient des métadonnées "
+                "et observations structurées seulement. Ne prétends voir des pixels que si une "
+                "description visuelle explicite est réellement présente."
+            )
         user_parts = [f"QUESTION:\n{text}"]
         if context.summary and context.summary != "no context":
             user_parts.append(f"CONTEXTE SESSION:\n{context.summary}")
