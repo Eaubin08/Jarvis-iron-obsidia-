@@ -1,6 +1,6 @@
 # F5 PHYSICAL VOICE E2E GATE
 
-Status: READY / LOCAL PHYSICAL RUN REQUIRED
+Status: PASS / PHYSICAL TARGET MACHINE VERIFIED
 
 This is the final physical gate for the current F5 voice chapter.
 
@@ -96,3 +96,29 @@ A PASS proves, on that machine:
 - return to IDLE after speech completion.
 
 The custom ONNX path remains asset-governed by assets/provenance.toml.
+
+
+## Verified physical evidence
+
+Target Windows machine result:
+
+    1 passed in 40.58s
+
+Observed path:
+
+    Realtek microphone
+    -> local transcript wake detection ("hey jarvis")
+    -> faster-whisper
+    -> VoiceIngressRuntime
+    -> JarvisCore
+    -> KokoroEngine
+    -> physical speaker playback
+    -> IDLE
+
+The microphone issue encountered during bring-up was external to Jarvis: the
+selected Windows input initially produced near-silence. After correcting the
+Windows/Realtek input configuration, physical capture measured a strong signal
+and the complete gate passed.
+
+F5 physical voice is therefore closed. Physical barge-in remains a separate
+acceptance gate.
