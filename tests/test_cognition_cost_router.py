@@ -67,3 +67,23 @@ def test_qwen_failure_falls_back_to_brody():
     qwen = Provider(fail=True)
     router = CostAwareCognitionRouter(StubCognition(), brody, qwen)
     assert router.respond("Pourquoi le ciel est bleu ?", ctx()) == "brody"
+
+
+def test_visual_question_prefers_vision_provider():
+    brody = Provider("brody")
+    qwen = Provider("qwen")
+    vision = Provider("vision")
+    router = CostAwareCognitionRouter(StubCognition(), brody, qwen, vision)
+    assert router.respond("Qu'est-ce que tu vois sur la caméra ?", ctx()) == "vision"
+    assert vision.calls
+    assert qwen.calls == []
+    assert brody.calls == []
+
+
+def test_visual_failure_falls_back_to_qwen_live_metadata():
+    brody = Provider("brody")
+    qwen = Provider("qwen")
+    vision = Provider(fail=True)
+    router = CostAwareCognitionRouter(StubCognition(), brody, qwen, vision)
+    assert router.respond("Décris ce que tu vois sur la caméra", ctx()) == "qwen"
+    assert qwen.calls == [("Décris ce que tu vois sur la caméra", True)]
