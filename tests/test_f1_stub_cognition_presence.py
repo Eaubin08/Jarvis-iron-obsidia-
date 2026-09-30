@@ -22,3 +22,10 @@ def test_wake_prefix_can_be_ignored_for_simple_presence_phrase():
 def test_unknown_input_gets_presence_ack_not_echo():
     cognition = StubCognition()
     assert cognition.respond("Explique-moi quelque chose de compliqué", context()) == "Oui, je t'écoute."
+
+
+def test_presence_layer_handles_basic_identity_and_capability_questions():
+    cognition = StubCognition()
+    assert cognition.respond("Comment vas-tu aujourd'hui ?", context()) == "Ça va, je suis opérationnel."
+    assert "courte conversation" in cognition.respond("Quelles sont tes capacités ?", context())
+    assert cognition.respond("Qui es-tu ?", context()).startswith("Je suis Jarjar")
