@@ -74,6 +74,7 @@ def build_live_controller() -> HUDController:
     )
     local_presence = StubCognition()
     governed_stack = obsidia_cognition_from_environment()
+    kernel_url = os.getenv("JARJAR_KERNEL_URL", "http://127.0.0.1:8000").strip()
 
     live_timeline = None
     if os.getenv("JARJAR_LIVE_CONTEXT", "1").strip().lower() not in {"0", "false", "no", "off"}:
@@ -154,7 +155,11 @@ def build_live_controller() -> HUDController:
     )
     print(
         "JARJAR_BOOT: cognition bridge ready "
-        f"(Obsidia={governed_stack.endpoint}, provider-routing={'on' if governed_stack.allow_provider else 'off'})"
+        f"(Brody={governed_stack.endpoint}, provider-routing={'on' if governed_stack.allow_provider else 'off'})"
+    )
+    print(
+        "JARJAR_BOOT: service split "
+        f"(Kernel/X108={kernel_url}, Brody={governed_stack.endpoint}, kernel-kept-separate=on)"
     )
     print(
         "JARJAR_BOOT: Obsidia pre-inference router ready "
