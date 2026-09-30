@@ -7,10 +7,20 @@ from threading import Event
 
 
 class KokoroEngine:
-    def __init__(self, *, lang_code: str = "f", voice: str = "ff_siwis", sample_rate: int = 24000):
+    def __init__(
+        self,
+        *,
+        lang_code: str = "f",
+        voice: str = "ff_siwis",
+        sample_rate: int = 24000,
+        speed: float = 1.18,
+    ):
+        if speed <= 0:
+            raise ValueError("speed must be positive")
         self.lang_code = lang_code
         self.voice = voice
         self.sample_rate = sample_rate
+        self.speed = speed
         self._pipeline = None
 
     def _load(self):
@@ -46,7 +56,7 @@ class KokoroEngine:
             dtype="float32",
         ) as stream:
             produced = False
-            for _, _, audio in self._load()(text, voice=self.voice):
+            for _, _, audio in self._load()(text, voice=self.voice, speed=self.speed):
                 if stop.is_set():
                     break
                 if audio is None:
@@ -65,7 +75,7 @@ class KokoroEngine:
         import numpy as np
 
         chunks = []
-        for _, _, audio in self._load()(text, voice=self.voice):
+        for _, _, audio in self._load()(text, voice=self.voice, speed=self.speed):
             if audio is not None:
                 chunks.append(np.asarray(audio, dtype=np.float32))
         if not chunks:
