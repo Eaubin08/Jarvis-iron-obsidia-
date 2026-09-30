@@ -57,7 +57,7 @@ Additional observed integration evidence:
 | --- | --- | --- | --- |
 | W01 wake word -> STT latency | PASS | Physical F5 voice E2E PASS (`1 passed in 40.58s`) | |
 | W02 barge-in during TTS | PASS | Physical French Kokoro playback/barge-in PASS (`1 passed in 30.95s`) | |
-| W03 follow-up without repeated wake word | READY | Voice conversation state tests | Physical voice loop not executed. |
+| W03 follow-up without repeated wake word | PASS | Physical two-turn follow-up PASS (`1 passed in 42.27s`); wake detector called once across both turns | |
 | W04 exact command opens known application through structured backend | PASS | Real Win32 integration test PASS in final environment | |
 | W05 browser action uses DOM/Playwright before visual operator | PASS | Real Playwright Chromium integration + F8 routing tests | |
 | W06 UIA action targets correct window/control | PASS | Structured UIA-driver fixture integration PASS | |
