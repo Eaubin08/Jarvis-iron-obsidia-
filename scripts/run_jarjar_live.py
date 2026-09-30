@@ -108,13 +108,23 @@ def build_live_controller() -> HUDController:
         ("media.next", "windows"),
         ("media.previous", "windows"),
         ("system.battery", "windows"),
+        ("file.open", "filesystem"),
+        ("file.reveal", "filesystem"),
+        ("folder.create", "filesystem"),
+        ("file.copy", "filesystem"),
+        ("file.move", "filesystem"),
+        ("file.delete", "filesystem"),
     ):
         registry.register(Capability(name, family))
 
     actions = ActionRouter(
         registry=registry,
         permission_policy=LocalPermissionPolicy(),
-        backends=[SystemBackend(), NativeWindowsBackend(Win32Driver())],
+        backends=[
+            SystemBackend(),
+            NativeWindowsBackend(Win32Driver()),
+            NativeFilesystemBackend(),
+        ],
     )
     core = JarvisCore(
         cognition,
