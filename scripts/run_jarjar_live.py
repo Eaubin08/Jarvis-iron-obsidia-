@@ -38,7 +38,7 @@ def build_live_controller() -> HUDController:
     model = HUDModel()
     microphone = SoundDeviceMicrophone(sample_rate=16000)
     stt = FasterWhisperSTT(
-        os.getenv("JARVIS_STT_MODEL", "tiny"),
+        os.getenv("JARVIS_STT_MODEL", "small"),
         device="cpu",
         compute_type="int8",
         language=os.getenv("JARVIS_STT_LANGUAGE", "fr") or None,
