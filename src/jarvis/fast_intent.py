@@ -92,63 +92,91 @@ class FastIntentRouter:
     @staticmethod
     def _volume_amount(text: str) -> int | None:
         match = re.search(r"\b(?:de|a)\s+(\d{1,3})\b", text)
+        if match:
+            value = int(match.group(1))
+            return value if 0 <= value <= 100 else None
+
+        words = {
+            "zero": 0, "un": 1, "une": 1, "deux": 2, "trois": 3, "quatre": 4,
+            "cinq": 5, "six": 6, "sept": 7, "huit": 8, "neuf": 9, "dix": 10,
+            "onze": 11, "douze": 12, "treize": 13, "quatorze": 14, "quinze": 15,
+            "seize": 16, "vingt": 20, "trente": 30, "quarante": 40,
+            "cinquante": 50, "soixante": 60, "cent": 100,
+        }
+        match = re.search(r"\b(?:de|a)\s+([a-z]+)\b", text)
         if not match:
             return None
-        value = int(match.group(1))
-        return value if 0 <= value <= 100 else None
+        return words.get(match.group(1))
+
+    @staticmethod
+    def _volume_direction(text: str) -> str | None:
+        if "volume" not in text:
+            if text in {"monte", "plus fort"}:
+                return "up"
+            if text in {"baisse", "moins fort"}:
+                return "down"
+            return None
+
+        prefix = text.split("volume", 1)[0].strip()
+        tokens = prefix.split()
+        if not tokens:
+            return None
+
+        # Multiple explicit opposite instructions in one utterance are ambiguous.
+        full = set(text.split())
+        if ({"monte", "augmente", "remonte"} & full) and ({"baisse", "diminue", "descend"} & full):
+            return None
+
+        verb = tokens[-1]
+        up_aliases = ("monte", "augmente", "remonte", "mente", "monde", "manque")
+        down_aliases = ("baisse", "diminue", "descend")
+
+        if verb in up_aliases:
+            return "up"
+        if verb in down_aliases:
+            return "down"
+
+        up_score = max(SequenceMatcher(None, verb, candidate).ratio() for candidate in up_aliases[:3])
+        down_score = max(SequenceMatcher(None, verb, candidate).ratio() for candidate in down_aliases)
+        best = max(up_score, down_score)
+        if best < 0.68 or abs(up_score - down_score) < 0.12:
+            return None
+        return "up" if up_score > down_score else "down"
 
     @classmethod
     def _volume_up(cls, text: str) -> ActionRequest | None:
+        if cls._volume_direction(text) != "up":
+            return None
         amount = cls._volume_amount(text)
-        if "volume" in text:
-            head = text.split("volume", 1)[0].strip().split()
-            verb = head[-1] if head else ""
-            if (
-                verb in {"monte", "augmente", "remonte"}
-                or SequenceMatcher(None, verb, "monte").ratio() >= 0.55
-                or SequenceMatcher(None, verb, "augmente").ratio() >= 0.65
-            ):
-                if amount is not None and re.search(r"\bde\s+\d{1,3}\b", text):
-                    return ActionRequest("audio.adjust_volume", {"delta": amount})
-                return ActionRequest("audio.volume_up")
-        candidates = ("monte le volume", "augmente le volume", "volume plus")
-        if text in candidates or cls._close_command(text, candidates):
-            return ActionRequest("audio.volume_up")
-        if text in {"monte", "plus fort"}:
-            return ActionRequest("audio.volume_up")
-        return None
+        if amount is not None and re.search(r"\bde\s+(?:\d{1,3}|[a-z]+)\b", text):
+            return ActionRequest("audio.adjust_volume", {"delta": amount})
+        return ActionRequest("audio.volume_up")
 
     @classmethod
     def _volume_down(cls, text: str) -> ActionRequest | None:
+        if cls._volume_direction(text) != "down":
+            return None
         amount = cls._volume_amount(text)
-        if "volume" in text:
-            head = text.split("volume", 1)[0].strip().split()
-            verb = head[-1] if head else ""
-            if (
-                verb in {"baisse", "diminue", "descend"}
-                or SequenceMatcher(None, verb, "baisse").ratio() >= 0.60
-                or SequenceMatcher(None, verb, "diminue").ratio() >= 0.65
-            ):
-                if amount is not None and re.search(r"\bde\s+\d{1,3}\b", text):
-                    return ActionRequest("audio.adjust_volume", {"delta": -amount})
-                return ActionRequest("audio.volume_down")
-        candidates = ("baisse le volume", "diminue le volume", "volume moins")
-        if text in candidates or cls._close_command(text, candidates):
-            return ActionRequest("audio.volume_down")
-        if text in {"baisse", "moins fort"}:
-            return ActionRequest("audio.volume_down")
-        return None
+        if amount is not None and re.search(r"\bde\s+(?:\d{1,3}|[a-z]+)\b", text):
+            return ActionRequest("audio.adjust_volume", {"delta": -amount})
+        return ActionRequest("audio.volume_down")
 
     @classmethod
     def _volume_set(cls, text: str) -> ActionRequest | None:
         if "volume" not in text:
             return None
-        match = re.search(r"\b(?:mets|met|regle|fixe)\b.*\bvolume\b.*\ba\s+(\d{1,3})\b", text)
-        if not match:
+        if not re.search(r"\b(?:mets|met|regle|fixe)\b.*\bvolume\b.*\ba\b", text):
             return None
-        percent = int(match.group(1))
-        if 0 <= percent <= 100:
+        percent = cls._volume_amount(text)
+        if percent is not None and 0 <= percent <= 100:
             return ActionRequest("audio.set_volume", {"percent": percent})
+        return None
+
+    @classmethod
+    def local_guard_response(cls, text: str) -> str | None:
+        normalized = cls._normalize_voice_text(text)
+        if "volume" in normalized or re.search(r"\b(?:son|sourdine|mute)\b", normalized):
+            return "Je n'ai pas compris la commande audio. Dis par exemple : monte le volume de dix, baisse le volume de quinze, ou mets le volume à trente."
         return None
 
     @classmethod
