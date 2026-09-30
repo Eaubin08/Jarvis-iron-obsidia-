@@ -213,7 +213,34 @@ class FastIntentRouter:
 
     @staticmethod
     def _media_play_pause(text: str) -> ActionRequest | None:
-        if text in {"pause", "lecture pause", "play pause", "reprends la musique"}:
+        exact = {
+            "pause",
+            "lecture pause",
+            "play pause",
+            "reprends la musique",
+            "reprend la musique",
+            "active la musique",
+            "lance la musique",
+            "mets la musique",
+            "met la musique",
+        }
+        if text in exact:
+            return ActionRequest("media.play_pause")
+
+        # Natural voice variants that clearly ask to resume/start the media
+        # already loaded on the PC. Keep this bounded to explicit music/media
+        # verbs so ordinary cognition mentioning music is not hijacked.
+        if re.search(
+            r"\b(?:active|lance|reprends|reprend|mets|met)\b.*"
+            r"\b(?:musique|lecture|media|multimedia)\b",
+            text,
+        ):
+            return ActionRequest("media.play_pause")
+        if (
+            ("lecteur de musique" in text or "lecteur multimedia" in text)
+            and re.search(r"\b(?:lance|reprends|reprend|active)\b", text)
+            and re.search(r"\b(?:musique|lecture|en cours)\b", text)
+        ):
             return ActionRequest("media.play_pause")
         return None
 
