@@ -127,9 +127,16 @@ class FastIntentRouter:
         if ({"monte", "augmente", "remonte"} & full) and ({"baisse", "diminue", "descend"} & full):
             return None
 
-        verb = tokens[-1]
         up_aliases = ("monte", "augmente", "remonte", "mente", "monde", "manque")
         down_aliases = ("baisse", "diminue", "descend")
+
+        # French commands normally contain an article before "volume":
+        # "monte le volume", "baisse le volume". Use the first meaningful token,
+        # not the last token ("le").
+        meaningful = [token for token in tokens if token not in {"le", "la", "les", "du", "de", "des", "un", "une"}]
+        if not meaningful:
+            return None
+        verb = meaningful[-1]
 
         if verb in up_aliases:
             return "up"
