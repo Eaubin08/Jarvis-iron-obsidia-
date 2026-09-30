@@ -67,7 +67,7 @@ def build_live_controller() -> HUDController:
         max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "8.0")),
         silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "0.35")),
         rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
-        wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "3.0")),
+        wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "6.0")),
         follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "4.0")),
         on_wake=lambda: model.set_session_open(True),
     )
