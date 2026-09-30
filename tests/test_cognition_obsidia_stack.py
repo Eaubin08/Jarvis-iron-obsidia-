@@ -40,3 +40,23 @@ def test_obsidia_stack_provider_accepts_response_fallback_field():
 
     provider = ObsidiaStackCognition(transport=transport)
     assert provider.respond("salut", ctx()) == "Bonjour."
+
+
+def test_obsidia_stack_provider_records_routing_metadata():
+    def transport(request, timeout):
+        return json.dumps({
+            "final_answer": "Réponse.",
+            "source": "LOCAL_STRUCTURAL",
+            "provider_status": "DISABLED_BY_POLICY",
+            "provider_called": False,
+            "selected_provider": None,
+            "fastpath": False,
+            "decision_authority": "KX108_ONLY",
+            "readonly": True,
+        }).encode("utf-8")
+
+    provider = ObsidiaStackCognition(transport=transport)
+    assert provider.respond("question", ctx()) == "Réponse."
+    assert provider.last_trace["provider_status"] == "DISABLED_BY_POLICY"
+    assert provider.last_trace["provider_called"] is False
+    assert provider.last_trace["decision_authority"] == "KX108_ONLY"
