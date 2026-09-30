@@ -1,6 +1,6 @@
 # F5 PHYSICAL BARGE-IN GATE
 
-Status: PASS / PHYSICAL PLAYBACK VERIFIED; FRENCH VOICE RETEST REQUIRED
+Status: PASS / PHYSICAL FRENCH PLAYBACK AND BARGE-IN VERIFIED
 
 This gate verifies that real local speaker playback can be interrupted through
 the Jarvis-owned ConversationVoiceRuntime.barge_in() path.
@@ -23,7 +23,7 @@ Therefore this gate deliberately separates synthesis from playback:
         -> sounddevice stop
         -> LISTENING
 
-The physical playback cancellation gate already passed on the target machine (`1 passed in 28.83s`). The French rerun keeps the same boundary while switching Jarvis to the supported Kokoro French voice `ff_siwis`. This proves the current V0 barge-in contract at the playback boundary without
+The physical playback cancellation gate first passed in English (`1 passed in 28.83s`) and then passed again with the French `ff_siwis` voice (`1 passed in 30.95s`). This proves the current V0 barge-in contract at the playback boundary without
 misclassifying Kokoro generation latency as a playback cancellation failure.
 
 ## Run
@@ -70,3 +70,17 @@ The default Jarvis Kokoro adapter now uses:
 This matches the current Kokoro-82M French catalogue. French currently has one
 published voice in that catalogue, so voice choice is intentionally explicit
 rather than guessed.
+
+
+## Verified French physical evidence
+
+Target Windows machine:
+
+    1 passed in 30.95s
+
+Observed configuration:
+
+    lang_code = "f"
+    voice = "ff_siwis"
+
+This closes the physical French playback/barge-in gate.
