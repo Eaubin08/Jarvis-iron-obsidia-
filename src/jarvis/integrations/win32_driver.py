@@ -6,6 +6,7 @@ import os
 import subprocess
 
 from .windows_app_inventory import WindowsAppInventory
+from ..monitor_layout import WindowsMonitorProvider
 
 
 class Win32Driver:
@@ -284,21 +285,18 @@ $items
         if not win32gui.IsWindow(hwnd):
             raise ValueError(f"window handle not found: {hwnd}")
         current = win32gui.GetWindowText(hwnd).strip()
-        monitors = []
-
-        def collect(monitor, _hdc, _rect):
-            info = win32gui.GetMonitorInfo(monitor)
-            monitors.append(info)
-            return True
-
-        win32gui.EnumDisplayMonitors(None, None, collect)
+        layout = WindowsMonitorProvider().snapshot()
+        monitors = list(layout.monitors)
         if monitor_index > len(monitors):
             raise ValueError(
                 f"monitor {monitor_index} unavailable; detected {len(monitors)}"
             )
 
-        target = monitors[monitor_index - 1]["Work"]
-        left, top, right, bottom = target
+        target = monitors[monitor_index - 1]
+        left = int(target.left)
+        top = int(target.top)
+        right = int(target.left + target.width)
+        bottom = int(target.top + target.height)
         win_left, win_top, win_right, win_bottom = win32gui.GetWindowRect(hwnd)
         width = max(320, win_right - win_left)
         height = max(200, win_bottom - win_top)
