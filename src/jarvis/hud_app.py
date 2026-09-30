@@ -42,6 +42,7 @@ class JarjarHUD(tk.Tk):
         self._voice_busy = threading.Lock()
         self._voice_stop = threading.Event()
         self._voice_thread: threading.Thread | None = None
+        self._closing = False
 
         self._build()
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -348,10 +349,25 @@ class JarjarHUD(tk.Tk):
         self.after(75, self._drain_ui_queue)
 
     def _close(self) -> None:
+        self._closing = True
         self._voice_stop.set()
+        print("JARJAR_HUD: close requested")
         self.destroy()
 
 
 def run_hud(controller: HUDController) -> None:
+    print("JARJAR_HUD: creating window")
     app = JarjarHUD(controller)
+    app.update_idletasks()
+    app.deiconify()
+    app.lift()
+    try:
+        app.attributes("-topmost", True)
+        app.after(1200, lambda: app.attributes("-topmost", False))
+    except tk.TclError:
+        pass
+    print("JARJAR_HUD: entering mainloop")
     app.mainloop()
+    print(f"JARJAR_HUD: mainloop returned closing={app._closing}")
+    if not app._closing:
+        raise RuntimeError("Jarjar HUD mainloop exited unexpectedly")
