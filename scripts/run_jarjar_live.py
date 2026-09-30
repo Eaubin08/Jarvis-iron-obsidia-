@@ -85,4 +85,8 @@ def build_live_controller() -> HUDController:
 
 
 if __name__ == "__main__":
-    run_hud(build_live_controller())
+    print("JARJAR_BOOT: building live controller")
+    controller = build_live_controller()
+    print("JARJAR_BOOT: controller ready, launching HUD")
+    run_hud(controller)
+    print("JARJAR_BOOT: HUD exited")
