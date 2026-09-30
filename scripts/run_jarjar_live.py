@@ -13,8 +13,12 @@ from jarvis.integrations.kokoro_engine import KokoroEngine
 from jarvis.integrations.local_tts import LocalTTS
 from jarvis.integrations.microphone import SoundDeviceMicrophone
 from jarvis.integrations.openwakeword_provider import OpenWakeWordProvider
-from jarvis.cognition_bridge import GovernedCognitionBridge
+from jarvis.cognition_bridge import CostAwareCognitionRouter
+from jarvis.camera_rig import CameraRig
+from jarvis.integrations.live_environment_timeline import LiveEnvironmentTimeline
+from jarvis.integrations.local_qwen_cognition import from_environment as qwen_cognition_from_environment
 from jarvis.integrations.obsidia_stack_cognition import from_environment as obsidia_cognition_from_environment
+from jarvis.monitor_layout import WindowsMonitorProvider
 from jarvis.providers.local_stub import StubCognition, StubMemory
 from jarvis.streaming_voice_ingress import StreamingVoiceIngress
 from jarvis.voice_runtime import ConversationVoiceRuntime
@@ -58,14 +62,35 @@ def build_live_controller() -> HUDController:
     )
     local_presence = StubCognition()
     governed_stack = obsidia_cognition_from_environment()
-    cognition = GovernedCognitionBridge(
+
+    live_timeline = None
+    if os.getenv("JARJAR_LIVE_CONTEXT", "1").strip().lower() not in {"0", "false", "no", "off"}:
+        camera_indices = tuple(
+            int(x.strip())
+            for x in os.getenv("JARJAR_CAMERA_INDICES", "0,1").split(",")
+            if x.strip()
+        )
+        camera_rig = CameraRig.from_device_indices(camera_indices)
+        camera_rig.enable_all(permission_granted=True)
+        live_timeline = LiveEnvironmentTimeline(
+            monitor_provider=WindowsMonitorProvider(),
+            camera_rig=camera_rig,
+        )
+
+    qwen = qwen_cognition_from_environment(live_timeline=live_timeline)
+    cognition = CostAwareCognitionRouter(
         local_presence=local_presence,
         governed_stack=governed_stack,
+        qwen=qwen,
     )
     core = JarvisCore(cognition, StubMemory())
     print(
         "JARJAR_BOOT: cognition bridge ready "
         f"(Obsidia={governed_stack.endpoint}, provider-routing={'on' if governed_stack.allow_provider else 'off'})"
+    )
+    print(
+        "JARJAR_BOOT: cost router ready "
+        f"(Qwen={qwen.endpoint}, live-context={'on' if live_timeline is not None else 'off'})"
     )
     bridge = HUDLiveVoiceBridge(
         ingress=ingress,
