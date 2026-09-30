@@ -142,6 +142,22 @@ class ObsidiaStackCognition:
             + (" ".join(trace_bits) if trace_bits else "no routing metadata returned")
         )
 
+        brody_link_ok = (
+            str(packet.get("voice_runtime") or "").strip() == "BRODY_OBSIDIEN_V1_4_12A"
+            and native_memory_active
+            and str(packet.get("decision_authority") or "").strip() == "KX108_ONLY"
+            and packet.get("readonly") is True
+        )
+        print(
+            "JARJAR_BRODY_LINK: "
+            + ("OK" if brody_link_ok else "DEGRADED")
+            + f" runtime={packet.get('voice_runtime') or 'UNKNOWN'}"
+            + f" memory={memory_source_mode or 'UNKNOWN'}"
+            + f" native_memory_active={native_memory_active}"
+            + f" authority={packet.get('decision_authority') or 'UNKNOWN'}"
+            + f" readonly={packet.get('readonly')}"
+        )
+
         candidates = (
             true_voice.get("final_answer"),
             packet.get("response"),
