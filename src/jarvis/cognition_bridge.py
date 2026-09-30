@@ -67,6 +67,7 @@ class CostAwareCognitionRouter:
     governed_stack: CognitionProvider
     qwen: object | None = None
     vision: object | None = None
+    pre_inference: object | None = None
     last_route: str | None = field(default=None, init=False)
 
     def _qwen(self, user_input: str, context: ContextSnapshot, *, live: bool) -> str | None:
@@ -106,6 +107,46 @@ class CostAwareCognitionRouter:
             if isinstance(local, str) and local.strip():
                 self.last_route = "local"
                 return local.strip()
+
+        # Canonical Obsidia pre-inference routing. Visual/environment
+        # requests keep their dedicated Jarjar sensor path for now; the ported
+        # router does not yet model those capabilities.
+        pre_decision = None
+        if (
+            self.pre_inference is not None
+            and not is_visual_query(user_input)
+            and not is_live_environment_query(user_input)
+        ):
+            try:
+                pre_decision = self.pre_inference.route(user_input)
+            except Exception as exc:
+                print(f"JARJAR_PRE_ROUTE: FALLBACK error={type(exc).__name__}: {exc}")
+                pre_decision = None
+
+        if pre_decision is not None and getattr(pre_decision, "is_confident", False):
+            direct = getattr(pre_decision, "direct_answer", None)
+            if isinstance(direct, str) and direct.strip():
+                self.last_route = "obsidia_local"
+                return direct.strip()
+
+            route = getattr(pre_decision, "route", "")
+            if route in {"brody", "lean_route_only", "domain_bridge", "obsidure_route_only"}:
+                answer = self._brody(user_input, context)
+                if answer:
+                    self.last_route = "brody"
+                    return answer
+
+            if route == "fireworks":
+                # Jarjar keeps inference local: the ported router's escalation
+                # class is satisfied by the configured local Qwen provider.
+                answer = self._qwen(user_input, context, live=False)
+                if answer:
+                    self.last_route = "qwen"
+                    return answer
+                answer = self._brody(user_input, context)
+                if answer:
+                    self.last_route = "brody_fallback"
+                    return answer
 
         # Preserve conversational continuity: a short follow-up after a
         # successful Brody turn stays on Brody unless the user explicitly asks
