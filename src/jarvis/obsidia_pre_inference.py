@@ -74,6 +74,18 @@ class ObsidiaPreInferenceAdapter:
         semantic = build_semantic_query(semantic_input)
         semantic_topic = str(semantic.get("topic") or "")
 
+        # Jarjar is the user-facing surface of the Brody/Obsidia cognition
+        # stack. If the generic surface wording did not resolve, recompile it
+        # through the canonical Brody role topic already defined upstream.
+        if (
+            "jarjar" in user_input.casefold()
+            and semantic_topic == "GENERAL"
+        ):
+            semantic = build_semantic_query(
+                "qu'est-ce que tu sais du projet Obsidia et de ton rôle Brody ?"
+            )
+            semantic_topic = str(semantic.get("topic") or "")
+
         readonly_intent = detect_readonly_runtime_state_intent(user_input)
         readonly_pass = (
             readonly_intent.get("status")
