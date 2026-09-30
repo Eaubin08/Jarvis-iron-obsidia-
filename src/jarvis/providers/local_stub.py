@@ -72,8 +72,6 @@ class StubCognition:
 
         if "tu m entends" in text:
             return "Oui, je t'entends."
-        if text.startswith("qu est ce que tu comprends") or text.startswith("que comprends tu"):
-            return "Je t'écoute et je comprends ta phrase."
         if "on peut encore continuer" in text or text.startswith("on continue"):
             return "Oui, on continue."
         if "comment vas tu" in text or "comment va tu" in text:
