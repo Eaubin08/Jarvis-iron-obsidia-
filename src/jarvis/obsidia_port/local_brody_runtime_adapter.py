@@ -42,6 +42,7 @@ from periphery.context.governed_model_projection import (
 )
 from runtime_wiring.source_runtime.brody_source_context_bridge import (
     build_brody_context_from_source_packs,
+    plan_brody_source_context_route,
 )
 from jarvis.obsidia_port.evidence_qualification import (
     build_evidence_qualification_snapshot,
@@ -282,6 +283,7 @@ class LocalBrodyRuntimeAdapter:
                 query=message,
                 limit=5,
                 preselected_runtime_path=effective_runtime_path,
+                precomputed_route_plan=source_route_plan,
             )
 
             evidence_qualification = build_evidence_qualification_snapshot(
