@@ -68,6 +68,7 @@ from jarvis.obsidia_port.structured_p36_shadow_comparator import (
     build_structured_p36_shadow_comparison,
 )
 from jarvis.obsidia_port.router_core.unified_ir import build_ir
+from jarvis.obsidia_port.semantic_query_roles_v0 import build_semantic_query_roles
 
 
 _CAPABILITY_SURFACE_PRIORITY = frozenset({
