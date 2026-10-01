@@ -41,6 +41,7 @@ def build_brody_context_from_source_packs(
     families: Optional[List[str]] = None,
     limit: int = 5,
     critical_action_requested: bool = False,
+    preselected_runtime_path: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Query source packs, hydrate into ContextPackets, route through X108, return Brody context.
@@ -71,7 +72,21 @@ def build_brody_context_from_source_packs(
     except Exception:
         pass  # L'inventaire est optionnel — le routing P36 fonctionne sans lui
 
-    selected_path = cap_routing.get("selected_path", {})
+    legacy_selected_path = cap_routing.get("selected_path", {})
+    selected_path = legacy_selected_path
+    preselected_path_applied = False
+
+    if isinstance(preselected_runtime_path, dict) and preselected_runtime_path:
+        candidate = dict(preselected_runtime_path)
+        if (
+            candidate.get("decision_authority") == "KX108_ONLY"
+            and candidate.get("emits_act") is False
+            and candidate.get("x108_decision") == "ALLOW_CONTEXT_ONLY"
+            and candidate.get("runtime_allowed_now") is False
+        ):
+            selected_path = candidate
+            preselected_path_applied = True
+
     hydration_plan = build_hydration_plan_from_path(selected_path, max_files=8, max_bytes=50_000)
 
     # Smart family selection: explicit override OR capability-router-guided selection
@@ -174,6 +189,8 @@ def build_brody_context_from_source_packs(
         "required_capabilities": cap_routing.get("required_capabilities", []),
         "ranked_runtime_paths": cap_routing.get("ranked_runtime_paths", []),
         "selected_runtime_path": selected_path,
+        "legacy_selected_runtime_path": legacy_selected_path,
+        "preselected_runtime_path_applied": preselected_path_applied,
         "selected_modules": selected_path.get("modules", []),
         "selected_adapters": selected_path.get("adapters", []),
         "selected_routes": selected_path.get("routes", []),
