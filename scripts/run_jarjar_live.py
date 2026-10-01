@@ -8,6 +8,7 @@ from jarvis.capabilities import LocalCapabilityRegistry
 from jarvis.contracts import Capability
 from jarvis.core import JarvisCore
 from jarvis.fast_intent import FastIntentRouter
+from jarvis.governed_move import governed_move_from_environment
 from jarvis.hud_app import run_hud
 from jarvis.filesystem import NativeFilesystemBackend
 from jarvis.hud_controller import HUDController
@@ -147,11 +148,17 @@ def build_live_controller() -> HUDController:
             NativeFilesystemBackend(),
         ],
     )
+    governed_move = governed_move_from_environment()
     core = JarvisCore(
         cognition,
         StubMemory(),
         fast_intent=FastIntentRouter(),
         actions=actions,
+        governed_move=governed_move,
+    )
+    print(
+        "JARJAR_BOOT: governed move "
+        + ("enabled" if governed_move is not None else "disabled")
     )
     print(
         "JARJAR_BOOT: cognition bridge ready "
