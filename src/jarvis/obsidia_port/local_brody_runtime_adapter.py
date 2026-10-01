@@ -746,9 +746,22 @@ class LocalBrodyRuntimeAdapter:
             ).strip()
 
            
-            canonical_voice_priority = (
-                str(semantic.get("topic") or "")
-                in {"OBSIDIA_BRODY_ROLE"}
+            # FINAL SURFACE CAPABILITY PRIORITY V0
+            # A specific governed capability may constrain which response
+            # surface is eligible, without gaining decision authority.
+            # Qwen can enrich open responses, but must not replace a more
+            # specific structured/readonly surface selected upstream.
+            _capability_surface_priority = {
+                "ACTION_REQUEST_BLOCKED",
+                "BRODY_CHAT_ENTRYPOINT",
+                "MEMORY_REINTEGRATION_CONTEXT",
+                "PROOF_AUDIT_CONTEXT",
+                "IR_ALPHABET_MAPPING",
+                "AGENT_TREE_LOOKUP",
+            }
+            canonical_voice_priority = bool(
+                str(semantic.get("topic") or "") == "OBSIDIA_BRODY_ROLE"
+                or _surface_capability in _capability_surface_priority
             )
 
             governed_selected = (
