@@ -66,7 +66,7 @@ def test_apply_unified_patch_target_mismatch_fails_closed(tmp_path):
     _git(repo, "init", "-q")
     _git(repo, "config", "user.email", "g3@test.local")
     _git(repo, "config", "user.name", "G3")
-    (repo / "a.txt").write_text("before\n", encoding="utf-8")
+    (repo / "a.txt").write_bytes(b"before\n")
     (repo / "b.txt").write_bytes(b"untouched\n")
     _git(repo, "add", "a.txt", "b.txt")
     _git(repo, "commit", "-q", "-m", "seed")
