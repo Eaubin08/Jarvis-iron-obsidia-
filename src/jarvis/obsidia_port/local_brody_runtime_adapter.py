@@ -56,6 +56,9 @@ from jarvis.obsidia_port.capability_selection_shadow import (
 from jarvis.obsidia_port.bounded_routing_shadow_experiment import (
     build_bounded_routing_shadow_experiment,
 )
+from jarvis.obsidia_port.bounded_runtime_routing_v0 import (
+    resolve_bounded_runtime_override,
+)
 from jarvis.obsidia_port.structured_capability_hint import (
     build_structured_capability_hint,
     compare_structured_hint_with_p36,
@@ -465,6 +468,20 @@ class LocalBrodyRuntimeAdapter:
                 )
             )
 
+            bounded_runtime_routing_v0 = resolve_bounded_runtime_override(
+                capability_selection_snapshot=capability_selection_shadow,
+                available_families=source_pack.get("available_families"),
+            )
+
+            if bounded_runtime_routing_v0.get("applied") is True:
+                source_pack = build_brody_context_from_source_packs(
+                    query=message,
+                    limit=5,
+                    preselected_runtime_path=bounded_runtime_routing_v0.get(
+                        "runtime_path"
+                    ),
+                )
+
             bounded_routing_shadow_experiment = (
                 build_bounded_routing_shadow_experiment(
                     capability_selection_snapshot=capability_selection_shadow,
@@ -845,6 +862,7 @@ class LocalBrodyRuntimeAdapter:
                 "bounded_routing_shadow_experiment": (
                     bounded_routing_shadow_experiment
                 ),
+                "bounded_runtime_routing_v0": bounded_runtime_routing_v0,
 
                 "memzum_status": memzum.get("status"),
                 "cognitive_join_status": join.get("status"),
