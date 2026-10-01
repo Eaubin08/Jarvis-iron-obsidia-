@@ -70,6 +70,24 @@ from jarvis.obsidia_port.structured_p36_shadow_comparator import (
 from jarvis.obsidia_port.router_core.unified_ir import build_ir
 
 
+_CAPABILITY_SURFACE_PRIORITY = frozenset({
+    "ACTION_REQUEST_BLOCKED",
+    "BRODY_CHAT_ENTRYPOINT",
+    "MEMORY_REINTEGRATION_CONTEXT",
+    "PROOF_AUDIT_CONTEXT",
+    "IR_ALPHABET_MAPPING",
+    "AGENT_TREE_LOOKUP",
+})
+
+
+def _requires_canonical_surface(semantic_topic: str, capability: str) -> bool:
+    """Return whether a specific governed surface must outrank model prose."""
+    return (
+        str(semantic_topic or "") == "OBSIDIA_BRODY_ROLE"
+        or str(capability or "") in _CAPABILITY_SURFACE_PRIORITY
+    )
+
+
 class LocalBrodyRuntimeAdapter:
     """
     Jarjar-owned adapter around the vendored Brody readonly runtime.
@@ -751,17 +769,9 @@ class LocalBrodyRuntimeAdapter:
             # surface is eligible, without gaining decision authority.
             # Qwen can enrich open responses, but must not replace a more
             # specific structured/readonly surface selected upstream.
-            _capability_surface_priority = {
-                "ACTION_REQUEST_BLOCKED",
-                "BRODY_CHAT_ENTRYPOINT",
-                "MEMORY_REINTEGRATION_CONTEXT",
-                "PROOF_AUDIT_CONTEXT",
-                "IR_ALPHABET_MAPPING",
-                "AGENT_TREE_LOOKUP",
-            }
-            canonical_voice_priority = bool(
-                str(semantic.get("topic") or "") == "OBSIDIA_BRODY_ROLE"
-                or _surface_capability in _capability_surface_priority
+            canonical_voice_priority = _requires_canonical_surface(
+                str(semantic.get("topic") or ""),
+                _surface_capability,
             )
 
             governed_selected = (
