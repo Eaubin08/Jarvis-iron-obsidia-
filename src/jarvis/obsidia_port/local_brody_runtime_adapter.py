@@ -720,6 +720,56 @@ class LocalBrodyRuntimeAdapter:
             #
             # Raw model output is never surfaced here.
             # ---------------------------------------------------------
+            # Preserve specific structured surfaces over generic PROJECT_MEMORY.
+            # Routing and authority were already decided upstream.
+            _surface_path = (
+                source_pack.get("selected_runtime_path", {})
+                if isinstance(source_pack, dict)
+                else {}
+            )
+            _surface_chain = (
+                _surface_path.get("capability_chain", [])
+                if isinstance(_surface_path, dict)
+                else []
+            )
+            _surface_capability = (
+                str(_surface_chain[0])
+                if isinstance(_surface_chain, list) and _surface_chain
+                else ""
+            )
+
+            if (
+                _surface_capability == "ACTION_REQUEST_BLOCKED"
+                and str(voice.get("voice_source") or "") == "PROJECT_MEMORY"
+            ):
+                voice = dict(voice)
+                voice["final_answer"] = (
+                    "Je ne peux pas autoriser cette action. "
+                    "Jarjar/Brody reste consultatif et readonly : je peux "
+                    "pr\u00e9parer ou structurer la demande, mais pas l\u0027ex\u00e9cuter. "
+                    "X108/KX108 reste seul d\u00e9cisionnaire."
+                )
+                voice["voice_source"] = "ACTION_BOUNDARY"
+
+            elif (
+                _surface_capability == "IR_ALPHABET_MAPPING"
+                and str(voice.get("voice_source") or "") == "PROJECT_MEMORY"
+            ):
+                voice = dict(voice)
+                voice["final_answer"] = (
+                    "Demande structur\u00e9e en IR readonly : "
+                    f"intent={unified_ir.get('intent_type') or 'unknown'}; "
+                    f"target_layer={unified_ir.get('target_layer') or 'unknown'}; "
+                    f"action_type={unified_ir.get('action_type') or 'none'}; "
+                    f"risk_level={unified_ir.get('risk_level') or 'unknown'}; "
+                    f"needs={unified_ir.get('needs') or {}}; "
+                    f"constraints={unified_ir.get('constraints') or []}; "
+                    f"missing={unified_ir.get('missing') or []}. "
+                    "Projection descriptive uniquement; "
+                    "X108/KX108 conserve l\u0027autorit\u00e9 de d\u00e9cision."
+                )
+                voice["voice_source"] = "STRUCTURED_IR_PROJECTION"
+
             voice_answer = str(
                 voice.get("final_answer") or ""
             ).strip()
