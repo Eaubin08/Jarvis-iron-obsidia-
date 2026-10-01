@@ -18,8 +18,10 @@ RUNTIME_ROOT = (
 if str(RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(RUNTIME_ROOT))
 
+from runtime_wiring.source_runtime import brody_source_context_bridge as source_bridge  # noqa: E402
 from runtime_wiring.source_runtime.brody_source_context_bridge import (  # noqa: E402
     build_brody_context_from_source_packs,
+    plan_brody_source_context_route,
 )
 
 
@@ -144,3 +146,70 @@ def test_bridge_rejects_unsafe_preselected_path():
         },
     )
     assert routed.get("preselected_runtime_path_applied") is False
+
+
+
+def test_source_route_planner_does_not_hydrate_or_call_x108(monkeypatch):
+    def _forbidden(*args, **kwargs):
+        raise AssertionError("planner crossed the hydration/X108 boundary")
+
+    monkeypatch.setattr(source_bridge, "query_source_packs", _forbidden)
+    monkeypatch.setattr(source_bridge, "route_packets", _forbidden)
+
+    plan = plan_brody_source_context_route(
+        query="Structure ma demande en IR.",
+    )
+
+    assert plan["status"] == "SOURCE_ROUTE_PLAN_READY"
+    assert plan["readonly"] is True
+    assert plan["emits_act"] is False
+    assert plan["decision_authority"] == "KX108_ONLY"
+
+
+def test_effective_sourcepack_reuses_plan_and_crosses_boundary_once(monkeypatch):
+    plan = plan_brody_source_context_route(
+        query="Structure ma demande en IR.",
+    )
+
+    calls = {"route_capability_path": 0, "query_source_packs": 0, "route_packets": 0}
+
+    original_route_capability_path = source_bridge.route_capability_path
+    original_query_source_packs = source_bridge.query_source_packs
+    original_route_packets = source_bridge.route_packets
+
+    def _count_route_capability_path(*args, **kwargs):
+        calls["route_capability_path"] += 1
+        return original_route_capability_path(*args, **kwargs)
+
+    def _count_query_source_packs(*args, **kwargs):
+        calls["query_source_packs"] += 1
+        return original_query_source_packs(*args, **kwargs)
+
+    def _count_route_packets(*args, **kwargs):
+        calls["route_packets"] += 1
+        return original_route_packets(*args, **kwargs)
+
+    monkeypatch.setattr(
+        source_bridge,
+        "route_capability_path",
+        _count_route_capability_path,
+    )
+    monkeypatch.setattr(
+        source_bridge,
+        "query_source_packs",
+        _count_query_source_packs,
+    )
+    monkeypatch.setattr(source_bridge, "route_packets", _count_route_packets)
+
+    routed = build_brody_context_from_source_packs(
+        query="Structure ma demande en IR.",
+        limit=5,
+        precomputed_route_plan=plan,
+    )
+
+    assert routed["status"] == "SOURCE_PACK_CONTEXT_READY"
+    assert calls["route_capability_path"] == 0
+    assert calls["query_source_packs"] == 1
+    assert calls["route_packets"] == 1
+    assert routed["x108_decision"] == "ALLOW_CONTEXT_ONLY"
+    assert routed["boundary"]["decision_authority"] == "KX108_ONLY"
