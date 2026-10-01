@@ -183,3 +183,49 @@ def test_text_handler_ignores_unrelated_text(tmp_path):
     handler = GovernedMoveCommandHandler(coordinator)
 
     assert handler.handle("explique moi ce projet", session_id="s1") is None
+
+
+def test_from_obsidia_exposes_root_and_scripts_for_runtime_imports(tmp_path, monkeypatch):
+    root = tmp_path / "obsidia"
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True)
+
+    fake_pc2 = type("PC2", (), {
+        "pc_v2_move_file_prepare": staticmethod(lambda *a, **k: {}),
+        "pc_v2_move_file_execute": staticmethod(lambda *a, **k: {}),
+    })
+    fake_bridge = type("Bridge", (), {
+        "make_executor": staticmethod(lambda root: object()),
+    })
+
+    imported = []
+
+    def fake_import(name):
+        imported.append(name)
+        if name == "obsidia_pc_capabilities_v2":
+            assert str(root) in sys.path
+            assert str(scripts) in sys.path
+            return fake_pc2
+        if name == "jarjar_executor_bridge_v0":
+            return fake_bridge
+        raise AssertionError(name)
+
+    import sys
+    import jarvis.governed_move as gm
+
+    monkeypatch.setattr(gm.importlib, "import_module", fake_import)
+
+    config = GovernedMoveConfig(
+        execution_worktree_path=tmp_path / "exec",
+        main_worktree_path=tmp_path / "main",
+        branch_name="test",
+        base_sha="abc",
+        stores_base_dir=tmp_path / "stores",
+        obsidia_root=root,
+    )
+
+    coordinator = GovernedMoveCoordinator.from_obsidia(config)
+
+    assert coordinator.prepare_fn is fake_pc2.pc_v2_move_file_prepare
+    assert coordinator.execute_fn is fake_pc2.pc_v2_move_file_execute
+    assert imported == ["obsidia_pc_capabilities_v2", "jarjar_executor_bridge_v0"]
