@@ -38,6 +38,47 @@ def is_project_query(text: str) -> bool:
     return _matches(text, _PROJECT_PATTERNS)
 
 
+def _semantic_topic(pre_decision: object | None) -> str:
+    if pre_decision is None:
+        return ""
+    topic = getattr(pre_decision, "topic", {})
+    if not isinstance(topic, dict):
+        return ""
+    return str(topic.get("topic") or "").strip()
+
+
+def _requires_brody_semantic_route(pre_decision: object | None) -> bool:
+    """Keep known Obsidia semantic capabilities on Brody even if generic IR is unsure."""
+    return _semantic_topic(pre_decision) in {
+        "OBSIDIA_BRODY_ROLE",
+        "OBSIDIA_PROJECT",
+        "MEMORY_QUERY",
+        "PROOF_QUERY",
+        "34_ARBRES",
+        "TREE_POLICY",
+        "ACTION_BOUNDARY",
+        "RIGHTS_ACTION",
+        "CURRENT_STATE",
+    }
+
+
+def _requires_brody_structured_ir_route(user_input: str, pre_decision: object | None) -> bool:
+    """Recognize explicit IR projection requests without granting any action authority."""
+    value = " ".join(user_input.casefold().split())
+    if not re.search(r"(?<![a-z0-9])ir(?![a-z0-9])", value):
+        return False
+    return any(
+        marker in value
+        for marker in (
+            "structure",
+            "structure ma",
+            "structure, ma",
+            "demande en ir",
+            "en ir",
+        )
+    )
+
+
 def is_live_environment_query(text: str) -> bool:
     return _matches(text, _ENV_PATTERNS)
 
@@ -162,6 +203,18 @@ class CostAwareCognitionRouter:
             except Exception as exc:
                 print(f"JARJAR_PRE_ROUTE: FALLBACK error={type(exc).__name__}: {exc}")
                 pre_decision = None
+
+        # Known semantic/structured capabilities outrank the generic
+        # clarification fallback. This is provider routing only: it does not
+        # authorize ACT, memory writes, or any X108 decision.
+        if pre_decision is not None and (
+            _requires_brody_semantic_route(pre_decision)
+            or _requires_brody_structured_ir_route(user_input, pre_decision)
+        ):
+            answer = self._brody(user_input, context)
+            if answer:
+                self.last_route = "brody"
+                return answer
 
         if pre_decision is not None and getattr(pre_decision, "is_confident", False):
             route = getattr(pre_decision, "route", "")
