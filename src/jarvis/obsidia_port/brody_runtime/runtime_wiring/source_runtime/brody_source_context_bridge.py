@@ -89,7 +89,7 @@ def plan_brody_source_context_route(
         "inventory_status": cap_routing.get("inventory_status", "NOT_LOADED"),
         "selected_functions": cap_routing.get("selected_functions", []),
         "selected_classes": cap_routing.get("selected_classes", []),
-        "selected_routes_inventory": cap_routing.get("selected_routes_inventory", []),
+        "selected_routes_inventory": cap_routing.get("selected_routes", []),
         "selected_tests": cap_routing.get("selected_tests", []),
         "selected_docs": cap_routing.get("selected_docs", []),
         "coverage_status": cap_routing.get("coverage_status", "UNKNOWN"),
