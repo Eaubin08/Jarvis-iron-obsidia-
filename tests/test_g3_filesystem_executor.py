@@ -41,7 +41,7 @@ def test_apply_unified_patch_authorized_target_only(tmp_path):
     _git(repo, "init", "-q")
     _git(repo, "config", "user.email", "g3@test.local")
     _git(repo, "config", "user.name", "G3")
-    (repo / "a.txt").write_text("before\n", encoding="utf-8")
+    (repo / "a.txt").write_bytes(b"before\n")
     _git(repo, "add", "a.txt")
     _git(repo, "commit", "-q", "-m", "seed")
 
@@ -57,7 +57,7 @@ def test_apply_unified_patch_authorized_target_only(tmp_path):
     result = backend.apply_unified_patch(repo, patch, ["a.txt"])
 
     assert result.ok is True
-    assert (repo / "a.txt").read_text(encoding="utf-8") == "after\n"
+    assert (repo / "a.txt").read_bytes() == b"after\n"
 
 
 def test_apply_unified_patch_target_mismatch_fails_closed(tmp_path):
@@ -67,7 +67,7 @@ def test_apply_unified_patch_target_mismatch_fails_closed(tmp_path):
     _git(repo, "config", "user.email", "g3@test.local")
     _git(repo, "config", "user.name", "G3")
     (repo / "a.txt").write_text("before\n", encoding="utf-8")
-    (repo / "b.txt").write_text("untouched\n", encoding="utf-8")
+    (repo / "b.txt").write_bytes(b"untouched\n")
     _git(repo, "add", "a.txt", "b.txt")
     _git(repo, "commit", "-q", "-m", "seed")
 
@@ -83,5 +83,5 @@ def test_apply_unified_patch_target_mismatch_fails_closed(tmp_path):
     result = backend.apply_unified_patch(repo, patch, ["b.txt"])
 
     assert result.ok is False
-    assert (repo / "a.txt").read_text(encoding="utf-8") == "before\n"
-    assert (repo / "b.txt").read_text(encoding="utf-8") == "untouched\n"
+    assert (repo / "a.txt").read_bytes() == b"before\n"
+    assert (repo / "b.txt").read_bytes() == b"untouched\n"
