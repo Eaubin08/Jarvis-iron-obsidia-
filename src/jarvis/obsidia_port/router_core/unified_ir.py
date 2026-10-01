@@ -104,10 +104,17 @@ def build_ir(raw: str) -> dict:
     is_audit = bool(words & _AUDIT_WORDS)
     is_question = bool(words & _QUESTION_WORDS)
     is_reasoning = bool(words & _REASONING_WORDS)
+    is_ir_projection = (
+        "ir" in words
+        and bool(words & {"structure", "structuree", "structurer", "demande"})
+    )
 
     if is_action:
         intent_type, action_type, risk_level = "world_action", "act_request", "high"
         target_layer = "world"
+    elif is_ir_projection:
+        intent_type, action_type, risk_level = "structure_request", "project", "low"
+        target_layer = "terminal"
     elif is_status:
         intent_type, action_type, risk_level = "status", "status", "low"
     elif is_code:
