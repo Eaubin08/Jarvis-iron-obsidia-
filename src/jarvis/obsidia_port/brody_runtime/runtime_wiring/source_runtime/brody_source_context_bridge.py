@@ -105,6 +105,7 @@ def build_brody_context_from_source_packs(
     limit: int = 5,
     critical_action_requested: bool = False,
     preselected_runtime_path: Optional[Dict[str, Any]] = None,
+    precomputed_route_plan: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Query source packs, hydrate into ContextPackets, route through X108, return Brody context.
@@ -121,9 +122,13 @@ def build_brody_context_from_source_packs(
     if not available_families:
         return _fallback("NO_SOURCE_PACKS_AVAILABLE", query)
 
-    route_plan = plan_brody_source_context_route(
-        query=query,
-        available_families=available_families,
+    route_plan = (
+        dict(precomputed_route_plan)
+        if isinstance(precomputed_route_plan, dict) and precomputed_route_plan
+        else plan_brody_source_context_route(
+            query=query,
+            available_families=available_families,
+        )
     )
     legacy_selected_path = route_plan.get("selected_runtime_path", {})
     selected_path = legacy_selected_path
