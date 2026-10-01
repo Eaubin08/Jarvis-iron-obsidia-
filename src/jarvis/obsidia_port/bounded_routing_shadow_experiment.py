@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any
+
+
+_RUNTIME_ROOT = Path(__file__).resolve().parent / "brody_runtime"
+if str(_RUNTIME_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RUNTIME_ROOT))
+
 
 from runtime_wiring.source_runtime.capability_path_router import (
     _build_path_for_capability,
