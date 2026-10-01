@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import importlib
+import os
 from pathlib import Path
 import re
 import sys
@@ -159,3 +160,33 @@ def _normalize(text: str) -> str:
     value = "".join(ch for ch in value if not unicodedata.combining(ch))
     value = re.sub(r"[^a-z0-9 ]+", " ", value)
     return " ".join(value.split())
+
+
+def governed_rollback_from_environment(
+    move_handler,
+) -> GovernedMoveRollbackCommandHandler | None:
+    enabled = os.getenv("JARJAR_GOVERNED_ROLLBACK", "0").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
+    if move_handler is None:
+        raise RuntimeError("Governed rollback requires governed move to be enabled")
+
+    required = {
+        "OBSIDIA_EXECUTION_WORKTREE": os.getenv("OBSIDIA_EXECUTION_WORKTREE", "").strip(),
+        "OBSIDIA_STORES_BASE": os.getenv("OBSIDIA_STORES_BASE", "").strip(),
+    }
+    missing = [key for key, value in required.items() if not value]
+    if missing:
+        raise RuntimeError("Missing governed-rollback environment: " + ", ".join(missing))
+
+    root_raw = os.getenv("OBSIDIA_OPENJARVIS_ROOT", "").strip()
+    config = GovernedRollbackConfig(
+        execution_worktree_path=Path(required["OBSIDIA_EXECUTION_WORKTREE"]).resolve(),
+        stores_base_dir=Path(required["OBSIDIA_STORES_BASE"]).resolve(),
+        obsidia_root=Path(root_raw).resolve() if root_raw else None,
+    )
+    coordinator = GovernedMoveRollbackCoordinator.from_obsidia(
+        config,
+        move_handler.coordinator,
+    )
+    return GovernedMoveRollbackCommandHandler(coordinator)
