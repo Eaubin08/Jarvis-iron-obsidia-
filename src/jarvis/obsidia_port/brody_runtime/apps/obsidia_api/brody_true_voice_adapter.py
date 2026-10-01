@@ -712,6 +712,13 @@ def build_true_brody_answer(
 
 # ── Auditor synthesizer functions ────────────────────────────────────────────
 
+def _fold_accents_for_voice(text: str) -> str:
+    import unicodedata
+    folded = unicodedata.normalize("NFKD", str(text or ""))
+    folded = "".join(c for c in folded if not unicodedata.combining(c))
+    return " ".join(folded.casefold().split())
+
+
 def _synthesize_auditor_response_fr(
     user_message: str,
     topic: str,
@@ -779,14 +786,34 @@ def _synthesize_auditor_response_fr(
             )
 
     elif topic == "OBSIDIA_PROJECT":
-        lines.append(
-            "Obsidia est le cadre structure-first du projet : cognition et contexte en périphérie, "
-            "mémoire native en lecture seule, traduction par les couches OS, et autorité de décision réservée à X108/KX108."
-        )
-        if has_material:
-            lines.append(
-                f"La mémoire a fourni {item_count} source(s) readonly pour enrichir cette réponse."
+        _folded_request = _fold_accents_for_voice(user_message)
+        _memory_is_focus = (
+            ("memoire" in _folded_request or "memory" in _folded_request)
+            and any(
+                marker in _folded_request
+                for marker in ("sais", "savoir", "connai", "contient", "contenu", "detail", "explique")
             )
+        )
+        if _memory_is_focus:
+            lines.append(
+                "Ta question porte d'abord sur ma mémoire d'Obsidia, pas seulement sur une définition d'Obsidia. "
+                "La mémoire native est consultée en lecture seule : je peux en restituer et expliquer le matériel "
+                "sélectionné, sans l'écrire ni le modifier."
+            )
+            if has_material:
+                lines.append(
+                    f"Pour cette demande, {item_count} source(s) mémoire ont été retenues. "
+                    "Je dois les traiter comme le contenu à expliquer, avec Obsidia comme portée de la recherche."
+                )
+        else:
+            lines.append(
+                "Obsidia est le cadre structure-first du projet : cognition et contexte en périphérie, "
+                "mémoire native en lecture seule, traduction par les couches OS, et autorité de décision réservée à X108/KX108."
+            )
+            if has_material:
+                lines.append(
+                    f"La mémoire a fourni {item_count} source(s) readonly pour enrichir cette réponse."
+                )
 
     elif topic == "OPERATOR_LOOP":
         lines.append(
