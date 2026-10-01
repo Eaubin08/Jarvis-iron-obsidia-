@@ -53,6 +53,9 @@ from jarvis.obsidia_port.capability_admissibility import (
 from jarvis.obsidia_port.capability_selection_shadow import (
     build_capability_selection_shadow,
 )
+from jarvis.obsidia_port.bounded_routing_shadow_experiment import (
+    build_bounded_routing_shadow_experiment,
+)
 from jarvis.obsidia_port.structured_capability_hint import (
     build_structured_capability_hint,
     compare_structured_hint_with_p36,
@@ -462,6 +465,19 @@ class LocalBrodyRuntimeAdapter:
                 )
             )
 
+            bounded_routing_shadow_experiment = (
+                build_bounded_routing_shadow_experiment(
+                    capability_selection_snapshot=capability_selection_shadow,
+                    legacy_p36_snapshot={
+                        "selected_runtime_path": source_pack.get(
+                            "selected_runtime_path"
+                        ),
+                        "hydration_plan": source_pack.get("hydration_plan"),
+                    },
+                    available_families=source_pack.get("available_families"),
+                )
+            )
+
             qwen_anti_mismatch = {}
             qwen_sigma_initial = {}
             qwen_sigma_final = {}
@@ -825,6 +841,9 @@ class LocalBrodyRuntimeAdapter:
                 ),
                 "capability_selection_shadow": (
                     capability_selection_shadow
+                ),
+                "bounded_routing_shadow_experiment": (
+                    bounded_routing_shadow_experiment
                 ),
 
                 "memzum_status": memzum.get("status"),
