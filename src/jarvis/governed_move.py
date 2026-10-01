@@ -38,6 +38,7 @@ class GovernedMoveCoordinator:
     execute_fn: Callable[..., dict[str, Any]]
     executor_factory: Callable[[Path], Any]
     pending: dict[str, Any] | None = field(default=None, init=False)
+    last_execution_result: dict[str, Any] | None = field(default=None, init=False)
 
     @classmethod
     def from_obsidia(cls, config: GovernedMoveConfig) -> "GovernedMoveCoordinator":
@@ -117,6 +118,7 @@ class GovernedMoveCoordinator:
         )
         if result.get("status") == _EXECUTED_STATUS:
             self.pending = None
+            self.last_execution_result = result
             return (
                 f"Déplacement exécuté et prouvé : "
                 f"{result.get('source_path', '')} → {result.get('dest_path', '')}."
