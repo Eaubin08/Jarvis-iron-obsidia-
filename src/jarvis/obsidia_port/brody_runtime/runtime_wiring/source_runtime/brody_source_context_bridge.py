@@ -36,6 +36,69 @@ _BOUNDARY = {
 }
 
 
+def plan_brody_source_context_route(
+    query: str,
+    available_families: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Plan the legacy P36 source route without hydration or X108 routing."""
+    resolved_families = (
+        list(available_families)
+        if isinstance(available_families, list)
+        else list_available_families_cached()
+    )
+    if not resolved_families:
+        return {
+            "status": "NO_SOURCE_PACKS_AVAILABLE",
+            "available_families": [],
+            "detected_intents": [],
+            "required_capabilities": [],
+            "ranked_runtime_paths": [],
+            "selected_runtime_path": {},
+            "hydration_plan": {},
+            "inventory_linked": False,
+        }
+
+    cap_routing = route_capability_path(
+        query=query,
+        available_families=resolved_families,
+        max_paths=5,
+    )
+
+    try:
+        inventory_graph = build_runtime_inventory_graph()
+        cap_routing = link_capabilities_to_inventory(cap_routing, inventory_graph)
+    except Exception:
+        pass
+
+    selected_path = cap_routing.get("selected_path", {})
+    hydration_plan = build_hydration_plan_from_path(
+        selected_path,
+        max_files=8,
+        max_bytes=50_000,
+    )
+
+    return {
+        "status": "SOURCE_ROUTE_PLAN_READY",
+        "available_families": resolved_families,
+        "detected_intents": route_plan.get("detected_intents", []),
+        "required_capabilities": route_plan.get("required_capabilities", []),
+        "ranked_runtime_paths": route_plan.get("ranked_runtime_paths", []),
+        "selected_runtime_path": selected_path,
+        "hydration_plan": hydration_plan,
+        "inventory_linked": route_plan.get("inventory_linked", False),
+        "inventory_status": route_plan.get("inventory_status", "NOT_LOADED"),
+        "selected_functions": route_plan.get("selected_functions", []),
+        "selected_classes": route_plan.get("selected_classes", []),
+        "selected_routes_inventory": route_plan.get("selected_routes_inventory", []),
+        "selected_tests": route_plan.get("selected_tests", []),
+        "selected_docs": route_plan.get("selected_docs", []),
+        "coverage_status": route_plan.get("coverage_status", "UNKNOWN"),
+        "readonly": True,
+        "emits_act": False,
+        "decision_authority": "KX108_ONLY",
+    }
+
+
 def build_brody_context_from_source_packs(
     query: str,
     families: Optional[List[str]] = None,
@@ -58,21 +121,11 @@ def build_brody_context_from_source_packs(
     if not available_families:
         return _fallback("NO_SOURCE_PACKS_AVAILABLE", query)
 
-    # P36 — Route via capability path router
-    cap_routing = route_capability_path(
+    route_plan = plan_brody_source_context_route(
         query=query,
         available_families=available_families,
-        max_paths=5,
     )
-
-    # P37 — Enrichit avec l'inventaire (cache chaud après premier appel)
-    try:
-        inventory_graph = build_runtime_inventory_graph()
-        cap_routing = link_capabilities_to_inventory(cap_routing, inventory_graph)
-    except Exception:
-        pass  # L'inventaire est optionnel — le routing P36 fonctionne sans lui
-
-    legacy_selected_path = cap_routing.get("selected_path", {})
+    legacy_selected_path = route_plan.get("selected_runtime_path", {})
     selected_path = legacy_selected_path
     preselected_path_applied = False
 
