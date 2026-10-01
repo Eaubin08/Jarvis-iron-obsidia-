@@ -47,6 +47,9 @@ from jarvis.obsidia_port.evidence_qualification import (
     build_evidence_qualification_snapshot,
     build_qualified_context,
 )
+from jarvis.obsidia_port.capability_admissibility import (
+    build_capability_admissibility_shadow,
+)
 from jarvis.obsidia_port.structured_capability_hint import (
     build_structured_capability_hint,
     compare_structured_hint_with_p36,
@@ -428,6 +431,25 @@ class LocalBrodyRuntimeAdapter:
                 )
             )
 
+            capability_admissibility_shadow = (
+                build_capability_admissibility_shadow(
+                    structured_capability_snapshot=structured_capability_hint,
+                    p36_snapshot={
+                        "detected_intents": source_pack.get(
+                            "detected_intents"
+                        ),
+                        "required_capabilities": p36_required_capabilities,
+                        "selected_runtime_path": source_pack.get(
+                            "selected_runtime_path"
+                        ),
+                    },
+                    comparator_snapshot=structured_p36_shadow_comparison,
+                    unified_ir_snapshot=unified_ir,
+                    semantic_snapshot=semantic,
+                    memzum_snapshot=memzum,
+                )
+            )
+
             qwen_anti_mismatch = {}
             qwen_sigma_initial = {}
             qwen_sigma_final = {}
@@ -785,6 +807,9 @@ class LocalBrodyRuntimeAdapter:
                 ),
                 "structured_p36_shadow_comparator": (
                     structured_p36_shadow_comparison
+                ),
+                "capability_admissibility_shadow": (
+                    capability_admissibility_shadow
                 ),
 
                 "memzum_status": memzum.get("status"),
