@@ -224,9 +224,64 @@ class LocalBrodyRuntimeAdapter:
                         semantic["memory_retrieval_query"] = candidate
                         break
 
+            # SINGLE-PASS SOURCE ROUTING V0
+            # Planning is readonly: no hydration and no X108 packet routing.
+            source_route_plan = plan_brody_source_context_route(query=message)
+
+            structured_capability_hint = build_structured_capability_hint(
+                ir=unified_ir, semantic=semantic, memzum=memzum,
+            )
+            p36_required_capabilities = source_route_plan.get(
+                "required_capabilities", []
+            )
+            capability_route_comparison = compare_structured_hint_with_p36(
+                structured_capability_hints=structured_capability_hint.get(
+                    "structured_capability_hints"
+                ),
+                p36_required_capabilities=p36_required_capabilities,
+            )
+            structured_p36_shadow_comparison = build_structured_p36_shadow_comparison(
+                structured_capability_snapshot=structured_capability_hint,
+                p36_snapshot={
+                    "detected_intents": source_route_plan.get("detected_intents"),
+                    "required_capabilities": p36_required_capabilities,
+                    "selected_runtime_path": source_route_plan.get("selected_runtime_path"),
+                    "selected_source_families": (source_route_plan.get("selected_runtime_path", {}).get("source_families", [])),
+                    "hydration_plan": source_route_plan.get("hydration_plan"),
+                },
+                unified_ir_snapshot=unified_ir,
+                semantic_snapshot=semantic,
+                memzum_snapshot=memzum,
+            )
+            capability_admissibility_shadow = build_capability_admissibility_shadow(
+                structured_capability_snapshot=structured_capability_hint,
+                p36_snapshot={
+                    "detected_intents": source_route_plan.get("detected_intents"),
+                    "required_capabilities": p36_required_capabilities,
+                    "selected_runtime_path": source_route_plan.get("selected_runtime_path"),
+                },
+                comparator_snapshot=structured_p36_shadow_comparison,
+                unified_ir_snapshot=unified_ir,
+                semantic_snapshot=semantic,
+                memzum_snapshot=memzum,
+            )
+            capability_selection_shadow = build_capability_selection_shadow(
+                capability_admissibility_snapshot=capability_admissibility_shadow,
+                comparator_snapshot=structured_p36_shadow_comparison,
+            )
+            bounded_runtime_routing_v0 = resolve_bounded_runtime_override(
+                capability_selection_snapshot=capability_selection_shadow,
+                available_families=source_route_plan.get("available_families"),
+            )
+            effective_runtime_path = (
+                bounded_runtime_routing_v0.get("runtime_path")
+                if bounded_runtime_routing_v0.get("applied") is True
+                else None
+            )
             source_pack = build_brody_context_from_source_packs(
                 query=message,
                 limit=5,
+                preselected_runtime_path=effective_runtime_path,
             )
 
             evidence_qualification = build_evidence_qualification_snapshot(
@@ -234,30 +289,23 @@ class LocalBrodyRuntimeAdapter:
                 semantic_snapshot=semantic,
                 requested_memory_target=requested_memory_query,
                 native_memory_selected_items=memory.get("selected_items"),
-                source_pack_hydrated_entries=source_pack.get(
-                    "hydrated_entries"
-                ),
+                source_pack_hydrated_entries=source_pack.get("hydrated_entries"),
             )
-
             join = run_real_cognitive_join(
-                message=message,
-                language=language,
-                session_id=session_id,
+                message=message, language=language, session_id=session_id,
                 precomputed_micro_core=micro,
                 precomputed_semantic_query=semantic,
                 precomputed_memory_chain=memory,
                 precomputed_source_pack_context=source_pack,
             )
-
             full = build_brody_full_context(
-                user_message=message,
-                language=language,
-                session_id=session_id,
+                user_message=message, language=language, session_id=session_id,
                 context_packet=join,
                 memory_response_chain_snapshot=memory,
                 semantic_query_snapshot=semantic,
             )
 
+            # ---------------------------------------------------------
             # ---------------------------------------------------------
             # PRE-INFERENCE RESPONSE POLICY
             # Uses the existing Brody policy only.
@@ -398,89 +446,6 @@ class LocalBrodyRuntimeAdapter:
 
             if not isinstance(ir_candidate_pre, dict):
                 ir_candidate_pre = {}
-
-            structured_capability_hint = build_structured_capability_hint(
-                ir=unified_ir,
-                semantic=semantic,
-                memzum=memzum,
-            )
-
-            p36_required_capabilities = (
-                source_pack.get("required_capabilities")
-                if isinstance(source_pack, dict)
-                else []
-            )
-
-            capability_route_comparison = compare_structured_hint_with_p36(
-                structured_capability_hints=structured_capability_hint.get(
-                    "structured_capability_hints"
-                ),
-                p36_required_capabilities=p36_required_capabilities,
-            )
-
-            structured_p36_shadow_comparison = (
-                build_structured_p36_shadow_comparison(
-                    structured_capability_snapshot=structured_capability_hint,
-                    p36_snapshot={
-                        "detected_intents": source_pack.get(
-                            "detected_intents"
-                        ),
-                        "required_capabilities": p36_required_capabilities,
-                        "selected_runtime_path": source_pack.get(
-                            "selected_runtime_path"
-                        ),
-                        "selected_source_families": source_pack.get(
-                            "selected_source_families"
-                        ),
-                        "hydration_plan": source_pack.get("hydration_plan"),
-                    },
-                    unified_ir_snapshot=unified_ir,
-                    semantic_snapshot=semantic,
-                    memzum_snapshot=memzum,
-                )
-            )
-
-            capability_admissibility_shadow = (
-                build_capability_admissibility_shadow(
-                    structured_capability_snapshot=structured_capability_hint,
-                    p36_snapshot={
-                        "detected_intents": source_pack.get(
-                            "detected_intents"
-                        ),
-                        "required_capabilities": p36_required_capabilities,
-                        "selected_runtime_path": source_pack.get(
-                            "selected_runtime_path"
-                        ),
-                    },
-                    comparator_snapshot=structured_p36_shadow_comparison,
-                    unified_ir_snapshot=unified_ir,
-                    semantic_snapshot=semantic,
-                    memzum_snapshot=memzum,
-                )
-            )
-
-            capability_selection_shadow = (
-                build_capability_selection_shadow(
-                    capability_admissibility_snapshot=(
-                        capability_admissibility_shadow
-                    ),
-                    comparator_snapshot=structured_p36_shadow_comparison,
-                )
-            )
-
-            bounded_runtime_routing_v0 = resolve_bounded_runtime_override(
-                capability_selection_snapshot=capability_selection_shadow,
-                available_families=source_pack.get("available_families"),
-            )
-
-            if bounded_runtime_routing_v0.get("applied") is True:
-                source_pack = build_brody_context_from_source_packs(
-                    query=message,
-                    limit=5,
-                    preselected_runtime_path=bounded_runtime_routing_v0.get(
-                        "runtime_path"
-                    ),
-                )
 
             bounded_routing_shadow_experiment = (
                 build_bounded_routing_shadow_experiment(
