@@ -50,6 +50,9 @@ from jarvis.obsidia_port.evidence_qualification import (
 from jarvis.obsidia_port.capability_admissibility import (
     build_capability_admissibility_shadow,
 )
+from jarvis.obsidia_port.capability_selection_shadow import (
+    build_capability_selection_shadow,
+)
 from jarvis.obsidia_port.structured_capability_hint import (
     build_structured_capability_hint,
     compare_structured_hint_with_p36,
@@ -450,6 +453,15 @@ class LocalBrodyRuntimeAdapter:
                 )
             )
 
+            capability_selection_shadow = (
+                build_capability_selection_shadow(
+                    capability_admissibility_snapshot=(
+                        capability_admissibility_shadow
+                    ),
+                    comparator_snapshot=structured_p36_shadow_comparison,
+                )
+            )
+
             qwen_anti_mismatch = {}
             qwen_sigma_initial = {}
             qwen_sigma_final = {}
@@ -810,6 +822,9 @@ class LocalBrodyRuntimeAdapter:
                 ),
                 "capability_admissibility_shadow": (
                     capability_admissibility_shadow
+                ),
+                "capability_selection_shadow": (
+                    capability_selection_shadow
                 ),
 
                 "memzum_status": memzum.get("status"),
