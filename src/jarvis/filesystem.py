@@ -130,27 +130,26 @@ class NativeFilesystemBackend:
             if sorted(parsed) != sorted(set(expected)):
                 return ActionResult(False, "patch targets do not match authorized targets", backend=self.name)
 
+            patch_bytes = patch_content.encode("utf-8")
             check = subprocess.run(
                 ["git", "apply", "--check", "-"],
                 cwd=str(root),
-                input=patch_content,
+                input=patch_bytes,
                 capture_output=True,
-                text=True,
                 timeout=30,
             )
             if check.returncode != 0:
-                return ActionResult(False, "patch dry-run failed: " + check.stderr.strip()[:200], backend=self.name)
+                return ActionResult(False, "patch dry-run failed: " + check.stderr.decode("utf-8", errors="replace").strip()[:200], backend=self.name)
 
             applied = subprocess.run(
                 ["git", "apply", "-"],
                 cwd=str(root),
-                input=patch_content,
+                input=patch_bytes,
                 capture_output=True,
-                text=True,
                 timeout=60,
             )
             if applied.returncode != 0:
-                return ActionResult(False, "patch apply failed: " + applied.stderr.strip()[:200], backend=self.name)
+                return ActionResult(False, "patch apply failed: " + applied.stderr.decode("utf-8", errors="replace").strip()[:200], backend=self.name)
 
             return ActionResult(
                 True,
