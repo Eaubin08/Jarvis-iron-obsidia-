@@ -8,6 +8,7 @@ from .actions import ActionRouter
 from .fast_intent import FastIntentRouter
 from .governed_move import GovernedMoveCommandHandler
 from .governed_create_dir import GovernedCreateDirCommandHandler
+from .governed_file_ops import GovernedFileOpsCommandHandler
 
 from .contracts import CognitionProvider, MemoryProvider
 
@@ -20,6 +21,7 @@ class JarvisCore:
     actions: ActionRouter | None = None
     governed_move: GovernedMoveCommandHandler | None = None
     governed_create_dir: GovernedCreateDirCommandHandler | None = None
+    governed_file_ops: GovernedFileOpsCommandHandler | None = None
     last_source: str = field(default="LOCAL", init=False)
 
     def handle_text(self, text: str) -> str:
@@ -33,6 +35,11 @@ class JarvisCore:
             governed_reply = self.governed_create_dir.handle(text, session_id="jarvis-core")
             if governed_reply is not None:
                 self.last_source = "OBSIDIA/GOVERNED_CREATE_DIR"
+                return governed_reply
+        if self.governed_file_ops is not None:
+            governed_reply = self.governed_file_ops.handle(text, session_id="jarvis-core")
+            if governed_reply is not None:
+                self.last_source = "OBSIDIA/GOVERNED_FILE_OPS"
                 return governed_reply
         if self.fast_intent is not None and self.actions is not None:
             match = self.fast_intent.route(text, session_id="jarvis-core")
