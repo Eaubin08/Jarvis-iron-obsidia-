@@ -85,14 +85,14 @@ _TOPIC_ROUTES: list[tuple[list[str], str, str, str, list[str]]] = [
         ["kx108", "kernel", "decision_authority", "action boundary", "hold act"],
     ),
     (
-        ["34 arbres", "34_arbres", "trente-quatre arbres", "arbres obsidia", "tree policy", "arbres bloqués", "arbres safe"],
+        ["34 arbres", "34 armes", "34_arbres", "trente-quatre arbres", "trente-quatre armes", "arbres obsidia", "tree policy", "arbres bloqués", "arbres safe"],
         "34_ARBRES",
         "34 arbres tree policy safe blocked",
         "34_arbres",
         ["arbres", "tree policy", "safe_trees", "blocked_action", "34 arbres"],
     ),
     (
-        ["ton rôle brody", "ton role brody", "ton rôle jarjar", "ton role jarjar", "rôle en tant que jarjar", "role en tant que jarjar", "quel est ton rôle en tant que jarjar", "quel est ton role en tant que jarjar", "quel est le rôle de jarjar", "quel est le role de jarjar", "rôle de jarjar", "role de jarjar", "qui est jarjar", "qu'est-ce que tu sais", "qui es-tu", "obsidia brody"],
+        ["ton rôle brody", "ton role brody", "ton rôle jarjar", "ton role jarjar", "rôle en tant que jarjar", "role en tant que jarjar", "quel est ton rôle en tant que jarjar", "quel est ton role en tant que jarjar", "quel est ton rôle dans obsidia", "quel est ton role dans obsidia", "quel est le rôle de jarjar", "quel est le role de jarjar", "rôle de jarjar", "role de jarjar", "qui est jarjar", "qui es-tu", "obsidia brody"],
         "OBSIDIA_BRODY_ROLE",
         "Obsidia Brody X108 mémoire gouvernance",
         "brody",
