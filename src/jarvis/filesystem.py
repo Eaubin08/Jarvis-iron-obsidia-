@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import shutil
+import subprocess
 
 from .contracts import ActionRequest, ActionResult, Capability
 
@@ -69,6 +70,96 @@ class NativeFilesystemBackend:
 
     def can_execute(self, request: ActionRequest, capability: Capability) -> bool:
         return capability.backend_family == "filesystem" and request.capability in self._supported
+
+    def create_file_bytes(self, target: str | Path, content: bytes) -> ActionResult:
+        try:
+            path = self.policy.validate(str(target))
+            if path.exists():
+                return ActionResult(False, "target already exists", backend=self.name)
+            if not isinstance(content, (bytes, bytearray)):
+                return ActionResult(False, "content must be bytes", backend=self.name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.parent / f".{path.name}.{os.getpid()}.jarjar.tmp"
+            tmp.write_bytes(bytes(content))
+            os.replace(tmp, path)
+            return ActionResult(
+                True,
+                "Filesystem action completed",
+                data={"path": str(path), "bytes": len(content)},
+                backend=self.name,
+            )
+        except (OSError, ValueError) as exc:
+            return ActionResult(False, str(exc), backend=self.name)
+
+    def apply_unified_patch(
+        self,
+        repo_root: str | Path,
+        patch_content: str,
+        target_paths: list[str] | tuple[str, ...],
+    ) -> ActionResult:
+        try:
+            root = self.policy.validate(str(repo_root), must_exist=True)
+            if not root.is_dir():
+                return ActionResult(False, "repo root is not a directory", backend=self.name)
+            if not isinstance(patch_content, str) or not patch_content.strip():
+                return ActionResult(False, "patch content must be non-empty text", backend=self.name)
+            if not target_paths:
+                return ActionResult(False, "patch target list must not be empty", backend=self.name)
+
+            expected = []
+            for rel in target_paths:
+                if not isinstance(rel, str) or not rel.strip():
+                    return ActionResult(False, "invalid patch target", backend=self.name)
+                target = self.policy.validate(str(root / rel), must_exist=True)
+                expected.append(str(target.relative_to(root)).replace("\\", "/"))
+
+            parsed = []
+            for line in patch_content.splitlines():
+                if not line.startswith("+++ "):
+                    continue
+                raw = line[4:].strip()
+                if raw.startswith("b/"):
+                    raw = raw[2:]
+                if raw in {"/dev/null", "dev/null"}:
+                    return ActionResult(False, "patch deletion is not allowed", backend=self.name)
+                candidate = self.policy.validate(str(root / raw), must_exist=True)
+                normalized = str(candidate.relative_to(root)).replace("\\", "/")
+                if normalized not in parsed:
+                    parsed.append(normalized)
+
+            if sorted(parsed) != sorted(set(expected)):
+                return ActionResult(False, "patch targets do not match authorized targets", backend=self.name)
+
+            check = subprocess.run(
+                ["git", "apply", "--check", "-"],
+                cwd=str(root),
+                input=patch_content,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if check.returncode != 0:
+                return ActionResult(False, "patch dry-run failed: " + check.stderr.strip()[:200], backend=self.name)
+
+            applied = subprocess.run(
+                ["git", "apply", "-"],
+                cwd=str(root),
+                input=patch_content,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if applied.returncode != 0:
+                return ActionResult(False, "patch apply failed: " + applied.stderr.strip()[:200], backend=self.name)
+
+            return ActionResult(
+                True,
+                "Filesystem action completed",
+                data={"repo_root": str(root), "target_paths": parsed},
+                backend=self.name,
+            )
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            return ActionResult(False, str(exc), backend=self.name)
 
     def execute(self, request: ActionRequest) -> ActionResult:
         try:
