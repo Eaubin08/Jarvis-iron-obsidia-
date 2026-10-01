@@ -49,7 +49,13 @@ class GovernedMoveCoordinator:
         scripts = root / "scripts"
         if not scripts.is_dir():
             raise RuntimeError(f"Obsidia scripts directory not found: {scripts}")
+
+        # Obsidia modules import both top-level packages (for example sigma)
+        # and legacy modules from scripts/.  Expose both roots explicitly.
+        root_str = str(root)
         scripts_str = str(scripts)
+        if root_str not in sys.path:
+            sys.path.insert(0, root_str)
         if scripts_str not in sys.path:
             sys.path.insert(0, scripts_str)
 
