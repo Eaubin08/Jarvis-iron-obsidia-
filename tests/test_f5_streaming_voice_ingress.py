@@ -46,7 +46,7 @@ class Conversation:
         return text
 
 
-def test_streaming_wake_returns_immediate_opening_turn_without_whisper():
+def test_streaming_wake_captures_post_wake_utterance_with_whisper():
     mic = Mic()
     wake = Wake()
     stt = STT()
@@ -54,11 +54,12 @@ def test_streaming_wake_returns_immediate_opening_turn_without_whisper():
 
     result = ingress.capture_and_begin_turn()
 
-    assert result == "Hey Jarvis"
+    assert result == "bonjour"
     assert wake.calls == [b"a", b"wake"]
-    assert stt.calls == 0
+    assert stt.calls == 1
     assert wake.resets == 1
-    assert mic.capture_kwargs == []
+    assert len(mic.capture_kwargs) == 1
+    assert mic.capture_kwargs[0]["speech_start_timeout"] == 3.0
 
 
 def test_follow_up_skips_wake_detector_and_uses_short_start_timeout():
@@ -77,7 +78,7 @@ def test_follow_up_skips_wake_detector_and_uses_short_start_timeout():
     assert mic.capture_kwargs[0]["speech_start_timeout"] == 2.0
 
 
-def test_follow_up_inactivity_closes_conversation():
+def test_follow_up_inactivity_keeps_idle_window_open():
     mic = Mic(utterances=[b""])
     wake = Wake()
     stt = STT()
@@ -91,5 +92,5 @@ def test_follow_up_inactivity_closes_conversation():
     except ValueError as exc:
         assert "empty follow-up" in str(exc)
 
-    assert conversation.follow_up_open is False
+    assert conversation.follow_up_open is True
     assert stt.calls == 0
