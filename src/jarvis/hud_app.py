@@ -83,6 +83,15 @@ class JarjarHUD(tk.Tk):
         )
         self.governance.pack(side="right", padx=(0, 18))
 
+        self.confirmation = tk.Label(
+            self,
+            text="",
+            fg="#ffd166",
+            bg="#05080d",
+            font=("Consolas", 11, "bold"),
+        )
+        self.confirmation.pack(fill="x", padx=18, pady=(0, 4))
+
         body = tk.PanedWindow(
             self,
             orient=tk.HORIZONTAL,
@@ -359,6 +368,14 @@ class JarjarHUD(tk.Tk):
             )
         else:
             self.governance.configure(text="")
+
+        if snap.get("human_confirmation_required"):
+            prompt = snap.get("confirmation_prompt") or "CONFIRMATION HUMAINE REQUISE"
+            self.confirmation.configure(
+                text=f"CONFIRMATION HUMAINE REQUISE // {prompt}"
+            )
+        else:
+            self.confirmation.configure(text="")
 
         if not snap["voice_enabled"]:
             caption = "DESKTOP COMPANION // VOICE PAUSED"
