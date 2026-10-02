@@ -160,6 +160,84 @@ class NativeFilesystemBackend:
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             return ActionResult(False, str(exc), backend=self.name)
 
+    def restore_file_bytes_guarded(
+        self,
+        target: str | Path,
+        restore_content: bytes,
+        expected_current_sha256: str,
+    ) -> ActionResult:
+        """Restore one existing file from sealed bytes, fail-closed on drift.
+
+        This is a bounded recovery primitive, not a generic write capability.
+        The caller must supply the digest of the currently authorized post-state.
+        """
+        import hashlib
+
+        try:
+            path = self.policy.validate(str(target), must_exist=True)
+            if not path.is_file():
+                return ActionResult(False, "rollback target is not a file", backend=self.name)
+            if not isinstance(restore_content, (bytes, bytearray)):
+                return ActionResult(False, "restore content must be bytes", backend=self.name)
+            if (
+                not isinstance(expected_current_sha256, str)
+                or len(expected_current_sha256) != 64
+                or any(ch not in "0123456789abcdef" for ch in expected_current_sha256.lower())
+            ):
+                return ActionResult(False, "expected current sha256 is invalid", backend=self.name)
+
+            current = path.read_bytes()
+            observed = hashlib.sha256(current).hexdigest()
+            if observed != expected_current_sha256.lower():
+                return ActionResult(
+                    False,
+                    "rollback target drifted",
+                    data={"observed_sha256": observed},
+                    backend=self.name,
+                )
+
+            restored = bytes(restore_content)
+            restored_sha = hashlib.sha256(restored).hexdigest()
+            tmp = path.parent / f".{path.name}.{os.getpid()}.jarjar.rollback.tmp"
+            tmp.write_bytes(restored)
+
+            # Recheck the live target immediately before replacement.
+            observed_recheck = hashlib.sha256(path.read_bytes()).hexdigest()
+            if observed_recheck != expected_current_sha256.lower():
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return ActionResult(
+                    False,
+                    "rollback target drifted before replace",
+                    data={"observed_sha256": observed_recheck},
+                    backend=self.name,
+                )
+
+            os.replace(tmp, path)
+            realized = hashlib.sha256(path.read_bytes()).hexdigest()
+            if realized != restored_sha:
+                return ActionResult(
+                    False,
+                    "rollback realized state mismatch",
+                    data={"observed_sha256": realized, "expected_sha256": restored_sha},
+                    backend=self.name,
+                )
+            return ActionResult(
+                True,
+                "Filesystem rollback completed",
+                data={
+                    "path": str(path),
+                    "restored_sha256": restored_sha,
+                    "previous_sha256": expected_current_sha256.lower(),
+                    "bytes": len(restored),
+                },
+                backend=self.name,
+            )
+        except (OSError, ValueError) as exc:
+            return ActionResult(False, str(exc), backend=self.name)
+
     def execute(self, request: ActionRequest) -> ActionResult:
         try:
             if request.capability == "file.open":
