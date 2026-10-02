@@ -20,11 +20,23 @@ class HUDController:
     response_source: Callable[[], str] | None = None
     conversation_idle_seconds: float = 20.0
 
-    def _jarjar_label(self) -> str:
+    def _current_source(self) -> str:
         if self.response_source is None:
-            return "JARJAR"
-        source = self.response_source().strip()
+            return ""
+        return self.response_source().strip()
+
+    def _jarjar_label(self) -> str:
+        source = self._current_source()
         return f"JARJAR · {source}" if source else "JARJAR"
+
+    def _sync_governance_surface(self) -> None:
+        source = self._current_source()
+        governed = source.startswith("OBSIDIA/GOVERNED_")
+        self.model.set_governance(
+            active=governed,
+            decision_authority="KX108_ONLY" if governed else "",
+            source=source if governed else "",
+        )
 
     def submit_text(self, text: str) -> str:
         clean = text.strip()
@@ -38,6 +50,7 @@ class HUDController:
             if not reply:
                 raise ValueError("empty Jarjar response")
             self.model.append(self._jarjar_label(), reply)
+            self._sync_governance_surface()
             return reply
         except Exception:
             self.model.set_state(HUDState.ERROR)
@@ -73,6 +86,7 @@ class HUDController:
                 raise ValueError("voice turn returned empty transcript or reply")
             self.model.append("YOU", transcript)
             self.model.append(self._jarjar_label(), reply)
+            self._sync_governance_surface()
             if self.model.session_open:
                 self.model.set_state(HUDState.LISTENING)
             else:
