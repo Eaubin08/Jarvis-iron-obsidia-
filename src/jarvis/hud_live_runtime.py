@@ -123,8 +123,8 @@ class HUDLiveVoiceBridge:
     def run_follow_up_turn(self) -> tuple[str, str] | None:
         """Capture one wake-free follow-up after a successful spoken reply.
 
-        Silence/empty transcription closes the follow-up window and is treated
-        as a normal return to wake-word monitoring, not as a HUD failure.
+        Silence/empty transcription keeps the current follow-up idle window open
+        and is treated as a normal no-speech cycle, not as a HUD failure.
         """
         if not self.conversation.follow_up_open:
             return None
