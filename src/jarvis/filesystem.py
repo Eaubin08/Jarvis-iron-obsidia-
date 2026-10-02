@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import shutil
+import subprocess
 
 from .contracts import ActionRequest, ActionResult, Capability
 
@@ -69,6 +70,173 @@ class NativeFilesystemBackend:
 
     def can_execute(self, request: ActionRequest, capability: Capability) -> bool:
         return capability.backend_family == "filesystem" and request.capability in self._supported
+
+    def create_file_bytes(self, target: str | Path, content: bytes) -> ActionResult:
+        try:
+            path = self.policy.validate(str(target))
+            if path.exists():
+                return ActionResult(False, "target already exists", backend=self.name)
+            if not isinstance(content, (bytes, bytearray)):
+                return ActionResult(False, "content must be bytes", backend=self.name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.parent / f".{path.name}.{os.getpid()}.jarjar.tmp"
+            tmp.write_bytes(bytes(content))
+            os.replace(tmp, path)
+            return ActionResult(
+                True,
+                "Filesystem action completed",
+                data={"path": str(path), "bytes": len(content)},
+                backend=self.name,
+            )
+        except (OSError, ValueError) as exc:
+            return ActionResult(False, str(exc), backend=self.name)
+
+    def apply_unified_patch(
+        self,
+        repo_root: str | Path,
+        patch_content: str,
+        target_paths: list[str] | tuple[str, ...],
+    ) -> ActionResult:
+        try:
+            root = self.policy.validate(str(repo_root), must_exist=True)
+            if not root.is_dir():
+                return ActionResult(False, "repo root is not a directory", backend=self.name)
+            if not isinstance(patch_content, str) or not patch_content.strip():
+                return ActionResult(False, "patch content must be non-empty text", backend=self.name)
+            if not target_paths:
+                return ActionResult(False, "patch target list must not be empty", backend=self.name)
+
+            expected = []
+            for rel in target_paths:
+                if not isinstance(rel, str) or not rel.strip():
+                    return ActionResult(False, "invalid patch target", backend=self.name)
+                target = self.policy.validate(str(root / rel), must_exist=True)
+                expected.append(str(target.relative_to(root)).replace("\\", "/"))
+
+            parsed = []
+            for line in patch_content.splitlines():
+                if not line.startswith("+++ "):
+                    continue
+                raw = line[4:].strip()
+                if raw.startswith("b/"):
+                    raw = raw[2:]
+                if raw in {"/dev/null", "dev/null"}:
+                    return ActionResult(False, "patch deletion is not allowed", backend=self.name)
+                candidate = self.policy.validate(str(root / raw), must_exist=True)
+                normalized = str(candidate.relative_to(root)).replace("\\", "/")
+                if normalized not in parsed:
+                    parsed.append(normalized)
+
+            if sorted(parsed) != sorted(set(expected)):
+                return ActionResult(False, "patch targets do not match authorized targets", backend=self.name)
+
+            patch_bytes = patch_content.encode("utf-8")
+            check = subprocess.run(
+                ["git", "apply", "--check", "-"],
+                cwd=str(root),
+                input=patch_bytes,
+                capture_output=True,
+                timeout=30,
+            )
+            if check.returncode != 0:
+                return ActionResult(False, "patch dry-run failed: " + check.stderr.decode("utf-8", errors="replace").strip()[:200], backend=self.name)
+
+            applied = subprocess.run(
+                ["git", "apply", "-"],
+                cwd=str(root),
+                input=patch_bytes,
+                capture_output=True,
+                timeout=60,
+            )
+            if applied.returncode != 0:
+                return ActionResult(False, "patch apply failed: " + applied.stderr.decode("utf-8", errors="replace").strip()[:200], backend=self.name)
+
+            return ActionResult(
+                True,
+                "Filesystem action completed",
+                data={"repo_root": str(root), "target_paths": parsed},
+                backend=self.name,
+            )
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            return ActionResult(False, str(exc), backend=self.name)
+
+    def restore_file_bytes_guarded(
+        self,
+        target: str | Path,
+        restore_content: bytes,
+        expected_current_sha256: str,
+    ) -> ActionResult:
+        """Restore one existing file from sealed bytes, fail-closed on drift.
+
+        This is a bounded recovery primitive, not a generic write capability.
+        The caller must supply the digest of the currently authorized post-state.
+        """
+        import hashlib
+
+        try:
+            path = self.policy.validate(str(target), must_exist=True)
+            if not path.is_file():
+                return ActionResult(False, "rollback target is not a file", backend=self.name)
+            if not isinstance(restore_content, (bytes, bytearray)):
+                return ActionResult(False, "restore content must be bytes", backend=self.name)
+            if (
+                not isinstance(expected_current_sha256, str)
+                or len(expected_current_sha256) != 64
+                or any(ch not in "0123456789abcdef" for ch in expected_current_sha256.lower())
+            ):
+                return ActionResult(False, "expected current sha256 is invalid", backend=self.name)
+
+            current = path.read_bytes()
+            observed = hashlib.sha256(current).hexdigest()
+            if observed != expected_current_sha256.lower():
+                return ActionResult(
+                    False,
+                    "rollback target drifted",
+                    data={"observed_sha256": observed},
+                    backend=self.name,
+                )
+
+            restored = bytes(restore_content)
+            restored_sha = hashlib.sha256(restored).hexdigest()
+            tmp = path.parent / f".{path.name}.{os.getpid()}.jarjar.rollback.tmp"
+            tmp.write_bytes(restored)
+
+            # Recheck the live target immediately before replacement.
+            observed_recheck = hashlib.sha256(path.read_bytes()).hexdigest()
+            if observed_recheck != expected_current_sha256.lower():
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return ActionResult(
+                    False,
+                    "rollback target drifted before replace",
+                    data={"observed_sha256": observed_recheck},
+                    backend=self.name,
+                )
+
+            os.replace(tmp, path)
+            realized = hashlib.sha256(path.read_bytes()).hexdigest()
+            if realized != restored_sha:
+                return ActionResult(
+                    False,
+                    "rollback realized state mismatch",
+                    data={"observed_sha256": realized, "expected_sha256": restored_sha},
+                    backend=self.name,
+                )
+            return ActionResult(
+                True,
+                "Filesystem rollback completed",
+                data={
+                    "path": str(path),
+                    "restored_sha256": restored_sha,
+                    "previous_sha256": expected_current_sha256.lower(),
+                    "bytes": len(restored),
+                },
+                backend=self.name,
+            )
+        except (OSError, ValueError) as exc:
+            return ActionResult(False, str(exc), backend=self.name)
 
     def execute(self, request: ActionRequest) -> ActionResult:
         try:
