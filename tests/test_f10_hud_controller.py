@@ -105,6 +105,7 @@ def test_governed_response_projects_kx108_authority_without_granting_hud_authori
     assert snap["governance_active"] is True
     assert snap["decision_authority"] == "KX108_ONLY"
     assert snap["governance_source"] == "OBSIDIA/GOVERNED_MOVE"
+    assert snap["governance_phase"] == "PREPARE"
 
 
 def test_non_governed_response_clears_governance_surface():
@@ -126,3 +127,30 @@ def test_non_governed_response_clears_governance_surface():
     assert snap["governance_active"] is False
     assert snap["decision_authority"] == ""
     assert snap["governance_source"] == ""
+    assert snap["governance_phase"] == ""
+
+
+def test_governed_phase_surface_distinguishes_execute_rollback_and_block():
+    assert HUDController._governance_phase(
+        "Déplacement exécuté et prouvé : a → b.",
+        "OBSIDIA/GOVERNED_MOVE",
+    ) == "EXECUTE"
+    assert HUDController._governance_phase(
+        "Rollback préparé : b → a. Dis confirme le rollback.",
+        "OBSIDIA/GOVERNED_ROLLBACK",
+    ) == "ROLLBACK_PREPARE"
+    assert HUDController._governance_phase(
+        "Rollback exécuté et prouvé : b → a.",
+        "OBSIDIA/GOVERNED_ROLLBACK",
+    ) == "ROLLBACK_EXECUTE"
+    assert HUDController._governance_phase(
+        "Déplacement non exécuté : KX108_PRE_GATE:BLOCK",
+        "OBSIDIA/GOVERNED_MOVE",
+    ) == "BLOCKED"
+
+
+def test_governed_phase_surface_never_marks_plain_cognition_as_governed():
+    assert HUDController._governance_phase(
+        "Je prépare une explication.",
+        "BRODY/OBSIDIA",
+    ) == ""
