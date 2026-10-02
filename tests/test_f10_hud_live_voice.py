@@ -100,3 +100,16 @@ def test_missing_wake_returns_none_without_speaking():
     assert bridge.run_wake_turn() is None
     assert core.inputs == []
     assert conversation.spoken == []
+
+
+def test_spoken_reply_never_echoes_exact_governed_confirmation_command():
+    reply = (
+        "Déplacement préparé : docs/a.txt → archive/a.txt. "
+        "EAH abc123. Dis « confirme le déplacement » pour autoriser l'étape d'exécution."
+    )
+
+    spoken = HUDLiveVoiceBridge._spoken_reply(reply)
+
+    assert "confirme le déplacement" not in spoken.casefold()
+    assert "confirmation humaine explicite" in spoken.casefold()
+    assert "Déplacement préparé" in spoken
