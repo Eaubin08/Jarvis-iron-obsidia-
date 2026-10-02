@@ -17,7 +17,7 @@ def test_text_turn_updates_transcript_and_returns_idle():
     ]
 
 
-def test_voice_turn_tracks_listening_thinking_speaking_then_idle():
+def test_voice_turn_returns_idle_after_completed_voice_handler():
     model = HUDModel()
     controller = HUDController(
         model,
@@ -28,7 +28,7 @@ def test_voice_turn_tracks_listening_thinking_speaking_then_idle():
     result = controller.run_voice_turn()
 
     assert result == ("salut", "bonjour")
-    assert model.state is HUDState.SPEAKING
+    assert model.state is HUDState.IDLE
     controller.voice_finished()
     assert model.state is HUDState.IDLE
 
