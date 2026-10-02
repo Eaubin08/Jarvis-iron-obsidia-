@@ -71,6 +71,27 @@ class HUDLiveVoiceBridge:
             text = text[: min(positions)]
 
         text = re.sub(r"[*_#`]+", "", text)
+
+        # Never make Jarjar's own TTS speak the exact governed confirmation
+        # command. Otherwise the anti-echo layer cannot distinguish Jarjar's
+        # voice from the human repeating the required command.
+        confirmation_patterns = (
+            r"dis [«\"]?confirme le déplacement[»\"]?[^.!?]*[.!?]?",
+            r"dis [«\"]?confirme la création du dossier[»\"]?[^.!?]*[.!?]?",
+            r"dis [«\"]?confirme la creation du dossier[»\"]?[^.!?]*[.!?]?",
+            r"dis [«\"]?confirme la création du fichier[»\"]?[^.!?]*[.!?]?",
+            r"dis [«\"]?confirme la creation du fichier[»\"]?[^.!?]*[.!?]?",
+            r"dis [«\"]?confirme le patch[»\"]?[^.!?]*[.!?]?",
+            r"dis [«\"]?confirme le rollback[»\"]?[^.!?]*[.!?]?",
+        )
+        for pattern in confirmation_patterns:
+            text = re.sub(
+                pattern,
+                "Une confirmation humaine explicite est requise avant l'exécution.",
+                text,
+                flags=re.IGNORECASE,
+            )
+
         text = " ".join(text.split())
 
         sentences = re.split(r"(?<=[.!?])\s+", text)
