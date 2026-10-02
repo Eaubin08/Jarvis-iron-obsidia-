@@ -31,6 +31,7 @@ class HUDModel:
     governance_active: bool = False
     decision_authority: str = ""
     governance_source: str = ""
+    governance_phase: str = ""
     messages: list[HUDMessage] = field(default_factory=list)
     _lock: Lock = field(default_factory=Lock, repr=False)
 
@@ -54,11 +55,13 @@ class HUDModel:
         active: bool,
         decision_authority: str = "",
         source: str = "",
+        phase: str = "",
     ) -> None:
         with self._lock:
             self.governance_active = bool(active)
             self.decision_authority = decision_authority.strip() if active else ""
             self.governance_source = source.strip() if active else ""
+            self.governance_phase = phase.strip() if active else ""
 
     def append(self, speaker: str, text: str) -> None:
         clean = text.strip()
@@ -76,6 +79,7 @@ class HUDModel:
                 "governance_active": self.governance_active,
                 "decision_authority": self.decision_authority,
                 "governance_source": self.governance_source,
+                "governance_phase": self.governance_phase,
                 "messages": [
                     {"speaker": item.speaker, "text": item.text}
                     for item in self.messages
