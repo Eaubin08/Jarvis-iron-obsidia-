@@ -66,3 +66,43 @@ A restart sequence successfully launched Jarjar voice/HUD but connected it to st
 Permanent rule: launch instructions are not considered canonical until they include BOTH:
 - exact executable + working directory + branch/HEAD provenance;
 - a Brody preflight proving the expected memory/runtime signature.
+
+
+## Last proven daily-use cognition baseline
+
+Recovered from the 2026-10-01 working checkpoint:
+
+- repository: `C:\Users\User\Desktop\Jarvis-iron-obsidia-`
+- branch: `work/f5-generic-wake`
+- exact HEAD: `de95095ca0e6740af78cfae2aad406132c42cb37`
+- Python: `C:\Users\User\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`
+- `JARJAR_BOUNDED_STRUCTURED_ROUTING_V0=1`
+- `JARJAR_LOCAL_BRODY=1`
+
+Critical implementation fact: this baseline calls the vendored `LocalBrodyRuntimeAdapter` first. HTTP Brody on 8012/8000 is fallback only. Therefore a daily-use launch must first prove:
+
+```text
+JARJAR_LOCAL_BRODY: PASS
+memory=OBSIDIA_NATIVE_MEMORY
+authority=KX108_ONLY
+readonly=True
+```
+
+If `JARJAR_LOCAL_BRODY: using HTTP Brody fallback` appears for a normal Obsidia question, the local native runtime did not engage and the launch is NOT equivalent to the 2026-10-01 proven baseline.
+
+### Safe exact recovery
+
+To avoid disturbing development worktrees, create/use a detached worktree at the exact proven commit:
+
+```powershell
+cd C:\Users\User\Desktop\Jarvis-iron-obsidia-
+git worktree add --detach C:\Users\User\Desktop\Jarvis-iron-obsidia-live de95095
+
+cd C:\Users\User\Desktop\Jarvis-iron-obsidia-live
+$env:JARJAR_BOUNDED_STRUCTURED_ROUTING_V0="1"
+$env:JARJAR_LOCAL_BRODY="1"
+
+& 'C:\Users\User\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m scripts.run_jarjar_live
+```
+
+Do not promote this detached recovery worktree as a development branch. It is a reproducible daily-use baseline and diagnostic reference.
