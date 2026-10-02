@@ -94,7 +94,7 @@ def test_governed_response_projects_kx108_authority_without_granting_hud_authori
     model = HUDModel()
     controller = HUDController(
         model,
-        lambda text: "Déplacement préparé. Confirme pour exécuter.",
+        lambda text: "Déplacement préparé. Dis « confirme le déplacement » pour autoriser l'exécution.",
         response_source=lambda: "OBSIDIA/GOVERNED_MOVE",
     )
 
