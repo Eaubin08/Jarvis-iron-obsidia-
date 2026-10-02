@@ -74,6 +74,15 @@ class JarjarHUD(tk.Tk):
         )
         self.status.pack(side="right")
 
+        self.governance = tk.Label(
+            top,
+            text="",
+            fg="#7f98a3",
+            bg="#05080d",
+            font=("Consolas", 10, "bold"),
+        )
+        self.governance.pack(side="right", padx=(0, 18))
+
         body = tk.PanedWindow(
             self,
             orient=tk.HORIZONTAL,
@@ -339,6 +348,16 @@ class JarjarHUD(tk.Tk):
             color = STATE_COLORS.get(state, WAKE_COLOR)
 
         self.status.configure(text=status_text, fg=color)
+
+        if snap.get("governance_active"):
+            authority = snap.get("decision_authority") or "UNKNOWN"
+            source = snap.get("governance_source") or "GOVERNED"
+            self.governance.configure(
+                text=f"◆ {authority} // {source}",
+                fg="#ffd166",
+            )
+        else:
+            self.governance.configure(text="")
 
         if not snap["voice_enabled"]:
             caption = "DESKTOP COMPANION // VOICE PAUSED"
