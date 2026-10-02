@@ -53,14 +53,35 @@ class HUDController:
             return "CANCELLED"
         return "GOVERNED"
 
+    @staticmethod
+    def _confirmation_prompt(reply: str, source: str) -> str:
+        if not source.startswith("OBSIDIA/GOVERNED_"):
+            return ""
+        value = " ".join(reply.casefold().split())
+        prompts = (
+            ("confirme le déplacement", "CONFIRME LE DÉPLACEMENT"),
+            ("confirme la création du dossier", "CONFIRME LA CRÉATION DU DOSSIER"),
+            ("confirme la creation du dossier", "CONFIRME LA CRÉATION DU DOSSIER"),
+            ("confirme la creation du fichier", "CONFIRME LA CRÉATION DU FICHIER"),
+            ("confirme le patch", "CONFIRME LE PATCH"),
+            ("confirme le rollback", "CONFIRME LE ROLLBACK"),
+        )
+        for marker, prompt in prompts:
+            if marker in value:
+                return prompt
+        return ""
+
     def _sync_governance_surface(self, reply: str) -> None:
         source = self._current_source()
         governed = source.startswith("OBSIDIA/GOVERNED_")
+        prompt = self._confirmation_prompt(reply, source) if governed else ""
         self.model.set_governance(
             active=governed,
             decision_authority="KX108_ONLY" if governed else "",
             source=source if governed else "",
             phase=self._governance_phase(reply, source) if governed else "",
+            human_confirmation_required=bool(prompt),
+            confirmation_prompt=prompt,
         )
 
     def submit_text(self, text: str) -> str:
