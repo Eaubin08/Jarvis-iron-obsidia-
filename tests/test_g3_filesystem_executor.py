@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 import subprocess
 
@@ -85,3 +86,42 @@ def test_apply_unified_patch_target_mismatch_fails_closed(tmp_path):
     assert result.ok is False
     assert (repo / "a.txt").read_bytes() == b"before\n"
     assert (repo / "b.txt").read_bytes() == b"untouched\n"
+
+
+def test_restore_file_bytes_guarded_restores_exact_preimage(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    target = root / "a.txt"
+    target.write_bytes(b"after\n")
+    backend = NativeFilesystemBackend(UserPathPolicy((root.resolve(),)))
+    expected_post = hashlib.sha256(b"after\n").hexdigest()
+
+    result = backend.restore_file_bytes_guarded(
+        target,
+        b"before\n",
+        expected_post,
+    )
+
+    assert result.ok is True
+    assert target.read_bytes() == b"before\n"
+    assert result.data["previous_sha256"] == expected_post
+    assert result.data["restored_sha256"] == hashlib.sha256(b"before\n").hexdigest()
+
+
+def test_restore_file_bytes_guarded_blocks_drift(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    target = root / "a.txt"
+    target.write_bytes(b"drift\n")
+    backend = NativeFilesystemBackend(UserPathPolicy((root.resolve(),)))
+    expected_post = hashlib.sha256(b"after\n").hexdigest()
+
+    result = backend.restore_file_bytes_guarded(
+        target,
+        b"before\n",
+        expected_post,
+    )
+
+    assert result.ok is False
+    assert "drift" in result.message
+    assert target.read_bytes() == b"drift\n"
