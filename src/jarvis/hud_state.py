@@ -28,6 +28,9 @@ class HUDModel:
     state: HUDState = HUDState.IDLE
     voice_enabled: bool = True
     session_open: bool = False
+    governance_active: bool = False
+    decision_authority: str = ""
+    governance_source: str = ""
     messages: list[HUDMessage] = field(default_factory=list)
     _lock: Lock = field(default_factory=Lock, repr=False)
 
@@ -45,6 +48,18 @@ class HUDModel:
         with self._lock:
             self.session_open = bool(opened)
 
+    def set_governance(
+        self,
+        *,
+        active: bool,
+        decision_authority: str = "",
+        source: str = "",
+    ) -> None:
+        with self._lock:
+            self.governance_active = bool(active)
+            self.decision_authority = decision_authority.strip() if active else ""
+            self.governance_source = source.strip() if active else ""
+
     def append(self, speaker: str, text: str) -> None:
         clean = text.strip()
         if not clean:
@@ -58,6 +73,9 @@ class HUDModel:
                 "state": self.state.value,
                 "voice_enabled": self.voice_enabled,
                 "session_open": self.session_open,
+                "governance_active": self.governance_active,
+                "decision_authority": self.decision_authority,
+                "governance_source": self.governance_source,
                 "messages": [
                     {"speaker": item.speaker, "text": item.text}
                     for item in self.messages
