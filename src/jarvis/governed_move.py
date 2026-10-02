@@ -149,7 +149,12 @@ class GovernedMoveCommandHandler:
             return None
 
         normalized = _normalize_confirmation(clean)
-        if normalized in {"confirme deplacement", "confirme le deplacement"}:
+        if normalized in {
+            "confirme deplacement",
+            "confirme le deplacement",
+            "je confirme deplacement",
+            "je confirme le deplacement",
+        }:
             return self.coordinator.approve(session_id=session_id)
         if normalized in {"annule deplacement", "annule le deplacement"}:
             return self.coordinator.cancel()
