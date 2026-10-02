@@ -88,3 +88,41 @@ def test_hud_model_tracks_conversation_session_separately_from_voice_state():
 
     model.set_voice_enabled(False)
     assert model.snapshot()["session_open"] is False
+
+
+def test_governed_response_projects_kx108_authority_without_granting_hud_authority():
+    model = HUDModel()
+    controller = HUDController(
+        model,
+        lambda text: "Déplacement préparé. Confirme pour exécuter.",
+        response_source=lambda: "OBSIDIA/GOVERNED_MOVE",
+    )
+
+    reply = controller.submit_text("déplace a vers b")
+
+    assert "préparé" in reply
+    snap = model.snapshot()
+    assert snap["governance_active"] is True
+    assert snap["decision_authority"] == "KX108_ONLY"
+    assert snap["governance_source"] == "OBSIDIA/GOVERNED_MOVE"
+
+
+def test_non_governed_response_clears_governance_surface():
+    model = HUDModel()
+    model.set_governance(
+        active=True,
+        decision_authority="KX108_ONLY",
+        source="OBSIDIA/GOVERNED_MOVE",
+    )
+    controller = HUDController(
+        model,
+        lambda text: "réponse locale",
+        response_source=lambda: "LOCAL",
+    )
+
+    controller.submit_text("status")
+
+    snap = model.snapshot()
+    assert snap["governance_active"] is False
+    assert snap["decision_authority"] == ""
+    assert snap["governance_source"] == ""
