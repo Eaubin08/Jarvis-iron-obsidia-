@@ -29,13 +29,38 @@ class HUDController:
         source = self._current_source()
         return f"JARJAR · {source}" if source else "JARJAR"
 
-    def _sync_governance_surface(self) -> None:
+    @staticmethod
+    def _governance_phase(reply: str, source: str) -> str:
+        if not source.startswith("OBSIDIA/GOVERNED_"):
+            return ""
+        value = " ".join(reply.casefold().split())
+        if "rollback" in value:
+            if "prépar" in value or "prepar" in value:
+                return "ROLLBACK_PREPARE"
+            if "exécuté" in value or "execute" in value:
+                return "ROLLBACK_EXECUTE"
+            if "refus" in value or "non exécut" in value or "indisponible" in value:
+                return "BLOCKED"
+        if "prépar" in value or "prepare" in value:
+            return "PREPARE"
+        if "confirme" in value and ("attente" in value or "autoriser" in value):
+            return "HUMAN_CONFIRM"
+        if "exécuté et prouvé" in value or "créé et prouvé" in value or "appliqué et prouvé" in value:
+            return "EXECUTE"
+        if "refus" in value or "non exécut" in value or "non créé" in value or "non appliqué" in value:
+            return "BLOCKED"
+        if "annul" in value:
+            return "CANCELLED"
+        return "GOVERNED"
+
+    def _sync_governance_surface(self, reply: str) -> None:
         source = self._current_source()
         governed = source.startswith("OBSIDIA/GOVERNED_")
         self.model.set_governance(
             active=governed,
             decision_authority="KX108_ONLY" if governed else "",
             source=source if governed else "",
+            phase=self._governance_phase(reply, source) if governed else "",
         )
 
     def submit_text(self, text: str) -> str:
@@ -50,7 +75,7 @@ class HUDController:
             if not reply:
                 raise ValueError("empty Jarjar response")
             self.model.append(self._jarjar_label(), reply)
-            self._sync_governance_surface()
+            self._sync_governance_surface(reply)
             return reply
         except Exception:
             self.model.set_state(HUDState.ERROR)
@@ -86,7 +111,7 @@ class HUDController:
                 raise ValueError("voice turn returned empty transcript or reply")
             self.model.append("YOU", transcript)
             self.model.append(self._jarjar_label(), reply)
-            self._sync_governance_surface()
+            self._sync_governance_surface(reply)
             if self.model.session_open:
                 self.model.set_state(HUDState.LISTENING)
             else:
