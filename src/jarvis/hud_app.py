@@ -352,8 +352,9 @@ class JarjarHUD(tk.Tk):
         if snap.get("governance_active"):
             authority = snap.get("decision_authority") or "UNKNOWN"
             source = snap.get("governance_source") or "GOVERNED"
+            phase = snap.get("governance_phase") or "GOVERNED"
             self.governance.configure(
-                text=f"◆ {authority} // {source}",
+                text=f"◆ {authority} // {phase} // {source}",
                 fg="#ffd166",
             )
         else:
