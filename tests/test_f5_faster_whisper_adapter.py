@@ -15,9 +15,14 @@ class FakeWhisperModel:
     def __init__(self, model_size, *, device, compute_type):
         self.created.append((model_size, device, compute_type))
 
-    def transcribe(self, path, vad_filter):
+    def transcribe(self, path, **kwargs):
         assert path.endswith(".wav")
-        assert vad_filter is True
+        assert kwargs["vad_filter"] is True
+        assert "Jarjar" in kwargs["initial_prompt"]
+        assert kwargs["beam_size"] == 5
+        assert kwargs["best_of"] == 5
+        assert kwargs["temperature"] == 0.0
+        assert kwargs["condition_on_previous_text"] is False
         return [Segment(" hello "), Segment(" Jarvis ")], {"language": "en"}
 
 
