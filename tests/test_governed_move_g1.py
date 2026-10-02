@@ -229,3 +229,33 @@ def test_from_obsidia_exposes_root_and_scripts_for_runtime_imports(tmp_path, mon
     assert coordinator.prepare_fn is fake_pc2.pc_v2_move_file_prepare
     assert coordinator.execute_fn is fake_pc2.pc_v2_move_file_execute
     assert imported == ["obsidia_pc_capabilities_v2", "jarjar_executor_bridge_v0"]
+
+
+def test_text_handler_accepts_explicit_je_confirme_variant(tmp_path):
+    prepared = {
+        "status": "PREPARED_AWAITING_HUMAN_APPROVAL",
+        "execution_authority_hash": "f" * 64,
+    }
+    execute = MagicMock(return_value={
+        "status": "EXECUTED_OK",
+        "source_path": "docs/a.txt",
+        "dest_path": "archive/a.txt",
+    })
+    coordinator = GovernedMoveCoordinator(
+        _config(tmp_path),
+        MagicMock(return_value=prepared),
+        execute,
+        MagicMock(return_value=object()),
+    )
+    handler = GovernedMoveCommandHandler(coordinator)
+
+    first = handler.handle(
+        "déplace le fichier docs/a.txt vers archive/a.txt",
+        session_id="hud-voice",
+    )
+    assert first is not None and "préparé" in first.lower()
+
+    second = handler.handle("Je confirme le déplacement.", session_id="hud-voice")
+
+    assert second is not None and "exécuté et prouvé" in second.lower()
+    execute.assert_called_once()
