@@ -79,7 +79,7 @@ def test_follow_up_uses_wake_free_capture():
     assert ingress.calls == [("follow", 5.0)]
 
 
-def test_silent_follow_up_closes_window_without_failure():
+def test_silent_follow_up_keeps_idle_window_without_failure():
     ingress = FakeIngress(empty_follow=True)
     core = FakeCore()
     conversation = FakeConversation()
@@ -87,7 +87,7 @@ def test_silent_follow_up_closes_window_without_failure():
     bridge = HUDLiveVoiceBridge(ingress, core, conversation)
 
     assert bridge.run_follow_up_turn() is None
-    assert conversation.follow_up_open is False
+    assert conversation.follow_up_open is True
     assert core.inputs == []
 
 
