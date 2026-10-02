@@ -157,6 +157,6 @@ def test_jarjar_role_alias_calls_brody_with_canonical_role_query():
 
     assert answer == "brody role answer"
     assert brody.calls == [
-        ("Qui peut faire quoi entre Brody, X108 et humain mémoire ?", False)
+        ("Quel est ton rôle en tant que Jarjar ?", False)
     ]
     assert qwen.calls == []
