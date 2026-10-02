@@ -32,6 +32,8 @@ class HUDModel:
     decision_authority: str = ""
     governance_source: str = ""
     governance_phase: str = ""
+    human_confirmation_required: bool = False
+    confirmation_prompt: str = ""
     messages: list[HUDMessage] = field(default_factory=list)
     _lock: Lock = field(default_factory=Lock, repr=False)
 
@@ -56,12 +58,22 @@ class HUDModel:
         decision_authority: str = "",
         source: str = "",
         phase: str = "",
+        human_confirmation_required: bool = False,
+        confirmation_prompt: str = "",
     ) -> None:
         with self._lock:
             self.governance_active = bool(active)
             self.decision_authority = decision_authority.strip() if active else ""
             self.governance_source = source.strip() if active else ""
             self.governance_phase = phase.strip() if active else ""
+            self.human_confirmation_required = bool(
+                active and human_confirmation_required
+            )
+            self.confirmation_prompt = (
+                confirmation_prompt.strip()
+                if self.human_confirmation_required
+                else ""
+            )
 
     def append(self, speaker: str, text: str) -> None:
         clean = text.strip()
@@ -80,6 +92,8 @@ class HUDModel:
                 "decision_authority": self.decision_authority,
                 "governance_source": self.governance_source,
                 "governance_phase": self.governance_phase,
+                "human_confirmation_required": self.human_confirmation_required,
+                "confirmation_prompt": self.confirmation_prompt,
                 "messages": [
                     {"speaker": item.speaker, "text": item.text}
                     for item in self.messages
