@@ -84,18 +84,24 @@ class HUDLiveVoiceBridge:
             "confirme le patch",
             "confirme le rollback",
         )
-        for command in confirmation_commands:
-            pattern = (
-                r"dis\\s+[«»\\\"“”']*"
-                + re.escape(command)
-                + r"[«»\\\"“”']*[^.!?]*[.!?]?"
-            )
-            text = re.sub(
-                pattern,
-                "Une confirmation humaine explicite est requise avant l'exécution.",
-                text,
-                flags=re.IGNORECASE,
-            )
+        lowered_text = text.casefold()
+        if any(command in lowered_text for command in confirmation_commands):
+            marker = "dis «"
+            marker_index = lowered_text.find(marker)
+            if marker_index < 0:
+                marker = 'dis "'
+                marker_index = lowered_text.find(marker)
+            if marker_index >= 0:
+                sentence_end = len(text)
+                for terminal in ".!?":
+                    pos = text.find(terminal, marker_index)
+                    if pos >= 0:
+                        sentence_end = min(sentence_end, pos + 1)
+                text = (
+                    text[:marker_index]
+                    + "Une confirmation humaine explicite est requise avant l'exécution."
+                    + text[sentence_end:]
+                )
 
         text = " ".join(text.split())
 
