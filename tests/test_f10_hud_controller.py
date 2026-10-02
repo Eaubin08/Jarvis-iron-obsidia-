@@ -106,6 +106,8 @@ def test_governed_response_projects_kx108_authority_without_granting_hud_authori
     assert snap["decision_authority"] == "KX108_ONLY"
     assert snap["governance_source"] == "OBSIDIA/GOVERNED_MOVE"
     assert snap["governance_phase"] == "PREPARE"
+    assert snap["human_confirmation_required"] is True
+    assert snap["confirmation_prompt"] == "CONFIRME LE DÉPLACEMENT"
 
 
 def test_non_governed_response_clears_governance_surface():
@@ -128,6 +130,8 @@ def test_non_governed_response_clears_governance_surface():
     assert snap["decision_authority"] == ""
     assert snap["governance_source"] == ""
     assert snap["governance_phase"] == ""
+    assert snap["human_confirmation_required"] is False
+    assert snap["confirmation_prompt"] == ""
 
 
 def test_governed_phase_surface_distinguishes_execute_rollback_and_block():
@@ -152,5 +156,44 @@ def test_governed_phase_surface_distinguishes_execute_rollback_and_block():
 def test_governed_phase_surface_never_marks_plain_cognition_as_governed():
     assert HUDController._governance_phase(
         "Je prépare une explication.",
+        "BRODY/OBSIDIA",
+    ) == ""
+
+
+def test_confirmation_prompt_is_specific_to_governed_operation():
+    cases = [
+        (
+            "Déplacement préparé. Dis « confirme le déplacement » pour autoriser l'exécution.",
+            "OBSIDIA/GOVERNED_MOVE",
+            "CONFIRME LE DÉPLACEMENT",
+        ),
+        (
+            "Création de dossier préparée. Dis « confirme la création du dossier ».",
+            "OBSIDIA/GOVERNED_CREATE_DIR",
+            "CONFIRME LA CRÉATION DU DOSSIER",
+        ),
+        (
+            "Création de fichier préparée. Dis « confirme la creation du fichier ».",
+            "OBSIDIA/GOVERNED_FILE_OPS",
+            "CONFIRME LA CRÉATION DU FICHIER",
+        ),
+        (
+            "Patch préparé. Dis « confirme le patch ».",
+            "OBSIDIA/GOVERNED_FILE_OPS",
+            "CONFIRME LE PATCH",
+        ),
+        (
+            "Rollback préparé. Dis « confirme le rollback ».",
+            "OBSIDIA/GOVERNED_ROLLBACK",
+            "CONFIRME LE ROLLBACK",
+        ),
+    ]
+    for reply, source, expected in cases:
+        assert HUDController._confirmation_prompt(reply, source) == expected
+
+
+def test_confirmation_prompt_never_appears_for_plain_cognition():
+    assert HUDController._confirmation_prompt(
+        "Tu peux confirmer si tu veux.",
         "BRODY/OBSIDIA",
     ) == ""
