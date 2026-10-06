@@ -11,6 +11,7 @@ from .governed_move import GovernedMoveCommandHandler
 from .governed_create_dir import GovernedCreateDirCommandHandler
 from .governed_file_ops import GovernedFileOpsCommandHandler
 from .governed_rollback import GovernedMoveRollbackCommandHandler
+from .governed_audio import GovernedAudioCommandHandler
 
 from .contracts import ActionRequest, CognitionProvider, MemoryProvider, RiskClass
 
@@ -25,6 +26,7 @@ class JarvisCore:
     governed_create_dir: GovernedCreateDirCommandHandler | None = None
     governed_file_ops: GovernedFileOpsCommandHandler | None = None
     governed_rollback: GovernedMoveRollbackCommandHandler | None = None
+    governed_audio: GovernedAudioCommandHandler | None = None
     last_source: str = field(default="LOCAL", init=False)
     session_id: str = field(default_factory=lambda: f"jarjar-{uuid4().hex}", init=False)
 
@@ -57,6 +59,16 @@ class JarvisCore:
         if self.fast_intent is not None and self.actions is not None:
             match = self.fast_intent.route(text, session_id=self.session_id)
             if match is not None:
+                if self.governed_audio is not None:
+                    governed_audio_reply = self.governed_audio.handle_request(
+                        match.request,
+                        session_id=self.session_id,
+                        original_text=text,
+                    )
+                    if governed_audio_reply is not None:
+                        self.last_source = "OBSIDIA/GOVERNED_AUDIO"
+                        return governed_audio_reply
+
                 result = self.actions.execute(match.request, context)
 
                 if (
