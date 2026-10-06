@@ -70,6 +70,19 @@ def _indeterminate_status_from_snapshot(snapshot: str) -> str:
     return "UNKNOWN"
 
 
+def _radio_group_identity(browser_session_id: str, page_id: str, name: str, form_owner: str) -> str:
+    payload = "|".join([
+        "RADIO_GROUP_IDENTITY_V1",
+        browser_session_id,
+        page_id,
+        "main_frame",
+        "radio",
+        name,
+        form_owner,
+    ])
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 @dataclass
 class PlaywrightDriver:
     headless: bool = False
@@ -558,6 +571,158 @@ class PlaywrightDriver:
             "target_checked": target_checked,
             "checked": post.get("checked"),
             "indeterminate_status": post.get("indeterminate_status"),
+            "mutation_performed": mutation_performed,
+            "popup_detected": events["popup"],
+            "new_page_detected": events["new_page"],
+            "download_detected": events["download"],
+            "navigation_detected": False,
+            "proof_strength": "STRONG",
+            "realized_state_verified": True,
+        }
+
+    def inspect_radio(self, selector: str) -> dict:
+        page = self._ensure_page()
+        locator = page.locator(selector)
+        element_count = locator.count()
+        result = {"url": page.url, "selector": selector, "element_count": element_count}
+        result.update(self._identity_fields(page))
+        if element_count != 1:
+            return result
+
+        item = locator.first
+        tag_name = (item.get_attribute("data-tag-name") or "").lower()
+        selector_tag = selector.strip().split("#", 1)[0].split(".", 1)[0].lower()
+        if not tag_name and selector_tag in {"input"}:
+            tag_name = selector_tag
+        input_type = (item.get_attribute("type") or "").lower()
+        role = item.get_attribute("role") or ""
+        name = item.get_attribute("name") or ""
+        element_id = item.get_attribute("id") or ""
+        form_owner = item.get_attribute("form") or ""
+        checked = item.is_checked()
+        group_identity = ""
+        if name:
+            group_identity = _radio_group_identity(
+                self._browser_session_id, self._page_id, name, form_owner
+            )
+        metadata_payload = "|".join([
+            selector,
+            tag_name,
+            input_type,
+            role.lower(),
+            name,
+            element_id,
+            form_owner,
+            group_identity,
+        ])
+        result.update({
+            "visible": bool(item.is_visible()),
+            "enabled": bool(item.is_enabled()),
+            "tag_name": tag_name,
+            "type": input_type,
+            "role": role.lower(),
+            "name": name,
+            "id": element_id,
+            "form_owner": form_owner,
+            "checked": bool(checked),
+            "radio_group_identity": group_identity,
+            "metadata_sha256": hashlib.sha256(metadata_payload.encode()).hexdigest(),
+            "main_frame": True,
+        })
+        return result
+
+    def select_radio_by_identity(self, identity: dict) -> dict:
+        page = self._ensure_page()
+        selector = str(identity.get("selector") or "").strip()
+        if not selector:
+            raise ValueError("missing browser argument: selector")
+
+        observed = self.inspect_radio(selector)
+        for key, error in (
+            ("browser_session_id", "SESSION_ID_DRIFT"),
+            ("page_id", "PAGE_ID_DRIFT"),
+            ("url", "URL_DRIFT"),
+            ("origin", "ORIGIN_DRIFT"),
+            ("tag_name", "TAG_DRIFT"),
+            ("type", "TYPE_DRIFT"),
+            ("name", "RADIO_GROUP_DRIFT"),
+            ("form_owner", "FORM_OWNER_DRIFT"),
+            ("radio_group_identity", "RADIO_GROUP_DRIFT"),
+            ("metadata_sha256", "ELEMENT_IDENTITY_DRIFT"),
+        ):
+            if str(observed.get(key) or "") != str(identity.get(key) or ""):
+                raise ValueError(error)
+        if observed.get("element_count") != 1:
+            raise ValueError("SELECTOR_COUNT_DRIFT")
+        if observed.get("tag_name") != "input":
+            raise ValueError("UNSUPPORTED_RADIO_TARGET")
+        if observed.get("type") != "radio":
+            raise ValueError("UNSUPPORTED_RADIO_TARGET")
+        if not observed.get("name") or not observed.get("radio_group_identity"):
+            raise ValueError("RADIO_GROUP_IDENTITY_INVALID")
+        if observed.get("checked") is not identity.get("checked"):
+            raise ValueError("PRE_CHECKED_DRIFT")
+        if observed.get("visible") is not True:
+            raise ValueError("ELEMENT_NOT_VISIBLE")
+        if observed.get("enabled") is not True:
+            raise ValueError("ELEMENT_NOT_ENABLED")
+        if observed.get("closed") is True:
+            raise ValueError("PAGE_CLOSED")
+        if identity.get("main_frame") is not True:
+            raise ValueError("IFRAME_UNSUPPORTED")
+        if observed.get("main_frame") is not True:
+            raise ValueError("IFRAME_UNSUPPORTED")
+
+        events = {"popup": False, "new_page": False, "download": False}
+
+        def _mark(name):
+            def _handler(*_args):
+                events[name] = True
+            return _handler
+
+        if observed.get("checked") is True:
+            post = self.inspect_radio(selector)
+            mutation_performed = False
+        else:
+            if hasattr(page, "on"):
+                page.on("popup", _mark("popup"))
+                page.on("download", _mark("download"))
+            context = getattr(page, "context", None)
+            if context is not None and hasattr(context, "on"):
+                context.on("page", _mark("new_page"))
+            page.locator(selector).first.check()
+            mutation_performed = True
+            if events["popup"]:
+                raise ValueError("UNEXPECTED_POPUP")
+            if events["new_page"]:
+                raise ValueError("UNEXPECTED_NEW_PAGE")
+            if events["download"]:
+                raise ValueError("UNEXPECTED_DOWNLOAD")
+            post = self.inspect_radio(selector)
+
+        if _canonical_url(str(post.get("url") or "")) != _canonical_url(str(identity.get("url") or "")):
+            raise ValueError("UNEXPECTED_NAVIGATION")
+        if post.get("browser_session_id") != identity.get("browser_session_id"):
+            raise ValueError("POST_SESSION_ID_DRIFT")
+        if post.get("page_id") != identity.get("page_id"):
+            raise ValueError("POST_PAGE_ID_DRIFT")
+        if post.get("metadata_sha256") != identity.get("metadata_sha256"):
+            raise ValueError("POST_ELEMENT_IDENTITY_DRIFT")
+        if post.get("radio_group_identity") != identity.get("radio_group_identity"):
+            raise ValueError("POST_RADIO_GROUP_DRIFT")
+        if post.get("closed") is True:
+            raise ValueError("POST_PAGE_CLOSED")
+        if post.get("checked") is not True:
+            raise ValueError("REALIZED_STATE_MISMATCH")
+        return {
+            "url": post.get("url"),
+            "selector": selector,
+            "browser_session_id": post.get("browser_session_id"),
+            "page_id": post.get("page_id"),
+            "origin": post.get("origin"),
+            "closed": post.get("closed"),
+            "checked": post.get("checked"),
+            "radio_group_identity": post.get("radio_group_identity"),
             "mutation_performed": mutation_performed,
             "popup_detected": events["popup"],
             "new_page_detected": events["new_page"],

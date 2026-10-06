@@ -20,6 +20,8 @@ class BrowserDriver(Protocol):
     def set_disclosure_by_identity(self, identity: dict, target_expanded: bool) -> dict: ...
     def inspect_checkbox(self, selector: str) -> dict: ...
     def set_checked_by_identity(self, identity: dict, target_checked: bool) -> dict: ...
+    def inspect_radio(self, selector: str) -> dict: ...
+    def select_radio_by_identity(self, identity: dict) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -39,6 +41,8 @@ class BrowserBackend:
         "browser.set_disclosure",
         "browser.inspect_checkbox",
         "browser.set_checked",
+        "browser.inspect_radio",
+        "browser.select_radio",
         "browser.click",
         "browser.fill",
     })
@@ -74,6 +78,11 @@ class BrowserBackend:
                 if not isinstance(target_checked, bool):
                     raise ValueError("target_checked must be bool")
                 data = self.driver.set_checked_by_identity(dict(request.arguments), target_checked)
+            elif request.capability == "browser.inspect_radio":
+                selector = self._required(request, "selector")
+                data = self.driver.inspect_radio(selector)
+            elif request.capability == "browser.select_radio":
+                data = self.driver.select_radio_by_identity(dict(request.arguments))
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)
