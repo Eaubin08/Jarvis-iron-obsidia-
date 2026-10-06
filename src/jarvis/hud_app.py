@@ -192,6 +192,19 @@ class JarjarHUD(tk.Tk):
         )
         self.voice_button.pack(side="left", padx=(8, 0), ipady=6)
 
+        self.keyboard_button = tk.Button(
+            controls,
+            text="KEYBOARD MODE",
+            command=self._enable_keyboard_mode,
+            bg="#2a2138",
+            fg="#e7ccff",
+            activebackground="#3a2d4d",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=14,
+        )
+        self.keyboard_button.pack(side="left", padx=(8, 0), ipady=6)
+
         tk.Button(
             controls,
             text="LISTEN",
@@ -212,13 +225,23 @@ class JarjarHUD(tk.Tk):
         threading.Thread(target=self._text_worker, args=(text,), daemon=True).start()
 
     def _text_worker(self, text: str) -> None:
-        # Do not let microphone capture race a spoken text response.
-        with self._voice_busy:
-            try:
-                self.controller.submit_text(text)
-            except Exception as exc:
-                print(f"JARJAR_VOICE_LOOP: ERROR {type(exc).__name__}: {exc}")
-                self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+        # Keyboard input must not wait for the wake-word microphone loop.
+        # It enters the exact same governed text path via controller.submit_text().
+        try:
+            self.controller.submit_text(text)
+        except Exception as exc:
+            print(f"JARJAR_KEYBOARD: ERROR {type(exc).__name__}: {exc}")
+            self.controller.model.append("SYSTEM", f"{type(exc).__name__}: {exc}")
+
+    def _enable_keyboard_mode(self) -> None:
+        snap = self.controller.model.snapshot()
+        if snap["voice_enabled"]:
+            self.controller.toggle_voice()
+            self.controller.model.set_session_open(False)
+            self._voice_stop.set()
+        self.entry.focus_set()
+        self.avatar_caption.configure(text="DESKTOP COMPANION // KEYBOARD MODE")
+        print("JARJAR_INPUT_MODE: KEYBOARD")
 
     def _start_voice_turn(self) -> None:
         threading.Thread(target=self._manual_voice_worker, daemon=True).start()
@@ -378,7 +401,7 @@ class JarjarHUD(tk.Tk):
             self.confirmation.configure(text="")
 
         if not snap["voice_enabled"]:
-            caption = "DESKTOP COMPANION // VOICE PAUSED"
+            caption = "DESKTOP COMPANION // KEYBOARD MODE"
         elif session_open:
             caption = "PARLE // JE T'ÉCOUTE"
         else:
