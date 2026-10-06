@@ -716,8 +716,12 @@ def _looks_like_history_question(normalized: str) -> bool:
 
 
 def _looks_like_audit_question(normalized: str) -> bool:
+    audit_word = bool(
+        re.search(r"\b(?:audit|audite|auditer|verifie|verifier)\b", normalized)
+        or re.search(r"\baudi[a-z]{1,5}\b", normalized)
+    )
     return bool(
-        re.search(r"\b(?:audite|audit|verifie|verifier)\b", normalized)
+        audit_word
         and any(term in normalized for term in ("action", "operation", "deplacement", "preuve", "dernier"))
     )
 
