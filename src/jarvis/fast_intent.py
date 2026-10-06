@@ -92,13 +92,57 @@ class FastIntentRouter:
 
     @staticmethod
     def _volume_status(text: str) -> ActionRequest | None:
-        patterns = (
-            r"^(?:quel est |quelle est )?(?:le )?(?:niveau|etat|statut) (?:du |de )?volume$",
-            r"^(?:quel est |quelle est )?(?:le )?volume(?: actuel)?$",
-            r"^(?:niveau|etat|statut) volume$",
+        value = " ".join(text.split())
+
+        # Readonly volume-status intent. Accept natural conversational wrappers
+        # while staying bounded to explicit volume-status wording.
+        if "volume" not in value:
+            return None
+
+        status_markers = (
+            "niveau",
+            "etat",
+            "statut",
+            "combien",
+            "a combien",
+            "quel est",
+            "quelle est",
+            "c est quoi",
+            "c'est quoi",
         )
-        if any(re.match(pattern, text) for pattern in patterns):
+        if not any(marker in value for marker in status_markers):
+            return None
+
+        # Explicit mutation verbs always belong to control routing, never status.
+        mutation_markers = (
+            "monte",
+            "augmente",
+            "remonte",
+            "baisse",
+            "diminue",
+            "descend",
+            "mets",
+            "met",
+            "regle",
+            "fixe",
+            "coupe",
+            "mute",
+            "sourdine",
+        )
+        if any(re.search(rf"\b{re.escape(marker)}\b", value) for marker in mutation_markers):
+            return None
+
+        # Accept wrappers such as:
+        # "et le niveau de volume", "c'est le niveau de volume",
+        # "quel est le niveau de volume de l'ordinateur"
+        if re.search(
+            r"\b(?:niveau|etat|statut)\b.*\bvolume\b"
+            r"|\bvolume\b.*\b(?:niveau|etat|statut)\b"
+            r"|\b(?:quel est|quelle est|a combien|combien)\b.*\bvolume\b",
+            value,
+        ):
             return ActionRequest("audio.status", risk=RiskClass.READ_ONLY)
+
         return None
 
     @staticmethod
