@@ -159,6 +159,12 @@ class GovernedMoveCommandHandler:
         if normalized in {"annule deplacement", "annule le deplacement"}:
             return self.coordinator.cancel()
 
+        if self.coordinator.pending is not None and _looks_like_move_confirmation_attempt(normalized):
+            return (
+                "Confirmation non reconnue. "
+                "Dis « confirme le déplacement » pour autoriser l'étape d'exécution."
+            )
+
         match = self._move_re.match(clean)
         if match is None:
             return None
@@ -216,3 +222,27 @@ def _normalize_confirmation(text: str) -> str:
     value = "".join(ch for ch in value if not unicodedata.combining(ch))
     value = re.sub(r"[^a-z0-9 ]+", " ", value)
     return " ".join(value.split())
+
+
+def _looks_like_move_confirmation_attempt(normalized: str) -> bool:
+    """Keep ambiguous confirmation attempts inside the pending MOVE gate.
+
+    Explicit confirmations for another governed capability are left alone so
+    their own handler can reject or process them.  This prevents generic
+    cognition/Qwen from claiming that a pending governed MOVE executed.
+    """
+    if not normalized:
+        return False
+    if not re.search(r"\b(?:confirme|confirmer|confirmation)\b", normalized):
+        return False
+    other_capability_markers = (
+        "creation",
+        "cree",
+        "creer",
+        "dossier",
+        "repertoire",
+        "patch",
+        "rollback",
+        "retour arriere",
+    )
+    return not any(marker in normalized for marker in other_capability_markers)
