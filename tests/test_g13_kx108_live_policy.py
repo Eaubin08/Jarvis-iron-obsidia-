@@ -82,3 +82,14 @@ def test_g13_volume_status_accepts_natural_followup_phrasing():
         assert router.local_guard_response(utterance) is None
 
     assert router.route("Baisse le volume de 15.").request.capability == "audio.adjust_volume"
+
+
+from jarvis.windows import NativeWindowsBackend
+
+
+def test_g13_windows_readonly_reply_surfaces_observed_volume():
+    message = NativeWindowsBackend._format_success_message(
+        "audio.status",
+        {"volume_percent": 37, "muted": False},
+    )
+    assert message == "Volume actuel : 37 %. Muet : non."
