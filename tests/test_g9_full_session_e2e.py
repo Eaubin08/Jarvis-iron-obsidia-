@@ -145,7 +145,7 @@ def test_full_voice_session_prepare_confirm_execute_proof_and_hud_projection(tmp
     args, kwargs = execute.call_args
     assert args[0] is prepared
     assert args[1] == "a" * 64
-    assert args[2] == "JARJAR_HUD_CONFIRM:jarvis-core"
+    assert args[2] == f"JARJAR_HUD_CONFIRM:{core.session_id}"
     assert kwargs["executor"] is executor
 
     assert len(conversation.spoken) == 2
