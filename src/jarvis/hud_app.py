@@ -7,11 +7,14 @@ Donor-inspired patterns:
 """
 from __future__ import annotations
 
+import json
 import math
+import os
 import queue
 import threading
 import time
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 
 from .hud_controller import HUDController
@@ -28,6 +31,37 @@ STATE_COLORS = {
 
 WAKE_COLOR = "#4dd8ff"
 SESSION_COLOR = "#38ff9c"
+
+
+def _telemetry_path() -> Path:
+    base = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "Obsidia"
+    base.mkdir(parents=True, exist_ok=True)
+    return base / "jarjar_runtime_status.json"
+
+
+def _write_runtime_telemetry(controller: HUDController) -> None:
+    snap = controller.model.snapshot()
+    voice_enabled = bool(snap.get("voice_enabled"))
+    mode = "VOICE+KEYBOARD" if voice_enabled else "KEYBOARD"
+    payload = {
+        "schema": "JARJAR_RUNTIME_STATUS_V1",
+        "observed_at": time.time(),
+        "mode": mode,
+        "hud_state": snap.get("state", "unknown"),
+        "voice_enabled": voice_enabled,
+        "keyboard_available": True,
+        "session_open": bool(snap.get("session_open")),
+        "governance_active": bool(snap.get("governance_active")),
+        "decision_authority": snap.get("decision_authority") or "KX108_ONLY",
+        "cognition_source": controller._current_source(),
+        "governance_source": snap.get("governance_source", ""),
+        "governance_phase": snap.get("governance_phase", ""),
+        "human_confirmation_required": bool(snap.get("human_confirmation_required")),
+    }
+    path = _telemetry_path()
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
 
 
 class JarjarHUD(tk.Tk):
@@ -357,6 +391,7 @@ class JarjarHUD(tk.Tk):
 
     def _sync_model(self) -> None:
         snap = self.controller.model.snapshot()
+        _write_runtime_telemetry(self.controller)
         state = snap["state"]
         session_open = snap.get("session_open", False)
 
@@ -533,6 +568,12 @@ class JarjarHUD(tk.Tk):
         self._closing = True
         self._voice_stop.set()
         print("JARJAR_HUD: close requested")
+        try:
+            path = _telemetry_path()
+            if path.exists():
+                path.unlink()
+        except OSError:
+            pass
         self.destroy()
 
 
