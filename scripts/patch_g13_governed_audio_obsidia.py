@@ -9,6 +9,7 @@ Fails closed when expected anchors are absent. Creates .g13_audio.bak backups on
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import shutil
 
 
@@ -321,13 +322,23 @@ def pc_v2_audio_volume_execute(
 '''
     text = replace_once(text, marker, block, "pc2 governed audio block")
 
-    dispatch_anchor = '''        _CAP_AOPEN_EXECUTE: pc_v2_app_open_execute,
-'''
-    dispatch_new = '''        _CAP_AOPEN_EXECUTE: pc_v2_app_open_execute,
-        _CAP_AVOL_PREPARE: pc_v2_audio_volume_prepare,
-        _CAP_AVOL_EXECUTE: pc_v2_audio_volume_execute,
-'''
-    text = replace_once(text, dispatch_anchor, dispatch_new, "pc2 audio dispatch")
+    if "_CAP_AVOL_PREPARE: pc_v2_audio_volume_prepare" not in text:
+        pattern = r"(?m)^(\\s*)_CAP_AOPEN_EXECUTE\\s*:\\s*pc_v2_app_open_execute,\\s*$"
+        matches = list(re.finditer(pattern, text))
+        if len(matches) != 1:
+            raise RuntimeError(
+                f"pc2 audio dispatch: expected exactly one APP_OPEN execute entry, found {len(matches)}"
+            )
+        m = matches[0]
+        indent = m.group(1)
+        replacement = (
+            m.group(0)
+            + "\\n"
+            + indent + "_CAP_AVOL_PREPARE: pc_v2_audio_volume_prepare,"
+            + "\\n"
+            + indent + "_CAP_AVOL_EXECUTE: pc_v2_audio_volume_execute,"
+        )
+        text = text[:m.start()] + replacement + text[m.end():]
 
     # Keep self-check truthful when exact operations list is present.
     old_ops = '"operations": [OP_CREATE_FILE, OP_MOVE_FILE, OP_APPLY_PATCH, OP_CREATE_DIR, OP_WINDOW_FOCUS, OP_APP_OPEN, OP_UIA_SET_TEXT, OP_UIA_SET_CHECKED],'
