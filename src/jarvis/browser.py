@@ -18,6 +18,8 @@ class BrowserDriver(Protocol):
     def activate_link_by_identity(self, identity: dict) -> dict: ...
     def inspect_disclosure(self, selector: str) -> dict: ...
     def set_disclosure_by_identity(self, identity: dict, target_expanded: bool) -> dict: ...
+    def inspect_checkbox(self, selector: str) -> dict: ...
+    def set_checked_by_identity(self, identity: dict, target_checked: bool) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -35,6 +37,8 @@ class BrowserBackend:
         "browser.activate_link",
         "browser.inspect_disclosure",
         "browser.set_disclosure",
+        "browser.inspect_checkbox",
+        "browser.set_checked",
         "browser.click",
         "browser.fill",
     })
@@ -62,6 +66,14 @@ class BrowserBackend:
                 if not isinstance(target_expanded, bool):
                     raise ValueError("target_expanded must be bool")
                 data = self.driver.set_disclosure_by_identity(dict(request.arguments), target_expanded)
+            elif request.capability == "browser.inspect_checkbox":
+                selector = self._required(request, "selector")
+                data = self.driver.inspect_checkbox(selector)
+            elif request.capability == "browser.set_checked":
+                target_checked = request.arguments.get("target_checked")
+                if not isinstance(target_checked, bool):
+                    raise ValueError("target_checked must be bool")
+                data = self.driver.set_checked_by_identity(dict(request.arguments), target_checked)
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)
