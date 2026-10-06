@@ -147,7 +147,7 @@ def is_action_or_command_query(text: str) -> bool:
         return False
     return bool(
         re.match(
-            r"^(?:commande|cmd|ouvre|ferme|lance|demarre|démarre|arrete|arrête|"
+            r"^(?:commande|command|cmd|ouvre|ferme|lance|demarre|démarre|arrete|arrête|"
             r"active|desactive|désactive|coupe|mets|met|regle|règle|fixe|"
             r"monte|remonte|augmente|baisse|diminue|descend|deplace|déplace|"
             r"copie|cree|crée|supprime|efface|restaure|annule)\b",
