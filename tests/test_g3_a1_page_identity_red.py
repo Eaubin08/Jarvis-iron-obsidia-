@@ -14,10 +14,25 @@ from jarvis.integrations.playwright_driver import PlaywrightDriver
 
 # __ fake page ________________________________________________________________
 
+class FakeLocator:
+    def __init__(self, *, text="body text", count=1):
+        self._text = text
+        self._count = count
+        self.first = self
+
+    def count(self):
+        return self._count
+
+    def inner_text(self):
+        return self._text
+
+
 class FakePage:
     def __init__(self, url="https://example.com"):
         self._url = url
         self._closed = False
+        self.locator_counts = {}
+        self.locator_texts = {}
 
     @property
     def url(self):
@@ -36,10 +51,10 @@ class FakePage:
         return r
 
     def locator(self, selector):
-        loc = MagicMock()
-        loc.inner_text.return_value = "body text"
-        loc.first = loc
-        return loc
+        return FakeLocator(
+            count=self.locator_counts.get(selector, 1),
+            text=self.locator_texts.get(selector, "body text"),
+        )
 
 
 def _inject_page(driver, fake_page):
@@ -243,6 +258,53 @@ def test_selector_read_output_contains_identity():
     assert "page_id" in r
     assert "origin" in r
     assert "closed" in r
+    assert r["element_count"] == 1
+    assert r["text"] == "body text"
+
+
+def test_selector_read_count_zero_returns_identity_and_empty_text():
+    d = PlaywrightDriver()
+    page = FakePage()
+    page.locator_counts["body p"] = 0
+    page.locator_texts["body p"] = "should not be read"
+    _inject_page(d, page)
+    r = d.read(selector="body p")
+    assert r["browser_session_id"] == d._browser_session_id
+    assert r["page_id"] == d._page_id
+    assert r["origin"] == "https://example.com"
+    assert r["closed"] is False
+    assert r["element_count"] == 0
+    assert r["text"] == ""
+
+
+def test_selector_read_count_one_returns_identity_count_and_text():
+    d = PlaywrightDriver()
+    page = FakePage()
+    page.locator_counts["body p"] = 1
+    page.locator_texts["body p"] = "exact match"
+    _inject_page(d, page)
+    r = d.read(selector="body p")
+    assert r["browser_session_id"] == d._browser_session_id
+    assert r["page_id"] == d._page_id
+    assert r["origin"] == "https://example.com"
+    assert r["closed"] is False
+    assert r["element_count"] == 1
+    assert r["text"] == "exact match"
+
+
+def test_selector_read_count_many_returns_ambiguity_count_and_first_text():
+    d = PlaywrightDriver()
+    page = FakePage()
+    page.locator_counts["body p"] = 3
+    page.locator_texts["body p"] = "first match"
+    _inject_page(d, page)
+    r = d.read(selector="body p")
+    assert r["browser_session_id"] == d._browser_session_id
+    assert r["page_id"] == d._page_id
+    assert r["origin"] == "https://example.com"
+    assert r["closed"] is False
+    assert r["element_count"] == 3
+    assert r["text"] == "first match"
 
 
 # __ O. navigate output exposes identity ______________________________________

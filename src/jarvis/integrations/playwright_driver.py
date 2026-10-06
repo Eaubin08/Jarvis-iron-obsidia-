@@ -61,8 +61,11 @@ class PlaywrightDriver:
     def read(self, selector: str | None = None) -> dict:
         page = self._ensure_page()
         if selector:
-            locator = page.locator(selector).first
-            result = {"url": page.url, "selector": selector, "text": locator.inner_text()}
+            locator = page.locator(selector)
+            element_count = locator.count()
+            text = locator.first.inner_text() if element_count > 0 else ""
+            result = {"url": page.url, "selector": selector,
+                      "element_count": element_count, "text": text}
             result.update(self._identity_fields(page))
             return result
         result = {"url": page.url, "title": page.title(), "text": page.locator("body").inner_text()}
