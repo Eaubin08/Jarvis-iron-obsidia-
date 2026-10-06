@@ -15,6 +15,7 @@ from .governed_audio import GovernedAudioCommandHandler
 from .governed_app import GovernedAppOpenCommandHandler
 from .governed_window import GovernedWindowCommandHandler
 from .governed_media import GovernedMediaCommandHandler
+from .governed_connectivity import GovernedConnectivityCommandHandler
 
 from .contracts import ActionRequest, CognitionProvider, MemoryProvider, RiskClass
 
@@ -33,6 +34,7 @@ class JarvisCore:
     governed_app_open: GovernedAppOpenCommandHandler | None = None
     governed_window: GovernedWindowCommandHandler | None = None
     governed_media: GovernedMediaCommandHandler | None = None
+    governed_connectivity: GovernedConnectivityCommandHandler | None = None
     last_source: str = field(default="LOCAL", init=False)
     session_id: str = field(default_factory=lambda: f"jarjar-{uuid4().hex}", init=False)
 
@@ -104,6 +106,16 @@ class JarvisCore:
                     if governed_media_reply is not None:
                         self.last_source = "OBSIDIA/GOVERNED_MEDIA"
                         return governed_media_reply
+
+                if self.governed_connectivity is not None:
+                    governed_connectivity_reply = self.governed_connectivity.handle_request(
+                        match.request,
+                        session_id=self.session_id,
+                        original_text=text,
+                    )
+                    if governed_connectivity_reply is not None:
+                        self.last_source = "OBSIDIA/GOVERNED_CONNECTIVITY"
+                        return governed_connectivity_reply
 
                 result = self.actions.execute(match.request, context)
 
