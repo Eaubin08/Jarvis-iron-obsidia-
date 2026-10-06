@@ -352,7 +352,7 @@ class FastIntentRouter:
     @staticmethod
     def _window_focus(text: str) -> ActionRequest | None:
         patterns = (
-            r"^(?:focus|focalise|bascule sur) (.+)$",
+            r"^(?:focus|pocus|focalise|bascule sur) (.+)$",
             r"^(?:mets|met) (.+?) (?:au premier plan|devant)$",
         )
         for pattern in patterns:
@@ -364,6 +364,9 @@ class FastIntentRouter:
                         title = title[len(article):].strip()
                         break
                 if title:
+                    compact = title.replace(" ", "").replace("-", "")
+                    if compact in {"blocnote", "bloquenote", "blocnotes"}:
+                        title = "bloc note"
                     return ActionRequest("window.focus", {"title": title})
         return None
 
