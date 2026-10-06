@@ -191,6 +191,21 @@ def _local_capabilities_reply(text: str) -> str | None:
     value = re.sub(r"[^a-z0-9 ]+", " ", value)
     value = " ".join(value.split())
 
+    if "wifi" in value and any(
+        phrase in value
+        for phrase in (
+            "possibilites",
+            "capacites",
+            "que peux tu faire",
+            "qu est ce que tu peux faire",
+        )
+    ):
+        return (
+            "Avec le Wi-Fi actuellement branché, je peux lire son état et demander son activation "
+            "ou sa désactivation via Obsidia/KX108. Sur ce PC, la désactivation physique exige "
+            "actuellement une élévation administrateur Windows ; sans cette élévation, l'action reste HOLD."
+        )
+
     if "bluetooth" in value and any(
         phrase in value
         for phrase in (
