@@ -110,7 +110,7 @@ class FastIntentRouter:
             "c est quoi",
             "c'est quoi",
         )
-        if not any(marker in value for marker in status_markers):
+        if not any(marker in value for marker in status_markers) and "actuel" not in value:
             return None
 
         # Explicit mutation verbs always belong to control routing, never status.
@@ -168,9 +168,9 @@ class FastIntentRouter:
     @staticmethod
     def _volume_direction(text: str) -> str | None:
         if "volume" not in text:
-            if text in {"monte", "plus fort"}:
+            if text in {"monte", "plus fort"} or re.fullmatch(r"(?:monte|augmente|remonte) de (?:\\d{1,3}|[a-z]+)", text):
                 return "up"
-            if text in {"baisse", "moins fort"}:
+            if text in {"baisse", "moins fort"} or re.fullmatch(r"(?:baisse|diminue|descend) de (?:\\d{1,3}|[a-z]+)", text):
                 return "down"
             return None
 
