@@ -174,7 +174,7 @@ def test_duplicate_runtime_id_is_ambiguous_never_first():
 # N / O / P. no generic surface, no raw objects
 def test_public_surface_is_bounded():
     public = {n for n, _ in inspect.getmembers(StableUIAController, inspect.isfunction) if not n.startswith("_")}
-    assert public == {"list_controls_uia", "find_control_by_identity", "read_value_by_identity", "set_text_by_identity", "read_checked_by_identity", "set_checked_by_identity"}
+    assert public == {"list_controls_uia", "find_control_by_identity", "read_value_by_identity", "set_text_by_identity", "read_checked_by_identity", "set_checked_by_identity", "read_selected_by_identity", "select_radio_by_identity"}
     src = inspect.getsource(StableUIAController) + inspect.getsource(uia_identity.PywinautoUIASource)
     for forbidden in ("type_keys", "send_keys", "press", "keyboard", "mouse", ".click(", "iface_invoke", "Invoke("):
         assert forbidden not in src
