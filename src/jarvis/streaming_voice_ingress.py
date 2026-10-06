@@ -111,10 +111,16 @@ class StreamingVoiceIngress:
             speech_start_timeout=self.follow_up_start_timeout,
         )
         if not audio:
+            if self._pending_fragment:
+                print(f"JARJAR_STT: DROP_STALE_FRAGMENT transcript={self._pending_fragment!r}")
+                self._pending_fragment = ""
             print("JARJAR_SESSION: IDLE_WINDOW (no speech yet)")
             raise ValueError("empty follow-up transcript")
         transcript = self.stt.transcribe(audio).strip()
         if not transcript:
+            if self._pending_fragment:
+                print(f"JARJAR_STT: DROP_STALE_FRAGMENT transcript={self._pending_fragment!r}")
+                self._pending_fragment = ""
             raise ValueError("empty follow-up transcript")
 
         if self._pending_fragment:
