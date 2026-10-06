@@ -154,3 +154,29 @@ def test_cancel_then_confirm_cannot_execute(tmp_path):
     assert cancelled is not None and "annulé" in cancelled.casefold()
     assert confirmed is not None and "Aucun déplacement" in confirmed
     assert execute.call_count == 0
+
+
+def test_pending_move_generic_confirmation_is_contained_and_never_reaches_cognition(tmp_path):
+    execute = MagicMock()
+    cognition = StubCognition()
+    cognition.respond = MagicMock(return_value="QWEN SHOULD NOT SEE THIS")
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            MagicMock(return_value=_prepared_move()),
+            execute,
+            MagicMock(return_value=object()),
+        )
+    )
+    core = JarvisCore(cognition, StubMemory(), governed_move=move)
+
+    core.handle_text("déplace le fichier a.txt vers b.txt")
+
+    first = core.handle_text("Je confirme.")
+    second = core.handle_text("Je confirme l'étape d'exécution.")
+
+    assert "confirme le déplacement" in first.casefold()
+    assert "confirme le déplacement" in second.casefold()
+    assert execute.call_count == 0
+    assert cognition.respond.call_count == 0
+    assert move.coordinator.pending is not None
