@@ -140,3 +140,38 @@ def test_g13_blocked_volume_mutation_reports_unchanged_observed_state():
         "par la gouvernance. Volume actuel : 50 %. Muet : non."
     )
     assert core.last_source == "ACTION/WINDOWS.STRUCTURED"
+
+
+class _GovernedAudioStub:
+    def __init__(self):
+        self.seen = None
+
+    def handle_request(self, request, *, session_id, original_text):
+        self.seen = (request.capability, dict(request.arguments), session_id, original_text)
+        if request.capability == "audio.adjust_volume":
+            return "Volume modifié : 37 % → 22 %. KX108_PRE=ALLOW."
+        return None
+
+
+def test_g13_audio_mutation_routes_to_governed_audio_before_local_action_policy():
+    registry = LocalCapabilityRegistry()
+    registry.register(Capability("audio.adjust_volume", "windows"))
+    actions = ActionRouter(
+        registry=registry,
+        permission_policy=KX108OnlyLivePermissionPolicy(),
+        backends=[_NeverBackend()],
+    )
+    governed_audio = _GovernedAudioStub()
+    core = JarvisCore(
+        StubCognition(),
+        StubMemory(),
+        fast_intent=FastIntentRouter(),
+        actions=actions,
+        governed_audio=governed_audio,
+    )
+
+    reply = core.handle_text("Baisse le volume de 15.")
+    assert reply == "Volume modifié : 37 % → 22 %. KX108_PRE=ALLOW."
+    assert governed_audio.seen[0] == "audio.adjust_volume"
+    assert governed_audio.seen[1] == {"delta": -15}
+    assert core.last_source == "OBSIDIA/GOVERNED_AUDIO"
