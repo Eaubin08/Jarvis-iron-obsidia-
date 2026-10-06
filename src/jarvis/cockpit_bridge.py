@@ -20,6 +20,7 @@ from urllib.request import Request, urlopen
 from .hud_controller import HUDController
 from .monitor_layout import WindowsMonitorProvider
 from .physical_probe import run_physical_probe
+from .runtime_profile import run_canonical_preflight
 
 
 COCKPIT_HOST = os.getenv("JARJAR_COCKPIT_HOST", "127.0.0.1")
@@ -147,6 +148,7 @@ class CockpitRuntime:
             "kx108_ready": True if snap.get("decision_authority") == "KX108_ONLY" else None,
             "kx108_note": "confirmed by active governed surface" if snap.get("decision_authority") == "KX108_ONLY" else "no canonical standalone KX108 health endpoint exposed",
             "screens": _screen_health(),
+            "canonical_environment": run_canonical_preflight(require_qwen=False).as_dict(),
         }
 
     def capabilities(self) -> dict[str, Any]:
