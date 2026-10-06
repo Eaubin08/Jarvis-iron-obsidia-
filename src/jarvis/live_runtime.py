@@ -15,6 +15,7 @@ from jarvis.governed_rollback import governed_rollback_from_environment
 from jarvis.governed_audio import governed_audio_from_environment
 from jarvis.governed_app import governed_app_open_from_environment
 from jarvis.governed_window import governed_window_from_environment
+from jarvis.governed_media import governed_media_from_environment
 from jarvis.hud_app import run_hud
 from jarvis.filesystem import NativeFilesystemBackend
 from jarvis.hud_controller import HUDController
@@ -161,6 +162,7 @@ def build_live_controller() -> HUDController:
     governed_audio = governed_audio_from_environment()
     governed_app_open = governed_app_open_from_environment()
     governed_window = governed_window_from_environment()
+    governed_media = governed_media_from_environment()
     core = JarvisCore(
         cognition,
         StubMemory(),
@@ -173,6 +175,7 @@ def build_live_controller() -> HUDController:
         governed_audio=governed_audio,
         governed_app_open=governed_app_open,
         governed_window=governed_window,
+        governed_media=governed_media,
     )
     print(
         "JARJAR_BOOT: governed move "
@@ -201,6 +204,10 @@ def build_live_controller() -> HUDController:
     print(
         "JARJAR_BOOT: governed window "
         + ("enabled" if governed_window is not None else "disabled")
+    )
+    print(
+        "JARJAR_BOOT: governed media "
+        + ("enabled" if governed_media is not None else "disabled")
     )
     print(
         "JARJAR_BOOT: cognition bridge ready "
