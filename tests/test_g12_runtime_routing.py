@@ -34,3 +34,19 @@ def test_g12_spoofing_gps_uses_readonly_domain_bridge():
     assert "GPS_SPOOFING" in answer
     assert "HOLD" in answer
     assert "entièrement validée" in answer
+
+
+from jarvis.integrations.obsidia_stack_cognition import (
+    _is_runtime_state_query,
+    _looks_like_generic_runtime_state_answer,
+)
+
+
+def test_g12_generic_brody_runtime_answer_is_only_valid_for_runtime_questions():
+    generic = (
+        "État système readonly : Brody observe le runtime sans écrire. "
+        "Autorité : KX108_ONLY. Aucune décision, aucune écriture."
+    )
+    assert _looks_like_generic_runtime_state_answer(generic) is True
+    assert _is_runtime_state_query("Quel est l'état système readonly ?") is True
+    assert _is_runtime_state_query("Explique-moi le domaine trading") is False
