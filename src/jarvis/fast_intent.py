@@ -138,7 +138,8 @@ class FastIntentRouter:
         if re.search(
             r"\b(?:niveau|etat|statut)\b.*\bvolume\b"
             r"|\bvolume\b.*\b(?:niveau|etat|statut)\b"
-            r"|\b(?:quel est|quelle est|a combien|combien)\b.*\bvolume\b",
+            r"|\b(?:quel est|quelle est|a combien|combien)\b.*\bvolume\b"
+            r"|\bvolume\b.*\b(?:a combien|combien)\b",
             value,
         ):
             return ActionRequest("audio.status", risk=RiskClass.READ_ONLY)
