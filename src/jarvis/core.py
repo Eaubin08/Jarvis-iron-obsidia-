@@ -13,6 +13,7 @@ from .governed_file_ops import GovernedFileOpsCommandHandler
 from .governed_rollback import GovernedMoveRollbackCommandHandler
 from .governed_audio import GovernedAudioCommandHandler
 from .governed_app import GovernedAppOpenCommandHandler
+from .governed_window import GovernedWindowCommandHandler
 
 from .contracts import ActionRequest, CognitionProvider, MemoryProvider, RiskClass
 
@@ -29,6 +30,7 @@ class JarvisCore:
     governed_rollback: GovernedMoveRollbackCommandHandler | None = None
     governed_audio: GovernedAudioCommandHandler | None = None
     governed_app_open: GovernedAppOpenCommandHandler | None = None
+    governed_window: GovernedWindowCommandHandler | None = None
     last_source: str = field(default="LOCAL", init=False)
     session_id: str = field(default_factory=lambda: f"jarjar-{uuid4().hex}", init=False)
 
@@ -80,6 +82,16 @@ class JarvisCore:
                     if governed_app_reply is not None:
                         self.last_source = "OBSIDIA/GOVERNED_APP"
                         return governed_app_reply
+
+                if self.governed_window is not None:
+                    governed_window_reply = self.governed_window.handle_request(
+                        match.request,
+                        session_id=self.session_id,
+                        original_text=text,
+                    )
+                    if governed_window_reply is not None:
+                        self.last_source = "OBSIDIA/GOVERNED_WINDOW"
+                        return governed_window_reply
 
                 result = self.actions.execute(match.request, context)
 
