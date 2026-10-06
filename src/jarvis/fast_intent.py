@@ -22,6 +22,7 @@ class FastIntentRouter:
     def __init__(self) -> None:
         self._rules: list[tuple[str, Callable[[str], ActionRequest | None]]] = [
             ("status", self._status),
+            ("volume_status", self._volume_status),
             ("volume_up", self._volume_up),
             ("volume_down", self._volume_down),
             ("volume_set", self._volume_set),
@@ -87,6 +88,17 @@ class FastIntentRouter:
     def _status(text: str) -> ActionRequest | None:
         if text in {"status", "jarvis status", "statut", "statut jarvis"}:
             return ActionRequest("system.status")
+        return None
+
+    @staticmethod
+    def _volume_status(text: str) -> ActionRequest | None:
+        patterns = (
+            r"^(?:quel est |quelle est )?(?:le )?(?:niveau|etat|statut) (?:du |de )?volume$",
+            r"^(?:quel est |quelle est )?(?:le )?volume(?: actuel)?$",
+            r"^(?:niveau|etat|statut) volume$",
+        )
+        if any(re.match(pattern, text) for pattern in patterns):
+            return ActionRequest("audio.status", risk=RiskClass.READ_ONLY)
         return None
 
     @staticmethod
@@ -200,6 +212,9 @@ class FastIntentRouter:
                 "baisse le son",
             }
         )
+        if cls._volume_status(normalized) is not None:
+            return None
+
         if audio_control:
             return "Je n'ai pas compris la commande audio. Dis par exemple : monte le volume de dix, baisse le volume de quinze, ou mets le volume à trente."
         return None
