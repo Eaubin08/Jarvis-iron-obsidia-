@@ -46,6 +46,18 @@ class JarvisCore:
         if capabilities_reply is not None:
             self.last_source = "LOCAL/CAPABILITIES"
             return capabilities_reply
+        if self.fast_intent is not None and self.actions is not None and self.governed_window_control is not None:
+            early_match = self.fast_intent.route(text, session_id=self.session_id)
+            if early_match is not None and early_match.request.capability == "window.move_monitor":
+                governed_window_control_reply = self.governed_window_control.handle_request(
+                    early_match.request,
+                    session_id=self.session_id,
+                    original_text=text,
+                )
+                if governed_window_control_reply is not None:
+                    self.last_source = "OBSIDIA/GOVERNED_WINDOW_CONTROL"
+                    return governed_window_control_reply
+
         if self.governed_move is not None:
             governed_reply = self.governed_move.handle(text, session_id=self.session_id)
             if governed_reply is not None:
