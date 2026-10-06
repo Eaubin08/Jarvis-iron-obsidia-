@@ -17,6 +17,7 @@ from jarvis.governed_app import governed_app_open_from_environment
 from jarvis.governed_window import governed_window_from_environment
 from jarvis.governed_media import governed_media_from_environment
 from jarvis.governed_connectivity import governed_connectivity_from_environment
+from jarvis.governed_window_control import governed_window_control_from_environment
 from jarvis.hud_app import run_hud
 from jarvis.filesystem import NativeFilesystemBackend
 from jarvis.hud_controller import HUDController
@@ -165,6 +166,7 @@ def build_live_controller() -> HUDController:
     governed_window = governed_window_from_environment()
     governed_media = governed_media_from_environment()
     governed_connectivity = governed_connectivity_from_environment()
+    governed_window_control = governed_window_control_from_environment()
     core = JarvisCore(
         cognition,
         StubMemory(),
@@ -179,6 +181,7 @@ def build_live_controller() -> HUDController:
         governed_window=governed_window,
         governed_media=governed_media,
         governed_connectivity=governed_connectivity,
+        governed_window_control=governed_window_control,
     )
     print(
         "JARJAR_BOOT: governed move "
@@ -215,6 +218,10 @@ def build_live_controller() -> HUDController:
     print(
         "JARJAR_BOOT: governed connectivity "
         + ("enabled" if governed_connectivity is not None else "disabled")
+    )
+    print(
+        "JARJAR_BOOT: governed window-control "
+        + ("enabled" if governed_window_control is not None else "disabled")
     )
     print(
         "JARJAR_BOOT: cognition bridge ready "
