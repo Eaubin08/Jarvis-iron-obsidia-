@@ -33,6 +33,7 @@ class FastIntentRouter:
             ("battery", self._battery),
             ("wifi", self._wifi),
             ("bluetooth", self._bluetooth),
+            ("window_focus", self._window_focus),
             ("window_state", self._window_state),
             ("window_monitor", self._window_monitor),
             ("open_app", self._open_app),
@@ -346,6 +347,24 @@ class FastIntentRouter:
             return ActionRequest("bluetooth.enable", risk=RiskClass.SENSITIVE)
         if text in {"desactive le bluetooth", "coupe le bluetooth"}:
             return ActionRequest("bluetooth.disable", risk=RiskClass.SENSITIVE)
+        return None
+
+    @staticmethod
+    def _window_focus(text: str) -> ActionRequest | None:
+        patterns = (
+            r"^(?:focus|focalise|bascule sur) (.+)$",
+            r"^(?:mets|met) (.+?) (?:au premier plan|devant)$",
+        )
+        for pattern in patterns:
+            match = re.match(pattern, text)
+            if match:
+                title = match.group(1).strip()
+                for article in ("l'", "le ", "la ", "les "):
+                    if title.startswith(article):
+                        title = title[len(article):].strip()
+                        break
+                if title:
+                    return ActionRequest("window.focus", {"title": title})
         return None
 
     @staticmethod
