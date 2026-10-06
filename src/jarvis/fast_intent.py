@@ -307,7 +307,7 @@ class FastIntentRouter:
 
     @staticmethod
     def _media_next(text: str) -> ActionRequest | None:
-        if text in {"musique suivante", "piste suivante", "suivant", "suivante"}:
+        if text in {"musique suivante", "la musique suivante", "piste suivante", "la piste suivante", "suivant", "suivante"}:
             return ActionRequest("media.next")
         if re.fullmatch(
             r"(?:mets|met|passe|va a|lance) (?:la )?(?:musique|piste) suivante",
@@ -318,7 +318,7 @@ class FastIntentRouter:
 
     @staticmethod
     def _media_previous(text: str) -> ActionRequest | None:
-        if text in {"musique precedente", "piste precedente", "precedent", "precedente"}:
+        if text in {"musique precedente", "la musique precedente", "piste precedente", "la piste precedente", "precedent", "precedente"}:
             return ActionRequest("media.previous")
         if re.fullmatch(
             r"(?:mets|met|passe|reviens a|lance) (?:la )?(?:musique|piste) precedente",
