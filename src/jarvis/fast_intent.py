@@ -353,7 +353,7 @@ class FastIntentRouter:
             return ActionRequest("wifi.status", risk=RiskClass.READ_ONLY)
         if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi", "active le wi fi", "active wi fi", "allume le wi fi", "allume wi fi", "active le huissi", "active huissi"}:
             return ActionRequest("wifi.enable", risk=RiskClass.SENSITIVE)
-        if text in {"desactive le wifi", "disactive le wifi", "coupe le wifi", "coupe wifi", "desactive le wi fi", "disactive le wi fi", "coupe le wi fi", "coupe wi fi", "desactive le huissi", "disactive le huissi", "coupe le huissi", "coupe huissi"}:
+        if text in {"desactive le wifi", "disactive le wifi", "deactive le wifi", "coupe le wifi", "coupe wifi", "desactive le wi fi", "disactive le wi fi", "deactive le wi fi", "coupe le wi fi", "coupe wi fi", "desactive le huissi", "disactive le huissi", "deactive le huissi", "coupe le huissi", "coupe huissi"}:
             return ActionRequest("wifi.disable", risk=RiskClass.SENSITIVE)
         return None
 
