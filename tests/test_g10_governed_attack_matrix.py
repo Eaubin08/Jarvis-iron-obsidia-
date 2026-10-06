@@ -443,3 +443,51 @@ def test_g11_restores_last_move_from_persisted_proofs_after_restart(tmp_path):
     assert restored["dest_path"] == "READMETEST.md"
     assert restored["kx108_pre_gate"] == "ALLOW"
     assert restored["_restored_from_persisted_proofs"] is True
+
+
+def test_g11_v2_move_proof_verifiers_accept_v2_contract():
+    from jarvis.governed_move import _verify_v2_move_sar, _verify_v2_move_sre
+    import base64, hashlib, json
+
+    pre = b"before"
+    source = b"after"
+    sre = {
+        "sealed": True,
+        "sealed_rollback_evidence_id": "sre-" + "1"*32,
+        "execution_authority_hash": "a"*64,
+        "approval_id": "apv-test",
+        "kx108_pre_decision_record_id": "kxpre-test",
+        "kx108_pre_decision_record_hash": "b"*64,
+        "target_path": "readme-test.md",
+        "pre_write_sha256": hashlib.sha256(pre).hexdigest(),
+        "pre_write_size": len(pre),
+        "pre_write_bytes_b64": base64.b64encode(pre).decode("ascii"),
+        "source_content_sha256": hashlib.sha256(source).hexdigest(),
+        "source_kind": "V2_OPERATION",
+        "operation_type": "V2_MOVE_FILE",
+        "decision_authority": "KX108_ONLY",
+    }
+    sre_hash = hashlib.sha256(
+        json.dumps(sre, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
+    sar = {
+        "sealed": True,
+        "sealed_apply_receipt_id": "sar-" + "2"*32,
+        "execution_authority_hash": "a"*64,
+        "approval_id": "apv-test",
+        "kx108_pre_decision_record_id": "kxpre-test",
+        "kx108_pre_decision_record_hash": "b"*64,
+        "sealed_rollback_evidence_id": sre["sealed_rollback_evidence_id"],
+        "sealed_rollback_evidence_hash": sre_hash,
+        "target_path": "readme-test.md",
+        "target_pre_sha256": hashlib.sha256(b"").hexdigest(),
+        "target_post_sha256": hashlib.sha256(source).hexdigest(),
+        "source_content_sha256": hashlib.sha256(source).hexdigest(),
+        "source_kind": "V2_OPERATION",
+        "operation_type": "V2_MOVE_FILE",
+        "status": "APPLIED",
+        "decision_authority": "KX108_ONLY",
+    }
+
+    assert _verify_v2_move_sre(sre) == (True, None)
+    assert _verify_v2_move_sar(sar) == (True, None)
