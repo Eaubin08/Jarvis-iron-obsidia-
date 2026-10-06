@@ -1,4 +1,4 @@
-"""Standalone Jarvis-owned text orchestration."""
+"""Standalone text-only runtime.\n\nThis module is intentionally non-canonical for Jarjar live HUD/voice execution.\nThe canonical live composition root is :mod:`jarvis.live_runtime`.\n"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
