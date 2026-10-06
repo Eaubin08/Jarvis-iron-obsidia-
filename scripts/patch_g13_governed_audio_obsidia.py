@@ -322,25 +322,7 @@ def pc_v2_audio_volume_execute(
 '''
     text = replace_once(text, marker, block, "pc2 governed audio block")
 
-    if "_CAP_AVOL_PREPARE: pc_v2_audio_volume_prepare" not in text:
-        dispatch_start = text.find("def execute_pc_capability_v2(")
-        if dispatch_start < 0:
-            raise RuntimeError("pc2 audio dispatch: execute_pc_capability_v2 not found")
-        dict_start = text.find("_dispatch = {", dispatch_start)
-        if dict_start < 0:
-            raise RuntimeError("pc2 audio dispatch: _dispatch dictionary not found")
-        dict_end = text.find("\\n    }", dict_start)
-        if dict_end < 0:
-            dict_end = text.find("\\r\\n    }", dict_start)
-        if dict_end < 0:
-            raise RuntimeError("pc2 audio dispatch: _dispatch closing brace not found")
-        insertion = (
-            "\\n        _CAP_AVOL_PREPARE: pc_v2_audio_volume_prepare,"
-            "\\n        _CAP_AVOL_EXECUTE: pc_v2_audio_volume_execute,"
-        )
-        text = text[:dict_end] + insertion + text[dict_end:]
-
-    # Keep self-check truthful when exact operations list is present.
+    # No dispatcher mutation is required for G13 audio.\n    # Jarjar calls pc_v2_audio_volume_prepare/execute directly.\n\n    # Keep self-check truthful when exact operations list is present.
     old_ops = '"operations": [OP_CREATE_FILE, OP_MOVE_FILE, OP_APPLY_PATCH, OP_CREATE_DIR, OP_WINDOW_FOCUS, OP_APP_OPEN, OP_UIA_SET_TEXT, OP_UIA_SET_CHECKED],'
     new_ops = '"operations": [OP_CREATE_FILE, OP_MOVE_FILE, OP_APPLY_PATCH, OP_CREATE_DIR, OP_WINDOW_FOCUS, OP_APP_OPEN, OP_AUDIO_VOLUME, OP_UIA_SET_TEXT, OP_UIA_SET_CHECKED],'
     if old_ops in text:
