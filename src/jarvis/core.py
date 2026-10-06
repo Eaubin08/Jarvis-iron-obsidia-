@@ -80,6 +80,9 @@ class JarvisCore:
             "local_fallback": "LOCAL/FALLBACK",
         }
         self.last_source = labels.get(route, "COGNITION")
+        fallback_reason = getattr(self.cognition, "last_fallback_reason", None)
+        if fallback_reason:
+            self.last_source += f"[{fallback_reason}]"
         return reply
 
 
