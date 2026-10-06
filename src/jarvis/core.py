@@ -12,6 +12,7 @@ from .governed_create_dir import GovernedCreateDirCommandHandler
 from .governed_file_ops import GovernedFileOpsCommandHandler
 from .governed_rollback import GovernedMoveRollbackCommandHandler
 from .governed_audio import GovernedAudioCommandHandler
+from .governed_app import GovernedAppOpenCommandHandler
 
 from .contracts import ActionRequest, CognitionProvider, MemoryProvider, RiskClass
 
@@ -27,6 +28,7 @@ class JarvisCore:
     governed_file_ops: GovernedFileOpsCommandHandler | None = None
     governed_rollback: GovernedMoveRollbackCommandHandler | None = None
     governed_audio: GovernedAudioCommandHandler | None = None
+    governed_app_open: GovernedAppOpenCommandHandler | None = None
     last_source: str = field(default="LOCAL", init=False)
     session_id: str = field(default_factory=lambda: f"jarjar-{uuid4().hex}", init=False)
 
@@ -68,6 +70,16 @@ class JarvisCore:
                     if governed_audio_reply is not None:
                         self.last_source = "OBSIDIA/GOVERNED_AUDIO"
                         return governed_audio_reply
+
+                if self.governed_app_open is not None:
+                    governed_app_reply = self.governed_app_open.handle_request(
+                        match.request,
+                        session_id=self.session_id,
+                        original_text=text,
+                    )
+                    if governed_app_reply is not None:
+                        self.last_source = "OBSIDIA/GOVERNED_APP"
+                        return governed_app_reply
 
                 result = self.actions.execute(match.request, context)
 
@@ -123,6 +135,7 @@ class JarvisCore:
             "brody": "BRODY/OBSIDIA",
             "brody_fallback": "BRODY/OBSIDIA/FALLBACK",
             "obsidia_gps": "OBSIDIA/GPS",
+            "obsidia_command_hold": "OBSIDIA/COMMAND_HOLD",
             "local_fallback": "LOCAL/FALLBACK",
         }
         self.last_source = labels.get(route, "COGNITION")
