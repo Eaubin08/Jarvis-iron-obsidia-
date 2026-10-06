@@ -347,3 +347,52 @@ def test_natural_execute_phrase_confirms_only_pending_move(tmp_path):
 
     assert "exécuté et prouvé" in reply.casefold()
     assert execute.call_count == 1
+
+
+def test_g11_history_audit_and_replay_never_reexecute(tmp_path):
+    execute = MagicMock(return_value={
+        "status": "EXECUTED_OK",
+        "source_path": "a.txt",
+        "dest_path": "b.txt",
+        "kx108_pre_gate": "ALLOW",
+        "sealed_rollback_evidence_id": "sre-g11",
+        "sealed_apply_receipt_id": "sar-g11",
+        "receipt": {"receipt_id": "pcrcp-v2-g11"},
+    })
+    coordinator = GovernedMoveCoordinator(
+        _move_config(tmp_path),
+        MagicMock(return_value=_prepared_move()),
+        execute,
+        MagicMock(return_value=object()),
+    )
+    coordinator.audit_last_execution = MagicMock(return_value={
+        "ok": True,
+        "approval_id": "apv-g11",
+        "kx108_pre_decision_record_id": "kxpre-g11",
+        "sealed_rollback_evidence_id": "sre-g11",
+        "sealed_apply_receipt_id": "sar-g11",
+    })
+    coordinator.replay_last_decision = MagicMock(return_value={
+        "ok": True,
+        "decision_record_id": "kxpre-g11",
+        "x108_gate": "ALLOW",
+        "reason_code": "READY_FOR_COMMIT_REVIEW",
+        "decision_record_hash": "abc123",
+        "replay_mode": "READ_ONLY_PERSISTED_DECISION",
+    })
+
+    move = GovernedMoveCommandHandler(coordinator)
+    core = JarvisCore(StubCognition(), StubMemory(), governed_move=move)
+
+    core.handle_text("déplace le fichier a.txt vers b.txt")
+    core.handle_text("je confirme")
+    assert execute.call_count == 1
+
+    history = core.handle_text("qu'est-ce que tu as fait ?")
+    audit = core.handle_text("audite la dernière action")
+    replay = core.handle_text("rejoue la dernière décision KX108")
+
+    assert "Dernière action gouvernée" in history
+    assert "Audit readonly" in audit and "PASS" in audit
+    assert "Replay readonly" in replay and "Gate=ALLOW" in replay
+    assert execute.call_count == 1
