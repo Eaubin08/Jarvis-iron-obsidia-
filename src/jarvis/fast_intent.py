@@ -27,9 +27,9 @@ class FastIntentRouter:
             ("volume_down", self._volume_down),
             ("volume_set", self._volume_set),
             ("mute", self._mute),
-            ("media_play_pause", self._media_play_pause),
             ("media_next", self._media_next),
             ("media_previous", self._media_previous),
+            ("media_play_pause", self._media_play_pause),
             ("battery", self._battery),
             ("wifi", self._wifi),
             ("bluetooth", self._bluetooth),
@@ -276,9 +276,17 @@ class FastIntentRouter:
             "lance la musique",
             "mets la musique",
             "met la musique",
+            "mets pause sur la musique",
+            "met pause sur la musique",
+            "mets la musique en pause",
+            "met la musique en pause",
         }
         if text in exact:
             return ActionRequest("media.play_pause")
+
+        # Directional media commands belong to next/previous, never play/pause.
+        if re.search(r"\b(?:suivante?|precedente?|precedent)\b", text):
+            return None
 
         # Natural voice variants that clearly ask to resume/start the media
         # already loaded on the PC. Keep this bounded to explicit music/media
@@ -299,13 +307,23 @@ class FastIntentRouter:
 
     @staticmethod
     def _media_next(text: str) -> ActionRequest | None:
-        if text in {"musique suivante", "piste suivante", "suivant"}:
+        if text in {"musique suivante", "piste suivante", "suivant", "suivante"}:
+            return ActionRequest("media.next")
+        if re.fullmatch(
+            r"(?:mets|met|passe|va a|lance) (?:la )?(?:musique|piste) suivante",
+            text,
+        ):
             return ActionRequest("media.next")
         return None
 
     @staticmethod
     def _media_previous(text: str) -> ActionRequest | None:
-        if text in {"musique precedente", "piste precedente", "precedent"}:
+        if text in {"musique precedente", "piste precedente", "precedent", "precedente"}:
+            return ActionRequest("media.previous")
+        if re.fullmatch(
+            r"(?:mets|met|passe|reviens a|lance) (?:la )?(?:musique|piste) precedente",
+            text,
+        ):
             return ActionRequest("media.previous")
         return None
 
