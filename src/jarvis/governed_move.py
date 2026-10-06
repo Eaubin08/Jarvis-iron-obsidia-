@@ -9,6 +9,9 @@ Jarjar never decides whether a move is authorized.  This coordinator only:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import base64
+import hashlib
+import json
 import importlib
 import os
 from pathlib import Path
@@ -213,8 +216,8 @@ class GovernedMoveCoordinator:
 
             sar = sev.load_sealed_apply_receipt(sar_id, stores / "sar")
             sre = sev.load_sealed_rollback_evidence(sre_id, stores / "sre")
-            sar_ok, sar_reason = sev.verify_sealed_apply_receipt(sar)
-            sre_ok, sre_reason = sev.verify_sealed_rollback_evidence(sre)
+            sar_ok, sar_reason = _verify_v2_move_sar(sar)
+            sre_ok, sre_reason = _verify_v2_move_sre(sre)
 
             kx_id = str((sar or {}).get("kx108_pre_decision_record_id", ""))
             approval_id = str((sar or {}).get("approval_id", ""))
@@ -223,12 +226,24 @@ class GovernedMoveCoordinator:
             kx_ok, kx_reason = ds.verify_kx108_decision_record(kx)
             approval_ok, approval_reason = be.verify_approval_artifact(approval)
 
+            sre_canonical_hash = (
+                hashlib.sha256(
+                    json.dumps(sre, sort_keys=True, ensure_ascii=False).encode()
+                ).hexdigest()
+                if sre
+                else ""
+            )
             links_ok = bool(
                 sar
                 and sre
+                and kx
+                and approval
                 and sar.get("sealed_rollback_evidence_id") == sre_id
+                and sar.get("sealed_rollback_evidence_hash") == sre_canonical_hash
                 and sar.get("kx108_pre_decision_record_id") == sre.get("kx108_pre_decision_record_id")
-                and sar.get("approval_id") == sre.get("approval_id")
+                and sar.get("kx108_pre_decision_record_hash") == sre.get("kx108_pre_decision_record_hash")
+                and sar.get("kx108_pre_decision_record_hash") == kx.get("decision_record_hash")
+                and sar.get("approval_id") == sre.get("approval_id") == approval_id
                 and sar.get("execution_authority_hash") == sre.get("execution_authority_hash")
             )
             ok = bool(sar_ok and sre_ok and kx_ok and approval_ok and links_ok)
@@ -582,6 +597,110 @@ def _looks_like_proof_question(normalized: str) -> bool:
             "derniere execution",
         )
     )
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(ch in "0123456789abcdef" for ch in value.casefold())
+    )
+
+
+def _verify_v2_move_sre(record: dict[str, Any] | None) -> tuple[bool, str | None]:
+    if not isinstance(record, dict):
+        return False, "V2_SRE_MISSING"
+    required = (
+        "sealed_rollback_evidence_id",
+        "execution_authority_hash",
+        "approval_id",
+        "kx108_pre_decision_record_id",
+        "kx108_pre_decision_record_hash",
+        "target_path",
+        "pre_write_sha256",
+        "pre_write_size",
+        "pre_write_bytes_b64",
+        "source_content_sha256",
+        "source_kind",
+        "operation_type",
+        "decision_authority",
+    )
+    for field_name in required:
+        if field_name not in record:
+            return False, f"V2_SRE_FIELD_MISSING:{field_name}"
+    if record.get("sealed") is not True:
+        return False, "V2_SRE_NOT_SEALED"
+    if record.get("decision_authority") != "KX108_ONLY":
+        return False, "V2_SRE_AUTHORITY_INVALID"
+    if record.get("source_kind") != "V2_OPERATION":
+        return False, "V2_SRE_SOURCE_KIND_INVALID"
+    if record.get("operation_type") != "V2_MOVE_FILE":
+        return False, "V2_SRE_OPERATION_INVALID"
+    for field_name in (
+        "execution_authority_hash",
+        "kx108_pre_decision_record_hash",
+        "pre_write_sha256",
+        "source_content_sha256",
+    ):
+        if not _is_sha256_hex(record.get(field_name)):
+            return False, f"V2_SRE_HASH_INVALID:{field_name}"
+    try:
+        preimage = base64.b64decode(record.get("pre_write_bytes_b64"), validate=True)
+    except Exception:
+        return False, "V2_SRE_PREIMAGE_INVALID"
+    if hashlib.sha256(preimage).hexdigest() != record.get("pre_write_sha256"):
+        return False, "V2_SRE_PREIMAGE_HASH_MISMATCH"
+    if len(preimage) != record.get("pre_write_size"):
+        return False, "V2_SRE_PREIMAGE_SIZE_MISMATCH"
+    return True, None
+
+
+def _verify_v2_move_sar(record: dict[str, Any] | None) -> tuple[bool, str | None]:
+    if not isinstance(record, dict):
+        return False, "V2_SAR_MISSING"
+    required = (
+        "sealed_apply_receipt_id",
+        "execution_authority_hash",
+        "approval_id",
+        "kx108_pre_decision_record_id",
+        "kx108_pre_decision_record_hash",
+        "sealed_rollback_evidence_id",
+        "sealed_rollback_evidence_hash",
+        "target_path",
+        "target_pre_sha256",
+        "target_post_sha256",
+        "source_content_sha256",
+        "source_kind",
+        "operation_type",
+        "status",
+        "decision_authority",
+    )
+    for field_name in required:
+        if field_name not in record:
+            return False, f"V2_SAR_FIELD_MISSING:{field_name}"
+    if record.get("sealed") is not True:
+        return False, "V2_SAR_NOT_SEALED"
+    if record.get("decision_authority") != "KX108_ONLY":
+        return False, "V2_SAR_AUTHORITY_INVALID"
+    if record.get("source_kind") != "V2_OPERATION":
+        return False, "V2_SAR_SOURCE_KIND_INVALID"
+    if record.get("operation_type") != "V2_MOVE_FILE":
+        return False, "V2_SAR_OPERATION_INVALID"
+    if record.get("status") != "APPLIED":
+        return False, "V2_SAR_STATUS_INVALID"
+    for field_name in (
+        "execution_authority_hash",
+        "kx108_pre_decision_record_hash",
+        "sealed_rollback_evidence_hash",
+        "target_pre_sha256",
+        "target_post_sha256",
+        "source_content_sha256",
+    ):
+        if not _is_sha256_hex(record.get(field_name)):
+            return False, f"V2_SAR_HASH_INVALID:{field_name}"
+    if record.get("target_post_sha256") != record.get("source_content_sha256"):
+        return False, "V2_SAR_REALIZED_CONTENT_MISMATCH"
+    return True, None
 
 
 def _looks_like_history_question(normalized: str) -> bool:
