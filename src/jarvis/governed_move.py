@@ -127,6 +127,89 @@ class GovernedMoveCoordinator:
         reason = result.get("reason") or result.get("status") or "EXECUTE_REJECTED"
         return f"Déplacement non exécuté : {reason}"
 
+    def audit_last_execution(self) -> dict[str, Any]:
+        result = self.last_execution_result
+        if result is None:
+            return {"ok": False, "reason": "NO_LAST_EXECUTION"}
+
+        try:
+            root = (
+                Path(self.config.obsidia_root).resolve()
+                if self.config.obsidia_root is not None
+                else _default_obsidia_root()
+            )
+            scripts = root / "scripts"
+            for entry in (str(root), str(scripts)):
+                if entry not in sys.path:
+                    sys.path.insert(0, entry)
+
+            sev = importlib.import_module("obsidia_sealed_evidence_v0")
+            ds = importlib.import_module("obsidia_kx108_decision_store")
+            be = importlib.import_module("obsidia_batch_execution")
+
+            stores = Path(self.config.stores_base_dir)
+            sar_id = str(result.get("sealed_apply_receipt_id", ""))
+            sre_id = str(result.get("sealed_rollback_evidence_id", ""))
+            if not sar_id or not sre_id:
+                return {"ok": False, "reason": "PROOF_IDS_MISSING"}
+
+            sar = sev.load_sealed_apply_receipt(sar_id, stores / "sar")
+            sre = sev.load_sealed_rollback_evidence(sre_id, stores / "sre")
+            sar_ok, sar_reason = sev.verify_sealed_apply_receipt(sar)
+            sre_ok, sre_reason = sev.verify_sealed_rollback_evidence(sre)
+
+            kx_id = str((sar or {}).get("kx108_pre_decision_record_id", ""))
+            approval_id = str((sar or {}).get("approval_id", ""))
+            kx = ds.load_kx108_decision_record(kx_id, stores / "kxpre") if kx_id else None
+            approval = be.load_approval_artifact(approval_id, stores / "approval") if approval_id else None
+            kx_ok, kx_reason = ds.verify_kx108_decision_record(kx)
+            approval_ok, approval_reason = be.verify_approval_artifact(approval)
+
+            links_ok = bool(
+                sar
+                and sre
+                and sar.get("sealed_rollback_evidence_id") == sre_id
+                and sar.get("kx108_pre_decision_record_id") == sre.get("kx108_pre_decision_record_id")
+                and sar.get("approval_id") == sre.get("approval_id")
+                and sar.get("execution_authority_hash") == sre.get("execution_authority_hash")
+            )
+            ok = bool(sar_ok and sre_ok and kx_ok and approval_ok and links_ok)
+            return {
+                "ok": ok,
+                "sar_ok": sar_ok,
+                "sar_reason": sar_reason,
+                "sre_ok": sre_ok,
+                "sre_reason": sre_reason,
+                "kx_ok": kx_ok,
+                "kx_reason": kx_reason,
+                "approval_ok": approval_ok,
+                "approval_reason": approval_reason,
+                "links_ok": links_ok,
+                "kx_record": kx,
+                "approval_id": approval_id,
+                "kx108_pre_decision_record_id": kx_id,
+                "sealed_apply_receipt_id": sar_id,
+                "sealed_rollback_evidence_id": sre_id,
+            }
+        except Exception as exc:
+            return {"ok": False, "reason": f"AUDIT_ERROR:{type(exc).__name__}"}
+
+    def replay_last_decision(self) -> dict[str, Any]:
+        audit = self.audit_last_execution()
+        if not audit.get("ok"):
+            return {"ok": False, "reason": audit.get("reason") or "AUDIT_FAILED", "audit": audit}
+
+        record = audit.get("kx_record") or {}
+        envelope = record.get("canonical_envelope") or {}
+        return {
+            "ok": True,
+            "decision_record_id": audit.get("kx108_pre_decision_record_id", ""),
+            "x108_gate": record.get("x108_gate", envelope.get("x108_gate", "UNKNOWN")),
+            "reason_code": record.get("reason_code", envelope.get("reason_code", "UNKNOWN")),
+            "decision_record_hash": record.get("decision_record_hash", ""),
+            "replay_mode": "READ_ONLY_PERSISTED_DECISION",
+        }
+
     def cancel(self) -> str:
         if self.pending is None:
             return "Aucun déplacement gouverné n'est en attente."
@@ -150,6 +233,18 @@ class GovernedMoveCommandHandler:
             return None
 
         normalized = _normalize_confirmation(clean)
+
+        history_reply = self._history_follow_up(normalized)
+        if history_reply is not None:
+            return history_reply
+
+        audit_reply = self._audit_follow_up(normalized)
+        if audit_reply is not None:
+            return audit_reply
+
+        replay_reply = self._replay_follow_up(normalized)
+        if replay_reply is not None:
+            return replay_reply
 
         proof_reply = self._proof_follow_up(normalized)
         if proof_reply is not None:
@@ -195,6 +290,48 @@ class GovernedMoveCommandHandler:
         if not source or not dest:
             return "Commande de déplacement incomplète."
         return self.coordinator.prepare(source, dest, session_id=session_id)
+
+    def _history_follow_up(self, normalized: str) -> str | None:
+        if not _looks_like_history_question(normalized):
+            return None
+        result = self.coordinator.last_execution_result
+        if result is None:
+            return "Aucune action gouvernée exécutée dans cette session."
+        source = str(result.get("source_path", ""))
+        dest = str(result.get("dest_path", ""))
+        status = str(result.get("status", "UNKNOWN"))
+        return f"Dernière action gouvernée : déplacement {source} → {dest}. Statut={status}."
+
+    def _audit_follow_up(self, normalized: str) -> str | None:
+        if not _looks_like_audit_question(normalized):
+            return None
+        audit = self.coordinator.audit_last_execution()
+        if not audit.get("ok"):
+            reason = audit.get("reason") or "PROOF_CHAIN_INVALID"
+            return f"Audit readonly du dernier déplacement : FAIL ({reason})."
+        return (
+            "Audit readonly du dernier déplacement : PASS. "
+            f"Approval={audit.get('approval_id')}. "
+            f"KX108={audit.get('kx108_pre_decision_record_id')}. "
+            f"SRE={audit.get('sealed_rollback_evidence_id')}. "
+            f"SAR={audit.get('sealed_apply_receipt_id')}. "
+            "Chaîne de liaison vérifiée ; aucune action réexécutée."
+        )
+
+    def _replay_follow_up(self, normalized: str) -> str | None:
+        if not _looks_like_replay_question(normalized):
+            return None
+        replay = self.coordinator.replay_last_decision()
+        if not replay.get("ok"):
+            return f"Replay readonly impossible : {replay.get('reason', 'AUDIT_FAILED')}."
+        return (
+            "Replay readonly de la dernière décision KX108 : "
+            f"Decision={replay.get('decision_record_id')}. "
+            f"Gate={replay.get('x108_gate')}. "
+            f"Reason={replay.get('reason_code')}. "
+            f"Hash={replay.get('decision_record_hash')}. "
+            "Mode=READ_ONLY_PERSISTED_DECISION ; aucune exécution déclenchée."
+        )
 
     def _proof_follow_up(self, normalized: str) -> str | None:
         if not _looks_like_proof_question(normalized):
@@ -377,6 +514,32 @@ def _looks_like_proof_question(normalized: str) -> bool:
             "du dernier",
             "derniere execution",
         )
+    )
+
+
+def _looks_like_history_question(normalized: str) -> bool:
+    return any(
+        phrase in normalized
+        for phrase in (
+            "qu as tu fait",
+            "qu est ce que tu as fait",
+            "derniere action",
+            "derniere operation",
+        )
+    )
+
+
+def _looks_like_audit_question(normalized: str) -> bool:
+    return bool(
+        re.search(r"\b(?:audite|audit|verifie|verifier)\b", normalized)
+        and any(term in normalized for term in ("action", "operation", "deplacement", "preuve", "dernier"))
+    )
+
+
+def _looks_like_replay_question(normalized: str) -> bool:
+    return bool(
+        re.search(r"\b(?:rejoue|rejouer|replay)\b", normalized)
+        and any(term in normalized for term in ("decision", "kx108", "derniere", "dernier"))
     )
 
 
