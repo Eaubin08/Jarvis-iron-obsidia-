@@ -263,17 +263,48 @@ $items
     def bluetooth_set_enabled(self, enabled: bool) -> dict:
         status = self.bluetooth_status()
         devices = status["devices"]
-        candidates = [
-            device for device in devices
-            if isinstance(device.get("FriendlyName"), str)
-            and any(
-                token in device["FriendlyName"].casefold()
-                for token in ("adapter", "radio")
+        def is_hardware_radio(device: dict) -> bool:
+            name = device.get("FriendlyName")
+            instance_id = device.get("InstanceId")
+            if not isinstance(name, str) or not isinstance(instance_id, str):
+                return False
+            folded = name.casefold()
+            if any(
+                token in folded
+                for token in (
+                    "enumerator",
+                    "rfcomm",
+                    "protocol",
+                    "avrcp",
+                    "gatt",
+                    "service",
+                )
+            ):
+                return False
+            if instance_id.upper().startswith("BTHENUM"):
+                return False
+            return (
+                any(token in folded for token in ("adapter", "radio"))
+                or instance_id.upper().startswith(("USB\\", "PCI\\"))
             )
-        ]
+
+        candidates = [device for device in devices if is_hardware_radio(device)]
+
+        if len(candidates) > 1:
+            preferred = [
+                device for device in candidates
+                if not str(device.get("FriendlyName") or "").casefold().startswith("microsoft ")
+            ]
+            if len(preferred) == 1:
+                candidates = preferred
+
         if len(candidates) != 1:
+            names = [
+                str(device.get("FriendlyName") or device.get("InstanceId") or "?")
+                for device in candidates
+            ]
             raise ValueError(
-                "Bluetooth radio identity is ambiguous; explicit physical validation required"
+                "Bluetooth radio identity is ambiguous; candidates=" + repr(names)
             )
         instance_id = candidates[0].get("InstanceId")
         if not isinstance(instance_id, str) or not instance_id:
