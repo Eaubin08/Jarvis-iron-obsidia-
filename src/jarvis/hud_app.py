@@ -43,6 +43,18 @@ def _write_runtime_telemetry(controller: HUDController) -> None:
     snap = controller.model.snapshot()
     voice_enabled = bool(snap.get("voice_enabled"))
     mode = "VOICE+KEYBOARD" if voice_enabled else "KEYBOARD"
+    messages = snap.get("messages", [])
+    last_user = ""
+    last_jarjar = ""
+    for item in reversed(messages):
+        speaker = str(item.get("speaker", ""))
+        if not last_jarjar and speaker.startswith("JARJAR"):
+            last_jarjar = str(item.get("text", "")).strip()
+        elif not last_user and speaker == "YOU":
+            last_user = str(item.get("text", "")).strip()
+        if last_user and last_jarjar:
+            break
+
     payload = {
         "schema": "JARJAR_RUNTIME_STATUS_V1",
         "observed_at": time.time(),
@@ -57,6 +69,9 @@ def _write_runtime_telemetry(controller: HUDController) -> None:
         "governance_source": snap.get("governance_source", ""),
         "governance_phase": snap.get("governance_phase", ""),
         "human_confirmation_required": bool(snap.get("human_confirmation_required")),
+        "confirmation_prompt": snap.get("confirmation_prompt", ""),
+        "last_user_input": last_user,
+        "last_result": last_jarjar,
     }
     path = _telemetry_path()
     tmp = path.with_suffix(".tmp")
