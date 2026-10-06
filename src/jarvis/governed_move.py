@@ -234,17 +234,17 @@ class GovernedMoveCommandHandler:
 
         normalized = _normalize_confirmation(clean)
 
-        history_reply = self._history_follow_up(normalized)
-        if history_reply is not None:
-            return history_reply
+        replay_reply = self._replay_follow_up(normalized)
+        if replay_reply is not None:
+            return replay_reply
 
         audit_reply = self._audit_follow_up(normalized)
         if audit_reply is not None:
             return audit_reply
 
-        replay_reply = self._replay_follow_up(normalized)
-        if replay_reply is not None:
-            return replay_reply
+        history_reply = self._history_follow_up(normalized)
+        if history_reply is not None:
+            return history_reply
 
         proof_reply = self._proof_follow_up(normalized)
         if proof_reply is not None:
