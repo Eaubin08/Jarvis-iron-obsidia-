@@ -235,6 +235,16 @@ class CostAwareCognitionRouter:
                 self.last_route = "obsidia_local"
                 return direct.strip()
 
+            if route == "domain_bridge" and not is_project_query(user_input):
+                answer = self._qwen(user_input, context, live=False)
+                if answer:
+                    self.last_route = "qwen"
+                    return answer
+                answer = self._brody(user_input, context)
+                if answer:
+                    self.last_route = "brody_fallback"
+                    return answer
+
             if route in {"brody", "lean_route_only", "domain_bridge", "obsidure_route_only"}:
                 brody_input = user_input
                 topic = getattr(pre_decision, "topic", {})
