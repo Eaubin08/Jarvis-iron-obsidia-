@@ -38,18 +38,30 @@ def _g13_window_control_by_hwnd(self, hwnd: int, action: str, monitor_index: int
 
 def _g13_window_observe(self, hwnd: int) -> dict:
     try:
+        import win32con
         import win32gui
     except ImportError as exc:
         return {"ok": False, "error": f"PYWIN32_MISSING:{exc}"}
     if not win32gui.IsWindow(int(hwnd)):
         return {"ok": False, "error": "WINDOW_NOT_FOUND"}
+
     rect = win32gui.GetWindowRect(int(hwnd))
+    placement = win32gui.GetWindowPlacement(int(hwnd))
+    show_cmd = int(placement[1])
+    is_iconic = bool(win32gui.IsIconic(int(hwnd))) or show_cmd in {
+        win32con.SW_SHOWMINIMIZED,
+        win32con.SW_MINIMIZE,
+        win32con.SW_SHOWMINNOACTIVE,
+    }
+    is_zoomed = show_cmd == win32con.SW_SHOWMAXIMIZED
+
     return {
         "ok": True,
         "hwnd": int(hwnd),
         "title": win32gui.GetWindowText(int(hwnd)).strip(),
-        "is_iconic": bool(win32gui.IsIconic(int(hwnd))),
-        "is_zoomed": bool(win32gui.IsZoomed(int(hwnd))),
+        "is_iconic": is_iconic,
+        "is_zoomed": is_zoomed,
+        "show_cmd": show_cmd,
         "rect": tuple(int(v) for v in rect),
     }
 
