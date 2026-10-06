@@ -70,7 +70,7 @@ def test_live_core_routes_volume_without_cognition():
 
 def test_live_core_routes_battery_read_only():
     core, driver = build_core()
-    assert core.handle_text("batterie") == "Windows action completed"
+    assert core.handle_text("batterie") == "Batterie : 77 %. État : branché sur secteur."
     assert driver.calls == [("battery_status",)]
 
 
