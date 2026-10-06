@@ -349,11 +349,11 @@ class FastIntentRouter:
 
     @staticmethod
     def _wifi(text: str) -> ActionRequest | None:
-        if text in {"wifi", "wi fi", "etat wifi", "etat du wifi", "etat wi fi", "etat du wi fi", "statut wifi", "statut wi fi"}:
+        if text in {"wifi", "wi fi", "huissi", "etat wifi", "etat du wifi", "etat wi fi", "etat du wi fi", "etat huissi", "statut wifi", "statut wi fi"}:
             return ActionRequest("wifi.status", risk=RiskClass.READ_ONLY)
-        if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi", "active le wi fi", "active wi fi", "allume le wi fi", "allume wi fi"}:
+        if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi", "active le wi fi", "active wi fi", "allume le wi fi", "allume wi fi", "active le huissi", "active huissi"}:
             return ActionRequest("wifi.enable", risk=RiskClass.SENSITIVE)
-        if text in {"desactive le wifi", "coupe le wifi", "coupe wifi", "desactive le wi fi", "coupe le wi fi", "coupe wi fi"}:
+        if text in {"desactive le wifi", "disactive le wifi", "coupe le wifi", "coupe wifi", "desactive le wi fi", "disactive le wi fi", "coupe le wi fi", "coupe wi fi", "desactive le huissi", "disactive le huissi", "coupe le huissi", "coupe huissi"}:
             return ActionRequest("wifi.disable", risk=RiskClass.SENSITIVE)
         return None
 
