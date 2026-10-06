@@ -416,15 +416,11 @@ class CostAwareCognitionRouter:
         # Qwen is cognition-only here and must not become the fallback parser
         # for world-action language.
         elif is_action_or_command_query(user_input):
-            answer = self._brody(user_input, context)
-            if answer:
-                self.last_route = "brody"
-                return answer
-            self.last_route = "local_fallback"
-            self.last_fallback_reason = "OBSIDIA_COMMAND_ROUTE_UNAVAILABLE"
+            self.last_route = "obsidia_command_hold"
+            self.last_fallback_reason = "UNRESOLVED_COMMAND"
             return (
-                "Commande non résolue par la stack Obsidia. "
-                "Aucune action n'a été exécutée."
+                "HOLD — commande non résolue par la stack Obsidia. "
+                "Précise l'action ou la cible. Aucune action n'a été exécutée."
             )
 
         # General free-form: local Qwen is the cheaper default.
