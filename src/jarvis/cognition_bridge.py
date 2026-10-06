@@ -140,6 +140,22 @@ def is_short_followup(text: str) -> bool:
     return any(value == item.strip() or value.startswith(item) for item in starters)
 
 
+def is_action_or_command_query(text: str) -> bool:
+    """Keep unresolved command-shaped utterances inside the Obsidia stack."""
+    value = " ".join(text.casefold().split())
+    if not value:
+        return False
+    return bool(
+        re.match(
+            r"^(?:commande|cmd|ouvre|ferme|lance|demarre|démarre|arrete|arrête|"
+            r"active|desactive|désactive|coupe|mets|met|regle|règle|fixe|"
+            r"monte|remonte|augmente|baisse|diminue|descend|deplace|déplace|"
+            r"copie|cree|crée|supprime|efface|restaure|annule)\b",
+            value,
+        )
+    )
+
+
 @dataclass
 class CostAwareCognitionRouter:
     local_presence: object
@@ -395,6 +411,21 @@ class CostAwareCognitionRouter:
                 self.last_route = "qwen_fallback"
                 self.last_fallback_reason = "BRODY_UNAVAILABLE_FOR_PROJECT_QUERY"
                 return answer
+
+        # Unresolved command/action-shaped utterances stay inside Obsidia.
+        # Qwen is cognition-only here and must not become the fallback parser
+        # for world-action language.
+        elif is_action_or_command_query(user_input):
+            answer = self._brody(user_input, context)
+            if answer:
+                self.last_route = "brody"
+                return answer
+            self.last_route = "local_fallback"
+            self.last_fallback_reason = "OBSIDIA_COMMAND_ROUTE_UNAVAILABLE"
+            return (
+                "Commande non résolue par la stack Obsidia. "
+                "Aucune action n'a été exécutée."
+            )
 
         # General free-form: local Qwen is the cheaper default.
         else:
