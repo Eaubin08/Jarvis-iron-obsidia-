@@ -76,6 +76,7 @@ class JarvisCore:
             "qwen_fallback": "QWEN/FALLBACK",
             "brody": "BRODY/OBSIDIA",
             "brody_fallback": "BRODY/OBSIDIA/FALLBACK",
+            "obsidia_gps": "OBSIDIA/GPS",
             "local_fallback": "LOCAL/FALLBACK",
         }
         self.last_source = labels.get(route, "COGNITION")
