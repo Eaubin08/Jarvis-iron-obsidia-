@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import threading
+import time
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -112,6 +113,15 @@ def _screen_health() -> dict[str, Any]:
 class CockpitRuntime:
     controller: HUDController
     turn_lock: threading.Lock = field(default_factory=threading.Lock)
+    _preflight_cache: dict[str, Any] | None = field(default=None, init=False, repr=False)
+    _preflight_at: float = field(default=0.0, init=False, repr=False)
+
+    def _canonical_environment(self) -> dict[str, Any]:
+        now = time.monotonic()
+        if self._preflight_cache is None or now - self._preflight_at > 15.0:
+            self._preflight_cache = run_canonical_preflight(require_qwen=False).as_dict()
+            self._preflight_at = now
+        return self._preflight_cache
 
     def status(self) -> dict[str, Any]:
         snap = self.controller.model.snapshot()
@@ -148,7 +158,7 @@ class CockpitRuntime:
             "kx108_ready": True if snap.get("decision_authority") == "KX108_ONLY" else None,
             "kx108_note": "confirmed by active governed surface" if snap.get("decision_authority") == "KX108_ONLY" else "no canonical standalone KX108 health endpoint exposed",
             "screens": _screen_health(),
-            "canonical_environment": run_canonical_preflight(require_qwen=False).as_dict(),
+            "canonical_environment": self._canonical_environment(),
         }
 
     def capabilities(self) -> dict[str, Any]:
