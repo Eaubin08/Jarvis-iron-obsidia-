@@ -95,11 +95,23 @@ def _g13_conn_observed_enabled(family, status):
         return None
 
     devices = data.get("devices") or []
-    radios = [
-        d for d in devices
-        if isinstance(d.get("FriendlyName"), str)
-        and any(tok in d["FriendlyName"].casefold() for tok in ("adapter", "radio"))
-    ]
+
+    def _bt_radio_candidate(d):
+        name = d.get("FriendlyName")
+        instance_id = d.get("InstanceId")
+        if not isinstance(name, str) or not isinstance(instance_id, str):
+            return False
+        folded = name.casefold()
+        if instance_id.upper().startswith("BTHENUM"):
+            return False
+        if any(tok in folded for tok in ("enumerator", "rfcomm", "protocol", "service", "avrcp", "gatt")):
+            return False
+        return (
+            any(tok in folded for tok in ("adapter", "radio", "bluetooth"))
+            or instance_id.upper().startswith(("USB\\\\", "PCI\\\\"))
+        )
+
+    radios = [d for d in devices if _bt_radio_candidate(d)]
     if not radios:
         return None
     states = [str(d.get("Status") or "").strip().casefold() for d in radios]
