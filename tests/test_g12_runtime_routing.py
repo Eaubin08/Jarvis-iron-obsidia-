@@ -12,3 +12,12 @@ def test_g12_capability_query_is_answered_locally():
 def test_g12_readonly_audit_accepts_bounded_stt_variant():
     assert _looks_like_audit_question("audicule la derniere action") is True
     assert _looks_like_audit_question("bonjour derniere action") is False
+
+
+from jarvis.cognition_bridge import is_known_obsidia_domain_query
+
+
+def test_g12_known_obsidia_domains_are_detected_before_generic_qwen():
+    assert is_known_obsidia_domain_query("Explique-moi le spoofing GPS") is True
+    assert is_known_obsidia_domain_query("Analyse GNSS aviation") is True
+    assert is_known_obsidia_domain_query("Explique-moi les volcans") is False
