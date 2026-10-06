@@ -148,6 +148,7 @@ class CostAwareCognitionRouter:
     vision: object | None = None
     pre_inference: object | None = None
     last_route: str | None = field(default=None, init=False)
+    last_fallback_reason: str | None = field(default=None, init=False)
 
     def _qwen(self, user_input: str, context: ContextSnapshot, *, live: bool) -> str | None:
         if self.qwen is None:
@@ -220,6 +221,7 @@ class CostAwareCognitionRouter:
         )
 
     def respond(self, user_input: str, context: ContextSnapshot) -> str:
+        self.last_fallback_reason = None
         try_local = getattr(self.local_presence, "try_respond", None)
         if callable(try_local):
             local = try_local(user_input, context)
@@ -288,6 +290,7 @@ class CostAwareCognitionRouter:
                     answer = self._qwen(user_input, context, live=False)
                     if answer:
                         self.last_route = "qwen_fallback"
+                        self.last_fallback_reason = "OBSIDIA_DOMAIN_PROVIDER_UNAVAILABLE"
                         return answer
                 elif not is_project_query(user_input):
                     answer = self._qwen(user_input, context, live=False)
@@ -297,6 +300,7 @@ class CostAwareCognitionRouter:
                     answer = self._brody(user_input, context)
                     if answer:
                         self.last_route = "brody_fallback"
+                        self.last_fallback_reason = "QWEN_UNAVAILABLE_AFTER_DOMAIN_BRIDGE"
                         return answer
 
             if route in {"brody", "lean_route_only", "domain_bridge", "obsidure_route_only"}:
@@ -333,6 +337,7 @@ class CostAwareCognitionRouter:
                 answer = self._brody(user_input, context)
                 if answer:
                     self.last_route = "brody_fallback"
+                    self.last_fallback_reason = "QWEN_UNAVAILABLE_FIREWORKS"
                     return answer
 
         # Preserve conversational continuity: a short follow-up after a
@@ -364,6 +369,7 @@ class CostAwareCognitionRouter:
             answer = self._brody(user_input, context)
             if answer:
                 self.last_route = "brody_fallback"
+                self.last_fallback_reason = "VISION_AND_QWEN_UNAVAILABLE"
                 return answer
 
         # Environment topology/status: cheap local Qwen + live metadata first.
@@ -375,6 +381,7 @@ class CostAwareCognitionRouter:
             answer = self._brody(user_input, context)
             if answer:
                 self.last_route = "brody_fallback"
+                self.last_fallback_reason = "LIVE_QWEN_UNAVAILABLE"
                 return answer
 
         # Project/corpus: Brody has the better retrieval context.
@@ -386,6 +393,7 @@ class CostAwareCognitionRouter:
             answer = self._qwen(user_input, context, live=False)
             if answer:
                 self.last_route = "qwen_fallback"
+                self.last_fallback_reason = "BRODY_UNAVAILABLE_FOR_PROJECT_QUERY"
                 return answer
 
         # General free-form: local Qwen is the cheaper default.
@@ -397,9 +405,11 @@ class CostAwareCognitionRouter:
             answer = self._brody(user_input, context)
             if answer:
                 self.last_route = "brody_fallback"
+                self.last_fallback_reason = "QWEN_UNAVAILABLE_GENERAL"
                 return answer
 
         self.last_route = "local_fallback"
+        self.last_fallback_reason = "NO_COGNITION_PROVIDER_AVAILABLE"
         return self.local_presence.respond(user_input, context).strip()
 
 
