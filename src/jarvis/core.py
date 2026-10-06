@@ -30,6 +30,10 @@ class JarvisCore:
 
     def handle_text(self, text: str) -> str:
         context = self.memory.context()
+        capabilities_reply = _local_capabilities_reply(text)
+        if capabilities_reply is not None:
+            self.last_source = "LOCAL/CAPABILITIES"
+            return capabilities_reply
         if self.governed_move is not None:
             governed_reply = self.governed_move.handle(text, session_id=self.session_id)
             if governed_reply is not None:
@@ -76,3 +80,30 @@ class JarvisCore:
         }
         self.last_source = labels.get(route, "COGNITION")
         return reply
+
+
+
+def _local_capabilities_reply(text: str) -> str | None:
+    import re
+    import unicodedata
+
+    value = unicodedata.normalize("NFKD", text.casefold())
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = re.sub(r"[^a-z0-9 ]+", " ", value)
+    value = " ".join(value.split())
+
+    patterns = (
+        r"\bqu est ce que tu peux faire\b",
+        r"\bque peux tu faire\b",
+        r"\btes capacites\b",
+        r"\bquelles sont tes capacites\b",
+    )
+    if not any(re.search(pattern, value) for pattern in patterns):
+        return None
+
+    return (
+        "Je peux converser localement, utiliser la cognition Obsidia/Brody ou Qwen selon la demande, "
+        "observer l'environnement via les capacités live disponibles, et exécuter les capacités PC "
+        "explicitement branchées. Les actions gouvernées passent par la confirmation humaine et "
+        "KX108/Binder ; je peux aussi afficher, auditer et rejouer leurs preuves en lecture seule."
+    )
