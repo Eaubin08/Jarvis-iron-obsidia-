@@ -12,7 +12,7 @@ from .governed_create_dir import GovernedCreateDirCommandHandler
 from .governed_file_ops import GovernedFileOpsCommandHandler
 from .governed_rollback import GovernedMoveRollbackCommandHandler
 
-from .contracts import CognitionProvider, MemoryProvider
+from .contracts import ActionRequest, CognitionProvider, MemoryProvider, RiskClass
 
 
 @dataclass
@@ -58,6 +58,40 @@ class JarvisCore:
             match = self.fast_intent.route(text, session_id=self.session_id)
             if match is not None:
                 result = self.actions.execute(match.request, context)
+
+                if (
+                    not result.ok
+                    and result.message == "WORLD_ACTION_DRY_RUN_ONLY"
+                    and match.request.capability in {
+                        "audio.volume_up",
+                        "audio.volume_down",
+                        "audio.adjust_volume",
+                        "audio.set_volume",
+                        "audio.set_mute",
+                        "audio.mute_toggle",
+                    }
+                ):
+                    status = self.actions.execute(
+                        ActionRequest(
+                            "audio.status",
+                            source="g13_post_denial_readonly_check",
+                            session_id=self.session_id,
+                            risk=RiskClass.READ_ONLY,
+                        ),
+                        context,
+                    )
+                    backend = (status.backend or result.backend or "ACTION").upper()
+                    self.last_source = f"ACTION/{backend}"
+                    if status.ok:
+                        return (
+                            "Je n'ai pas modifié le volume : l'action physique est bloquée "
+                            "par la gouvernance. " + status.message
+                        )
+                    return (
+                        "Je n'ai pas modifié le volume : l'action physique est bloquée "
+                        "par la gouvernance."
+                    )
+
                 backend = (result.backend or "ACTION").upper()
                 self.last_source = f"ACTION/{backend}"
                 return result.message
