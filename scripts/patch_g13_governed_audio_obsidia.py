@@ -12,7 +12,7 @@ from pathlib import Path
 import shutil
 
 
-ROOT = Path(__file__).resolve().parents[2].parent / "obsidia-openjarvis-install-v0"
+ROOT = Path(__file__).resolve().parents[2] / "obsidia-openjarvis-install-v0"
 BRIDGE = ROOT / "scripts" / "jarjar_executor_bridge_v0.py"
 PC2 = ROOT / "scripts" / "obsidia_pc_capabilities_v2.py"
 
