@@ -92,7 +92,7 @@ class GovernedMoveCoordinator:
         short_eah = eah[:12] if eah else "UNKNOWN"
         return (
             f"Déplacement préparé : {source_path} → {dest_path}. "
-            f"EAH {short_eah}. Dis « confirme le déplacement » pour autoriser l'étape d'exécution."
+            f"EAH {short_eah}. Dis « je confirme » ou « confirme le déplacement » pour autoriser l'étape d'exécution."
         )
 
     def approve(self, *, session_id: str) -> str:
@@ -149,31 +149,52 @@ class GovernedMoveCommandHandler:
             return None
 
         normalized = _normalize_confirmation(clean)
-        if normalized in {
-            "confirme deplacement",
-            "confirme le deplacement",
-            "je confirme deplacement",
-            "je confirme le deplacement",
-        }:
-            return self.coordinator.approve(session_id=session_id)
+
+        proof_reply = self._proof_follow_up(normalized)
+        if proof_reply is not None:
+            return proof_reply
+
         if normalized in {"annule deplacement", "annule le deplacement"}:
             return self.coordinator.cancel()
+
+        if self.coordinator.pending is not None and _is_positive_pending_confirmation(normalized):
+            return self.coordinator.approve(session_id=session_id)
 
         if self.coordinator.pending is not None and _looks_like_move_confirmation_attempt(normalized):
             return (
                 "Confirmation non reconnue. "
-                "Dis « confirme le déplacement » pour autoriser l'étape d'exécution."
+                "Dis « je confirme » ou « confirme le déplacement » pour autoriser l'étape d'exécution."
             )
 
         match = self._move_re.match(clean)
         if match is None:
             return None
 
-        source = _strip_quotes(match.group(1).strip())
-        dest = _strip_quotes(match.group(2).strip())
+        source = _normalize_spoken_path(_strip_quotes(match.group(1).strip()))
+        dest = _normalize_spoken_path(_strip_quotes(match.group(2).strip()))
         if not source or not dest:
             return "Commande de déplacement incomplète."
         return self.coordinator.prepare(source, dest, session_id=session_id)
+
+    def _proof_follow_up(self, normalized: str) -> str | None:
+        if not _looks_like_proof_question(normalized):
+            return None
+        result = self.coordinator.last_execution_result
+        if result is None:
+            return None
+
+        source = str(result.get("source_path", ""))
+        dest = str(result.get("dest_path", ""))
+        gate = str(result.get("kx108_pre_gate", "UNKNOWN"))
+        sre = str(result.get("sealed_rollback_evidence_id", "UNKNOWN"))
+        sar = str(result.get("sealed_apply_receipt_id", "UNKNOWN"))
+        receipt = result.get("receipt") or {}
+        receipt_id = str(receipt.get("receipt_id", "UNKNOWN"))
+        return (
+            f"Preuves du dernier déplacement gouverné : {source} → {dest}. "
+            f"KX108_PRE={gate}. Receipt={receipt_id}. SRE={sre}. SAR={sar}. "
+            "État réalisé vérifié par l'exécuteur gouverné."
+        )
 
 
 def governed_move_from_environment() -> GovernedMoveCommandHandler | None:
@@ -224,13 +245,49 @@ def _normalize_confirmation(text: str) -> str:
     return " ".join(value.split())
 
 
-def _looks_like_move_confirmation_attempt(normalized: str) -> bool:
-    """Keep ambiguous confirmation attempts inside the pending MOVE gate.
+def _is_positive_pending_confirmation(normalized: str) -> bool:
+    """Accept natural confirmation only for the already-pending MOVE.
 
-    Explicit confirmations for another governed capability are left alone so
-    their own handler can reject or process them.  This prevents generic
-    cognition/Qwen from claiming that a pending governed MOVE executed.
+    This never authorizes anything without pending state, and obvious
+    negations or references to another governed capability remain excluded.
     """
+    if not normalized:
+        return False
+    if re.search(r"\b(?:ne|pas|non|annule|annuler|refuse|refuser)\b", normalized):
+        return False
+    other_capability_markers = (
+        "creation",
+        "cree",
+        "creer",
+        "dossier",
+        "repertoire",
+        "patch",
+        "rollback",
+        "retour arriere",
+    )
+    if any(marker in normalized for marker in other_capability_markers):
+        return False
+
+    exact = {
+        "confirme",
+        "je confirme",
+        "oui je confirme",
+        "ok je confirme",
+        "d accord je confirme",
+        "vas y je confirme",
+        "confirme deplacement",
+        "confirme le deplacement",
+        "je confirme deplacement",
+        "je confirme le deplacement",
+    }
+    if normalized in exact:
+        return True
+
+    # Natural emphatic confirmations remain bounded to explicit "je confirme".
+    return bool(re.search(r"\bje confirme\b", normalized))
+
+
+def _looks_like_move_confirmation_attempt(normalized: str) -> bool:
     if not normalized:
         return False
     if not re.search(r"\b(?:confirme|confirmer|confirmation)\b", normalized):
@@ -246,3 +303,56 @@ def _looks_like_move_confirmation_attempt(normalized: str) -> bool:
         "retour arriere",
     )
     return not any(marker in normalized for marker in other_capability_markers)
+
+
+def _looks_like_proof_question(normalized: str) -> bool:
+    if not normalized:
+        return False
+    proof_terms = ("preuve", "preuves", "receipt", "recu", "trace", "traces")
+    if not any(term in normalized for term in proof_terms):
+        return False
+    return any(
+        marker in normalized
+        for marker in (
+            "quel",
+            "quels",
+            "quelle",
+            "quelles",
+            "montre",
+            "donne",
+            "en sont",
+            "du dernier",
+            "derniere execution",
+        )
+    )
+
+
+def _normalize_spoken_path(value: str) -> str:
+    """Normalize explicit spoken path syntax without fuzzy path guessing."""
+    raw = value.strip()
+    if not raw:
+        return raw
+
+    # If the transcript already contains path punctuation, preserve it except
+    # for harmless whitespace around separators.
+    if "/" in raw or "\\" in raw:
+        raw = re.sub(r"\s*[/\\]+\s*", "/", raw)
+        raw = re.sub(r"\s*\.\s*", ".", raw)
+        return raw.rstrip(" .")
+
+    import unicodedata
+
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    folded = re.sub(r"[,:;!?]+", " ", folded)
+    folded = re.sub(r"\bbarre\s+oblique\b", " slash ", folded)
+    folded = re.sub(r"\banti\s*slash\b", " slash ", folded)
+    folded = re.sub(r"\bread\s+me\b", "README", folded, flags=re.IGNORECASE)
+    folded = re.sub(r"\bpoint\b", ".", folded)
+    folded = re.sub(r"\bslash\b", "/", folded)
+    folded = re.sub(r"\btiret\b", "-", folded)
+    folded = re.sub(r"\s*/\s*", "/", folded)
+    folded = re.sub(r"\s*\.\s*", ".", folded)
+    folded = re.sub(r"\s*-\s*", "-", folded)
+    folded = re.sub(r"\s+", "", folded)
+    return folded.rstrip(".")
