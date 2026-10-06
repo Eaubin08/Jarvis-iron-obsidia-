@@ -31,7 +31,7 @@ from jarvis.integrations.local_vision_cognition import from_environment as visio
 from jarvis.integrations.pyautogui_visual_driver import PyAutoGUIVisualDriver
 from jarvis.integrations.win32_driver import Win32Driver
 from jarvis.integrations.obsidia_stack_cognition import from_environment as obsidia_cognition_from_environment
-from jarvis.local_actions import LocalPermissionPolicy, SystemBackend
+from jarvis.local_actions import KX108OnlyLivePermissionPolicy, SystemBackend
 from jarvis.monitor_layout import WindowsMonitorProvider
 from jarvis.windows import NativeWindowsBackend
 from jarvis.providers.local_stub import StubCognition, StubMemory
@@ -144,7 +144,7 @@ def build_live_controller() -> HUDController:
 
     actions = ActionRouter(
         registry=registry,
-        permission_policy=LocalPermissionPolicy(),
+        permission_policy=KX108OnlyLivePermissionPolicy(),
         backends=[
             SystemBackend(),
             NativeWindowsBackend(Win32Driver()),
