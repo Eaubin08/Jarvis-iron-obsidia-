@@ -65,3 +65,20 @@ def test_g13_volume_status_is_readonly_and_not_guarded():
     assert match.request.capability == "audio.status"
     assert match.request.risk is RiskClass.READ_ONLY
     assert router.local_guard_response("Quel est le niveau de volume ?") is None
+
+
+def test_g13_volume_status_accepts_natural_followup_phrasing():
+    router = FastIntentRouter()
+    for utterance in (
+        "C'est le niveau de volume.",
+        "Et le niveau de volume.",
+        "Quel est le niveau de volume de l'ordinateur ?",
+        "Le volume est à combien ?",
+    ):
+        match = router.route(utterance)
+        assert match is not None, utterance
+        assert match.request.capability == "audio.status", utterance
+        assert match.request.risk is RiskClass.READ_ONLY
+        assert router.local_guard_response(utterance) is None
+
+    assert router.route("Baisse le volume de 15.").request.capability == "audio.adjust_volume"
