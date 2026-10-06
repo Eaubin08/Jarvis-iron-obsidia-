@@ -21,3 +21,16 @@ def test_g12_known_obsidia_domains_are_detected_before_generic_qwen():
     assert is_known_obsidia_domain_query("Explique-moi le spoofing GPS") is True
     assert is_known_obsidia_domain_query("Analyse GNSS aviation") is True
     assert is_known_obsidia_domain_query("Explique-moi les volcans") is False
+
+
+from jarvis.cognition_bridge import _known_domain_answer
+
+
+def test_g12_spoofing_gps_uses_readonly_domain_bridge():
+    routed = _known_domain_answer("Explique-moi simplement ce qu'est une attaque par spoofing GPS.")
+    assert routed is not None
+    route, answer = routed
+    assert route == "obsidia_gps"
+    assert "GPS_SPOOFING" in answer
+    assert "HOLD" in answer
+    assert "entièrement validée" in answer
