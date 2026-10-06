@@ -53,3 +53,15 @@ def test_g13_denied_mutation_surfaces_world_action_dry_run_reason():
     )
     assert result.ok is False
     assert result.message == "WORLD_ACTION_DRY_RUN_ONLY"
+
+
+from jarvis.fast_intent import FastIntentRouter
+
+
+def test_g13_volume_status_is_readonly_and_not_guarded():
+    router = FastIntentRouter()
+    match = router.route("Quel est le niveau de volume ?")
+    assert match is not None
+    assert match.request.capability == "audio.status"
+    assert match.request.risk is RiskClass.READ_ONLY
+    assert router.local_guard_response("Quel est le niveau de volume ?") is None
