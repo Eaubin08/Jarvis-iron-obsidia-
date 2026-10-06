@@ -8,7 +8,7 @@ This is a control/projection surface only:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -110,7 +110,7 @@ def _screen_health() -> dict[str, Any]:
 @dataclass
 class CockpitRuntime:
     controller: HUDController
-    turn_lock: threading.Lock = threading.Lock()
+    turn_lock: threading.Lock = field(default_factory=threading.Lock)
 
     def status(self) -> dict[str, Any]:
         snap = self.controller.model.snapshot()
