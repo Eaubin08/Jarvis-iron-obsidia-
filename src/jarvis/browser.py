@@ -14,6 +14,8 @@ from .contracts import ActionRequest, ActionResult, Capability
 class BrowserDriver(Protocol):
     def navigate(self, url: str) -> dict: ...
     def read(self, selector: str | None = None) -> dict: ...
+    def inspect_element(self, selector: str) -> dict: ...
+    def activate_link_by_identity(self, identity: dict) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -27,6 +29,8 @@ class BrowserBackend:
     _supported = frozenset({
         "browser.navigate",
         "browser.read",
+        "browser.inspect_element",
+        "browser.activate_link",
         "browser.click",
         "browser.fill",
     })
@@ -41,6 +45,11 @@ class BrowserBackend:
                 data = self.driver.navigate(url)
             elif request.capability == "browser.read":
                 data = self.driver.read(request.arguments.get("selector"))
+            elif request.capability == "browser.inspect_element":
+                selector = self._required(request, "selector")
+                data = self.driver.inspect_element(selector)
+            elif request.capability == "browser.activate_link":
+                data = self.driver.activate_link_by_identity(dict(request.arguments))
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)
