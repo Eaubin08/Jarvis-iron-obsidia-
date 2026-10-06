@@ -127,8 +127,66 @@ class GovernedMoveCoordinator:
         reason = result.get("reason") or result.get("status") or "EXECUTE_REJECTED"
         return f"Déplacement non exécuté : {reason}"
 
+    def restore_last_execution_from_stores(self) -> dict[str, Any] | None:
+        """Restore the latest governed MOVE from persisted canonical artifacts.
+
+        This is a readonly recovery/indexing path for audit/history after a
+        Jarjar restart. It never invokes KX108 and never calls an executor.
+        """
+        if self.last_execution_result is not None:
+            return self.last_execution_result
+
+        try:
+            stores = Path(self.config.stores_base_dir)
+            sar_dir = stores / "sar"
+            if not sar_dir.is_dir():
+                return None
+
+            candidates = [p for p in sar_dir.glob("sar-*.json") if p.is_file()]
+            if not candidates:
+                return None
+            latest_path = max(candidates, key=lambda p: p.stat().st_mtime_ns)
+
+            import json
+            sar = json.loads(latest_path.read_text(encoding="utf-8"))
+            if sar.get("operation_type") != "V2_MOVE_FILE":
+                return None
+
+            v2id = str(sar.get("batch_execution_id", ""))
+            descriptor = {}
+            if v2id:
+                dp = stores / "v2exec" / f"{v2id}.json"
+                if dp.is_file():
+                    descriptor = json.loads(dp.read_text(encoding="utf-8")).get("descriptor") or {}
+
+            kx_id = str(sar.get("kx108_pre_decision_record_id", ""))
+            gate = "UNKNOWN"
+            if kx_id:
+                kp = stores / "kxpre" / f"{kx_id}.json"
+                if kp.is_file():
+                    kx = json.loads(kp.read_text(encoding="utf-8"))
+                    gate = str(kx.get("x108_gate", "UNKNOWN"))
+
+            result = {
+                "status": "EXECUTED_OK",
+                "j5_phase": "EXECUTE",
+                "operation_type": "V2_MOVE_FILE",
+                "decision_authority": "KX108_ONLY",
+                "kx108_pre_gate": gate,
+                "source_path": str(descriptor.get("source_path", "")),
+                "dest_path": str(descriptor.get("dest_path", sar.get("target_path", ""))),
+                "sealed_apply_receipt_id": str(sar.get("sealed_apply_receipt_id", "")),
+                "sealed_rollback_evidence_id": str(sar.get("sealed_rollback_evidence_id", "")),
+                "receipt": {},
+                "_restored_from_persisted_proofs": True,
+            }
+            self.last_execution_result = result
+            return result
+        except Exception:
+            return None
+
     def audit_last_execution(self) -> dict[str, Any]:
-        result = self.last_execution_result
+        result = self.last_execution_result or self.restore_last_execution_from_stores()
         if result is None:
             return {"ok": False, "reason": "NO_LAST_EXECUTION"}
 
@@ -294,9 +352,12 @@ class GovernedMoveCommandHandler:
     def _history_follow_up(self, normalized: str) -> str | None:
         if not _looks_like_history_question(normalized):
             return None
-        result = self.coordinator.last_execution_result
+        result = (
+            self.coordinator.last_execution_result
+            or self.coordinator.restore_last_execution_from_stores()
+        )
         if result is None:
-            return "Aucune action gouvernée exécutée dans cette session."
+            return "Aucune action gouvernée persistée n'a été retrouvée."
         source = str(result.get("source_path", ""))
         dest = str(result.get("dest_path", ""))
         status = str(result.get("status", "UNKNOWN"))
@@ -336,7 +397,10 @@ class GovernedMoveCommandHandler:
     def _proof_follow_up(self, normalized: str) -> str | None:
         if not _looks_like_proof_question(normalized):
             return None
-        result = self.coordinator.last_execution_result
+        result = (
+            self.coordinator.last_execution_result
+            or self.coordinator.restore_last_execution_from_stores()
+        )
         if result is None:
             return None
 
@@ -346,7 +410,10 @@ class GovernedMoveCommandHandler:
         sre = str(result.get("sealed_rollback_evidence_id", "UNKNOWN"))
         sar = str(result.get("sealed_apply_receipt_id", "UNKNOWN"))
         receipt = result.get("receipt") or {}
-        receipt_id = str(receipt.get("receipt_id", "UNKNOWN"))
+        receipt_id = str(
+            receipt.get("receipt_id")
+            or ("NOT_PERSISTED_IN_V2" if result.get("_restored_from_persisted_proofs") else "UNKNOWN")
+        )
         return (
             f"Preuves du dernier déplacement gouverné : {source} → {dest}. "
             f"KX108_PRE={gate}. Receipt={receipt_id}. SRE={sre}. SAR={sar}. "
