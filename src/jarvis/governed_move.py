@@ -139,7 +139,8 @@ class GovernedMoveCommandHandler:
     coordinator: GovernedMoveCoordinator
 
     _move_re = re.compile(
-        r"^(?:deplace|déplace)\s+(?:le\s+fichier\s+)?(.+?)\s+vers\s+(.+)$",
+        r"\b(?:deplace|déplace|deplaces|déplaces|deplacer|déplacer)\b\s+"
+        r"(?:le\s+fichier\s+)?(.+?)\s+vers\s+(.+)$",
         re.IGNORECASE,
     )
 
@@ -160,18 +161,31 @@ class GovernedMoveCommandHandler:
         if self.coordinator.pending is not None and _is_positive_pending_confirmation(normalized):
             return self.coordinator.approve(session_id=session_id)
 
+        if self.coordinator.pending is not None and _is_execute_pending_move_request(normalized):
+            return self.coordinator.approve(session_id=session_id)
+
         if self.coordinator.pending is not None and _looks_like_move_confirmation_attempt(normalized):
             return (
                 "Confirmation non reconnue. "
                 "Dis « je confirme » ou « confirme le déplacement » pour autoriser l'étape d'exécution."
             )
 
-        match = self._move_re.match(clean)
+        match = self._move_re.search(clean)
         if match is None:
+            if _looks_like_governed_move_intent(normalized):
+                if self.coordinator.pending is not None:
+                    return (
+                        "Un déplacement gouverné est déjà préparé. "
+                        "Dis « je confirme », « fais le déplacement » ou annule-le."
+                    )
+                return (
+                    "J'ai détecté une demande de déplacement, mais pas deux chemins complets. "
+                    "Indique le fichier source puis la destination."
+                )
             return None
 
-        source = _normalize_spoken_path(_strip_quotes(match.group(1).strip()))
-        dest = _normalize_spoken_path(_strip_quotes(match.group(2).strip()))
+        source = _normalize_spoken_path(_clean_move_operand(_strip_quotes(match.group(1).strip())))
+        dest = _normalize_spoken_path(_clean_move_operand(_strip_quotes(match.group(2).strip())))
         if not source or not dest:
             return "Commande de déplacement incomplète."
         return self.coordinator.prepare(source, dest, session_id=session_id)
@@ -285,6 +299,39 @@ def _is_positive_pending_confirmation(normalized: str) -> bool:
 
     # Natural emphatic confirmations remain bounded to explicit "je confirme".
     return bool(re.search(r"\bje confirme\b", normalized))
+
+
+def _is_execute_pending_move_request(normalized: str) -> bool:
+    """Treat a bounded natural execute phrase as confirmation of the sole pending MOVE."""
+    if not normalized:
+        return False
+    if re.search(r"\b(?:ne|pas|non|annule|annuler|refuse|refuser)\b", normalized):
+        return False
+    phrases = (
+        "fais le deplacement",
+        "fait le deplacement",
+        "effectue le deplacement",
+        "execute le deplacement",
+        "vas y",
+        "ok vas y",
+        "d accord vas y",
+    )
+    return any(phrase in normalized for phrase in phrases)
+
+
+def _looks_like_governed_move_intent(normalized: str) -> bool:
+    if not normalized:
+        return False
+    return bool(
+        re.search(
+            r"\b(?:deplace|deplaces|deplacer|deplacement|bouge|bouger)\b",
+            normalized,
+        )
+    )
+
+
+def _clean_move_operand(value: str) -> str:
+    return re.sub(r"^(?:le\s+fichier\s+)", "", value.strip(), flags=re.IGNORECASE)
 
 
 def _looks_like_move_confirmation_attempt(normalized: str) -> bool:
