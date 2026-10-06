@@ -50,3 +50,38 @@ def test_g12_generic_brody_runtime_answer_is_only_valid_for_runtime_questions():
     assert _looks_like_generic_runtime_state_answer(generic) is True
     assert _is_runtime_state_query("Quel est l'état système readonly ?") is True
     assert _is_runtime_state_query("Explique-moi le domaine trading") is False
+
+
+from jarvis.cognition_bridge import CostAwareCognitionRouter
+from jarvis.contracts import ContextSnapshot
+
+
+class _NullLocal:
+    def try_respond(self, *_args, **_kwargs):
+        return None
+
+    def respond(self, *_args, **_kwargs):
+        return "local fallback"
+
+
+class _FailQwen:
+    def respond(self, *_args, **_kwargs):
+        raise RuntimeError("qwen down")
+
+
+class _Brody:
+    def respond(self, *_args, **_kwargs):
+        return "brody answer"
+
+
+def test_g12_general_fallback_records_reason():
+    router = CostAwareCognitionRouter(
+        local_presence=_NullLocal(),
+        governed_stack=_Brody(),
+        qwen=_FailQwen(),
+        pre_inference=None,
+    )
+    answer = router.respond("Explique-moi un volcan", ContextSnapshot(summary=""))
+    assert answer == "brody answer"
+    assert router.last_route == "brody_fallback"
+    assert router.last_fallback_reason == "QWEN_UNAVAILABLE_GENERAL"
