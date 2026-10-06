@@ -20,6 +20,19 @@ class LocalPermissionPolicy:
         return PermissionDecision.ALLOW
 
 
+class KX108OnlyLivePermissionPolicy:
+    """Fail-closed permission policy for the canonical live runtime.
+
+    Readonly device inspection may execute locally. Any mutation must be
+    represented by an explicit governed capability path before it can act.
+    """
+
+    def evaluate(self, request: ActionRequest, context: ContextSnapshot) -> PermissionDecision:
+        if request.risk is RiskClass.READ_ONLY:
+            return PermissionDecision.ALLOW
+        return PermissionDecision.DENY
+
+
 @dataclass
 class SystemBackend:
     name: str = "jarvis.system"
