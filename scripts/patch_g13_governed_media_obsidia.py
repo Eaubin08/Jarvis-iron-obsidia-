@@ -52,7 +52,7 @@ def patch_pc2() -> None:
     text = PC2.read_text(encoding="utf-8")
     _backup(PC2)
 
-    marker = "def _dispatch("
+    marker = None
     payload = r'''
 # === G13 governed media ===
 OP_MEDIA_CONTROL = "V2_MEDIA_CONTROL"
@@ -182,7 +182,8 @@ def pc_v2_media_control_execute(
         ),
     }
 '''
-    text = _insert_before(text, marker, payload)
+    if payload.strip() not in text:
+        text = text.rstrip() + "\n\n" + payload.strip() + "\n"
     PC2.write_text(text, encoding="utf-8")
 
 
