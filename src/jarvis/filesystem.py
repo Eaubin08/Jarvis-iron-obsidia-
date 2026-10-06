@@ -131,8 +131,9 @@ class NativeFilesystemBackend:
                 return ActionResult(False, "patch targets do not match authorized targets", backend=self.name)
 
             patch_bytes = patch_content.encode("utf-8")
+            git_apply = ["git", "-c", "core.autocrlf=false", "-c", "core.eol=lf", "apply"]
             check = subprocess.run(
-                ["git", "apply", "--check", "-"],
+                [*git_apply, "--check", "-"],
                 cwd=str(root),
                 input=patch_bytes,
                 capture_output=True,
@@ -142,7 +143,7 @@ class NativeFilesystemBackend:
                 return ActionResult(False, "patch dry-run failed: " + check.stderr.decode("utf-8", errors="replace").strip()[:200], backend=self.name)
 
             applied = subprocess.run(
-                ["git", "apply", "-"],
+                [*git_apply, "-"],
                 cwd=str(root),
                 input=patch_bytes,
                 capture_output=True,
