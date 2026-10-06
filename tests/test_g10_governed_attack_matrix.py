@@ -46,8 +46,16 @@ def _prepared_move():
     }
 
 
-def test_ambiguous_confirmation_never_executes_pending_move(tmp_path):
-    execute = MagicMock()
+def test_contextual_confirmation_executes_only_when_move_is_pending(tmp_path):
+    execute = MagicMock(return_value={
+        "status": "EXECUTED_OK",
+        "source_path": "a.txt",
+        "dest_path": "b.txt",
+        "kx108_pre_gate": "ALLOW",
+        "sealed_rollback_evidence_id": "sre-g10",
+        "sealed_apply_receipt_id": "sar-g10",
+        "receipt": {"receipt_id": "pcrcp-v2-g10"},
+    })
     move = GovernedMoveCommandHandler(
         GovernedMoveCoordinator(
             _move_config(tmp_path),
@@ -58,14 +66,18 @@ def test_ambiguous_confirmation_never_executes_pending_move(tmp_path):
     )
     core = JarvisCore(StubCognition(), StubMemory(), governed_move=move)
 
+    # No pending operation: generic confirmation is not an authorization.
+    assert core.handle_text("je confirme") != "Déplacement exécuté et prouvé : a.txt → b.txt."
+    assert execute.call_count == 0
+
     prepared_reply = core.handle_text("déplace le fichier a.txt vers b.txt")
     assert "préparé" in prepared_reply.casefold()
 
     reply = core.handle_text("oui je confirme")
 
-    assert execute.call_count == 0
-    assert reply != ""
-    assert move.coordinator.pending is not None
+    assert "exécuté et prouvé" in reply.casefold()
+    assert execute.call_count == 1
+    assert move.coordinator.pending is None
 
 
 def test_wrong_operation_confirmation_cannot_execute_pending_move(tmp_path):
@@ -156,8 +168,16 @@ def test_cancel_then_confirm_cannot_execute(tmp_path):
     assert execute.call_count == 0
 
 
-def test_pending_move_generic_confirmation_is_contained_and_never_reaches_cognition(tmp_path):
-    execute = MagicMock()
+def test_pending_move_natural_confirmation_stays_governed_and_never_reaches_cognition(tmp_path):
+    execute = MagicMock(return_value={
+        "status": "EXECUTED_OK",
+        "source_path": "a.txt",
+        "dest_path": "b.txt",
+        "kx108_pre_gate": "ALLOW",
+        "sealed_rollback_evidence_id": "sre-g10",
+        "sealed_apply_receipt_id": "sar-g10",
+        "receipt": {"receipt_id": "pcrcp-v2-g10"},
+    })
     cognition = StubCognition()
     cognition.respond = MagicMock(return_value="QWEN SHOULD NOT SEE THIS")
     move = GovernedMoveCommandHandler(
@@ -171,12 +191,83 @@ def test_pending_move_generic_confirmation_is_contained_and_never_reaches_cognit
     core = JarvisCore(cognition, StubMemory(), governed_move=move)
 
     core.handle_text("déplace le fichier a.txt vers b.txt")
+    reply = core.handle_text("Je confirme.")
 
-    first = core.handle_text("Je confirme.")
-    second = core.handle_text("Je confirme l'étape d'exécution.")
-
-    assert "confirme le déplacement" in first.casefold()
-    assert "confirme le déplacement" in second.casefold()
-    assert execute.call_count == 0
+    assert "exécuté et prouvé" in reply.casefold()
+    assert execute.call_count == 1
     assert cognition.respond.call_count == 0
+    assert move.coordinator.pending is None
+
+
+def test_negative_confirmation_never_executes_pending_move(tmp_path):
+    execute = MagicMock()
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            MagicMock(return_value=_prepared_move()),
+            execute,
+            MagicMock(return_value=object()),
+        )
+    )
+    core = JarvisCore(StubCognition(), StubMemory(), governed_move=move)
+    core.handle_text("déplace le fichier a.txt vers b.txt")
+
+    reply = core.handle_text("non je ne confirme pas")
+
+    assert execute.call_count == 0
     assert move.coordinator.pending is not None
+    assert reply != ""
+
+
+def test_last_governed_move_proof_follow_up_uses_execution_result_not_cognition(tmp_path):
+    execute = MagicMock(return_value={
+        "status": "EXECUTED_OK",
+        "source_path": "a.txt",
+        "dest_path": "b.txt",
+        "kx108_pre_gate": "ALLOW",
+        "sealed_rollback_evidence_id": "sre-proof",
+        "sealed_apply_receipt_id": "sar-proof",
+        "receipt": {"receipt_id": "pcrcp-v2-proof"},
+    })
+    cognition = StubCognition()
+    cognition.respond = MagicMock(return_value="QWEN SHOULD NOT SEE THIS")
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            MagicMock(return_value=_prepared_move()),
+            execute,
+            MagicMock(return_value=object()),
+        )
+    )
+    core = JarvisCore(cognition, StubMemory(), governed_move=move)
+
+    core.handle_text("déplace le fichier a.txt vers b.txt")
+    core.handle_text("je confirme")
+    proof = core.handle_text("Quels en sont les preuves ?")
+
+    assert "KX108_PRE=ALLOW" in proof
+    assert "pcrcp-v2-proof" in proof
+    assert "sre-proof" in proof
+    assert "sar-proof" in proof
+    assert cognition.respond.call_count == 0
+
+
+def test_spoken_path_normalization_is_explicit_not_fuzzy(tmp_path):
+    prepare = MagicMock(return_value=_prepared_move())
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            prepare,
+            MagicMock(),
+            MagicMock(return_value=object()),
+        )
+    )
+
+    move.handle(
+        "déplace le fichier read me point md vers archive slash read me tiret test point md",
+        session_id="g10",
+    )
+
+    args, kwargs = prepare.call_args
+    assert args[0] == "README.md"
+    assert args[1] == "archive/README-test.md"
