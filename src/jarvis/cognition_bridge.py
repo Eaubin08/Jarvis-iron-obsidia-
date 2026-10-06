@@ -38,6 +38,17 @@ def is_project_query(text: str) -> bool:
     return _matches(text, _PROJECT_PATTERNS)
 
 
+_KNOWN_DOMAIN_PATTERNS = (
+    r"\b(gps|gnss|aviation|spoofing|jamming)\b",
+    r"\b(trading|bourse|marche|marché|slippage|drawdown)\b",
+    r"\b(bank|banque|fraude|aml|paiement)\b",
+)
+
+
+def is_known_obsidia_domain_query(text: str) -> bool:
+    return _matches(text, _KNOWN_DOMAIN_PATTERNS)
+
+
 def _semantic_topic(pre_decision: object | None) -> str:
     if pre_decision is None:
         return ""
@@ -235,15 +246,25 @@ class CostAwareCognitionRouter:
                 self.last_route = "obsidia_local"
                 return direct.strip()
 
-            if route == "domain_bridge" and not is_project_query(user_input):
-                answer = self._qwen(user_input, context, live=False)
-                if answer:
-                    self.last_route = "qwen"
-                    return answer
-                answer = self._brody(user_input, context)
-                if answer:
-                    self.last_route = "brody_fallback"
-                    return answer
+            if route == "domain_bridge":
+                if is_known_obsidia_domain_query(user_input):
+                    answer = self._brody(user_input, context)
+                    if answer:
+                        self.last_route = "brody"
+                        return answer
+                    answer = self._qwen(user_input, context, live=False)
+                    if answer:
+                        self.last_route = "qwen_fallback"
+                        return answer
+                elif not is_project_query(user_input):
+                    answer = self._qwen(user_input, context, live=False)
+                    if answer:
+                        self.last_route = "qwen"
+                        return answer
+                    answer = self._brody(user_input, context)
+                    if answer:
+                        self.last_route = "brody_fallback"
+                        return answer
 
             if route in {"brody", "lean_route_only", "domain_bridge", "obsidure_route_only"}:
                 brody_input = user_input
