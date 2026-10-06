@@ -160,9 +160,9 @@ class FastIntentRouter:
     @staticmethod
     def _volume_direction(text: str) -> str | None:
         if "volume" not in text:
-            if text in {"monte", "plus fort"} or re.fullmatch(r"(?:monte|augmente|remonte) de (?:\\d{1,3}|[a-z]+)", text):
+            if text in {"monte", "plus fort"} or re.fullmatch(r"(?:monte|augmente|remonte) de (?:\d{1,3}|[a-z]+)", text):
                 return "up"
-            if text in {"baisse", "moins fort"} or re.fullmatch(r"(?:baisse|diminue|descend) de (?:\\d{1,3}|[a-z]+)", text):
+            if text in {"baisse", "moins fort"} or re.fullmatch(r"(?:baisse|diminue|descend) de (?:\d{1,3}|[a-z]+)", text):
                 return "down"
             return None
 
