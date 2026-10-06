@@ -1,15 +1,19 @@
-"""Launch canonical Jarjar HUD plus the local cockpit bridge."""
+"""Launch canonical Jarjar HUD plus the local cockpit bridge.
+
+The cockpit is additive: it must not change or block the proven live runtime.
+"""
 from __future__ import annotations
 
 from jarvis.cockpit_bridge import start_cockpit_server
 from jarvis.hud_app import run_hud
 from jarvis.live_runtime import build_live_controller
-from jarvis.runtime_profile import require_canonical_preflight
+from jarvis.runtime_profile import apply_canonical_environment
 
 
 def main() -> None:
-    preflight = require_canonical_preflight()
-    print("JARJAR_BOOT: canonical environment accepted")
+    # Restore the proven launch flags, but do not invent a new startup gate.
+    apply_canonical_environment()
+    print("JARJAR_BOOT: using canonical environment flags")
     print("JARJAR_BOOT: building live controller")
     controller = build_live_controller()
     server = start_cockpit_server(controller)
