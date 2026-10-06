@@ -27,6 +27,8 @@ class KX108OnlyLivePermissionPolicy:
     represented by an explicit governed capability path before it can act.
     """
 
+    deny_reason = "WORLD_ACTION_DRY_RUN_ONLY"
+
     def evaluate(self, request: ActionRequest, context: ContextSnapshot) -> PermissionDecision:
         if request.risk is RiskClass.READ_ONLY:
             return PermissionDecision.ALLOW
