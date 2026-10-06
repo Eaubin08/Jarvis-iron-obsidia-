@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pillow>=10", "audioop-lts>=0.2.1; python_version >= '3.13'"]
+dev = ["pytest>=8"]
 browser = ["playwright>=1.55,<2"]
 windows = ["pywin32>=311", "pywinauto>=0.6.9", "pycaw>=20240210"]
 voice = ["faster-whisper>=1.1,<2"]
