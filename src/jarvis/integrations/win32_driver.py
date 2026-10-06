@@ -221,6 +221,18 @@ $items
             adapters = [data]
         return {"adapters": adapters, "available": bool(adapters)}
 
+    @staticmethod
+    def _wifi_observed_enabled(status: dict) -> bool | None:
+        adapters = status.get("adapters") or []
+        if not adapters:
+            return None
+        states = [str(item.get("Status") or "").strip().casefold() for item in adapters]
+        if any(state == "disabled" for state in states):
+            return False
+        if any(state in {"up", "connected", "disconnected"} for state in states):
+            return True
+        return None
+
     def wifi_set_enabled(self, enabled: bool) -> dict:
         status = self.wifi_status()
         adapters = status["adapters"]
@@ -231,6 +243,7 @@ $items
         name = adapters[0].get("Name")
         if not isinstance(name, str) or not name:
             raise ValueError("Wi-Fi adapter has no usable name")
+
         escaped = name.replace("'", "''")
         verb = "Enable-NetAdapter" if enabled else "Disable-NetAdapter"
         script = (
@@ -238,8 +251,47 @@ $items
             f"{verb} -Confirm:$false -PassThru | "
             "Select-Object Name, Status, InterfaceDescription"
         )
-        data = self._run_powershell_json(script)
-        return {"enabled": enabled, "adapter": data}
+        primary = self._run_powershell_json(script)
+
+        observed = self._wifi_observed_enabled(self.wifi_status())
+        fallback = None
+        if observed is not enabled:
+            admin_value = "ENABLED" if enabled else "DISABLED"
+            result = subprocess.run(
+                [
+                    "netsh",
+                    "interface",
+                    "set",
+                    "interface",
+                    f"name={name}",
+                    f"admin={admin_value}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=12,
+            )
+            fallback = {
+                "returncode": int(result.returncode),
+                "stdout": (result.stdout or "").strip()[:1000],
+                "stderr": (result.stderr or "").strip()[:1000],
+            }
+            if result.returncode != 0:
+                detail = fallback["stderr"] or fallback["stdout"] or "netsh failed"
+                raise RuntimeError(f"Wi-Fi state change fallback failed: {detail}")
+            observed = self._wifi_observed_enabled(self.wifi_status())
+
+        if observed is not enabled:
+            raise RuntimeError(
+                f"Wi-Fi adapter remained {'enabled' if observed else 'disabled' if observed is False else 'unknown'} "
+                f"after structured Windows mutations; administrator privileges may be required"
+            )
+
+        return {
+            "enabled": enabled,
+            "adapter": primary,
+            "fallback": fallback,
+            "observed_enabled": observed,
+        }
 
     def bluetooth_status(self) -> dict:
         script = r"""
