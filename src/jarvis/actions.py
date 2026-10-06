@@ -30,7 +30,8 @@ class ActionRouter:
 
         decision = self.permission_policy.evaluate(request, context)
         if decision is PermissionDecision.DENY:
-            return ActionResult(False, "permission denied")
+            reason = getattr(self.permission_policy, "deny_reason", "permission denied")
+            return ActionResult(False, str(reason))
         if decision is PermissionDecision.ASK:
             return ActionResult(False, "explicit approval required")
 
