@@ -170,6 +170,12 @@ class GovernedMoveCommandHandler:
                 "Dis « je confirme » ou « confirme le déplacement » pour autoriser l'étape d'exécution."
             )
 
+        if self.coordinator.pending is None and (
+            _is_positive_pending_confirmation(normalized)
+            or _is_execute_pending_move_request(normalized)
+        ):
+            return self.coordinator.approve(session_id=session_id)
+
         match = self._move_re.search(clean)
         if match is None:
             if _looks_like_governed_move_intent(normalized):
