@@ -271,3 +271,79 @@ def test_spoken_path_normalization_is_explicit_not_fuzzy(tmp_path):
     args, kwargs = prepare.call_args
     assert args[0] == "README.md"
     assert args[1] == "archive/README-test.md"
+
+
+def test_natural_move_sentence_prepares_without_reaching_cognition(tmp_path):
+    prepare = MagicMock(return_value=_prepared_move())
+    cognition = StubCognition()
+    cognition.respond = MagicMock(return_value="QWEN SHOULD NOT SEE THIS")
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            prepare,
+            MagicMock(),
+            MagicMock(return_value=object()),
+        )
+    )
+    core = JarvisCore(cognition, StubMemory(), governed_move=move)
+
+    reply = core.handle_text(
+        "Du coup, il va falloir que tu déplaces le fichier readme.md "
+        "vers le fichier readme-test.md."
+    )
+
+    assert "préparé" in reply.casefold()
+    assert cognition.respond.call_count == 0
+    args, _ = prepare.call_args
+    assert args[0] == "readme.md"
+    assert args[1] == "readme-test.md"
+
+
+def test_incomplete_move_intent_is_contained_before_qwen(tmp_path):
+    cognition = StubCognition()
+    cognition.respond = MagicMock(return_value="QWEN SHOULD NOT SEE THIS")
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(return_value=object()),
+        )
+    )
+    core = JarvisCore(cognition, StubMemory(), governed_move=move)
+
+    reply = core.handle_text("Déplace le fichier Markdown vers...")
+
+    assert "deux chemins complets" in reply
+    assert cognition.respond.call_count == 0
+
+
+def test_natural_execute_phrase_confirms_only_pending_move(tmp_path):
+    execute = MagicMock(return_value={
+        "status": "EXECUTED_OK",
+        "source_path": "a.txt",
+        "dest_path": "b.txt",
+        "kx108_pre_gate": "ALLOW",
+        "sealed_rollback_evidence_id": "sre-g10",
+        "sealed_apply_receipt_id": "sar-g10",
+        "receipt": {"receipt_id": "pcrcp-v2-g10"},
+    })
+    move = GovernedMoveCommandHandler(
+        GovernedMoveCoordinator(
+            _move_config(tmp_path),
+            MagicMock(return_value=_prepared_move()),
+            execute,
+            MagicMock(return_value=object()),
+        )
+    )
+    core = JarvisCore(StubCognition(), StubMemory(), governed_move=move)
+
+    # No pending MOVE: natural execute language cannot authorize anything.
+    core.handle_text("Ok, fais le déplacement.")
+    assert execute.call_count == 0
+
+    core.handle_text("déplace le fichier a.txt vers b.txt")
+    reply = core.handle_text("Ok, fais le déplacement.")
+
+    assert "exécuté et prouvé" in reply.casefold()
+    assert execute.call_count == 1
