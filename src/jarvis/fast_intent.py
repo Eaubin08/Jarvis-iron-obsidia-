@@ -132,19 +132,11 @@ class FastIntentRouter:
         if any(re.search(rf"\b{re.escape(marker)}\b", value) for marker in mutation_markers):
             return None
 
-        # Accept wrappers such as:
-        # "et le niveau de volume", "c'est le niveau de volume",
-        # "quel est le niveau de volume de l'ordinateur"
-        if re.search(
-            r"\b(?:niveau|etat|statut)\b.*\bvolume\b"
-            r"|\bvolume\b.*\b(?:niveau|etat|statut)\b"
-            r"|\b(?:quel est|quelle est|a combien|combien)\b.*\bvolume\b"
-            r"|\bvolume\b.*\b(?:a combien|combien)\b",
-            value,
-        ):
-            return ActionRequest("audio.status", risk=RiskClass.READ_ONLY)
-
-        return None
+        # Once a phrase clearly contains "volume" plus a status marker
+        # (including "actuel"), treat the surrounding STT wrapper as noise.
+        # Examples: "quel est le volume actuel", "elle est le volume actuel",
+        # "tele le volume actuel", "niveau du volume".
+        return ActionRequest("audio.status", risk=RiskClass.READ_ONLY)
 
     @staticmethod
     def _volume_amount(text: str) -> int | None:
