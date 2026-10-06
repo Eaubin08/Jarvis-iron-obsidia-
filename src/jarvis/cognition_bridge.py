@@ -49,6 +49,33 @@ def is_known_obsidia_domain_query(text: str) -> bool:
     return _matches(text, _KNOWN_DOMAIN_PATTERNS)
 
 
+def _known_domain_answer(text: str) -> tuple[str, str] | None:
+    value = " ".join(text.casefold().split())
+
+    if re.search(r"\b(gps|gnss|aviation|spoofing|jamming)\b", value):
+        if "spoofing" in value:
+            return (
+                "obsidia_gps",
+                "Le spoofing GPS/GNSS consiste à tromper un récepteur sur sa position ou son temps "
+                "en lui faisant accepter des signaux ou des données de navigation falsifiés. "
+                "Dans Obsidia, ce risque appartient au domaine GPS/Defense/Aviation et est représenté "
+                "notamment par la nuisance GPS_SPOOFING. Le chemin domaine vérifie la cohérence entre "
+                "sources, la dérive, la fraîcheur, l'anti-replay, l'attestation et l'enveloppe physique, "
+                "puis peut fail-close vers HOLD avant toute décision souveraine X108 si les preuves sont "
+                "insuffisantes ou contradictoires. Les essais RF réels FGI ont déjà traversé la chaîne "
+                "jusqu'à X108 et produit des preuves fail-closed, mais ils ne permettent pas encore de "
+                "revendiquer une détection/classification RF du spoofing entièrement validée."
+            )
+        return (
+            "obsidia_gps",
+            "Le domaine GPS/Defense/Aviation d'Obsidia traite l'intégrité de navigation : spoofing, "
+            "replay, jamming, conflits multi-sources, dérive et cohérence temporelle. Il traduit les "
+            "observations terrain en état de domaine puis laisse KX108 comme unique autorité de décision."
+        )
+
+    return None
+
+
 def _semantic_topic(pre_decision: object | None) -> str:
     if pre_decision is None:
         return ""
@@ -199,6 +226,12 @@ class CostAwareCognitionRouter:
             if isinstance(local, str) and local.strip():
                 self.last_route = "local"
                 return local.strip()
+
+        domain_answer = _known_domain_answer(user_input)
+        if domain_answer is not None:
+            route_name, answer = domain_answer
+            self.last_route = route_name
+            return answer
 
         # Canonical Obsidia pre-inference routing. Visual/environment
         # requests keep their dedicated Jarjar sensor path for now; the ported
