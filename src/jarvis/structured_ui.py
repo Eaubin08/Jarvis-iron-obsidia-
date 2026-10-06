@@ -28,6 +28,7 @@ class StableIdentityDriver(Protocol):
     def set_checked_by_identity(self, target: dict, target_checked: bool) -> dict: ...
     def read_selected_by_identity(self, target: dict) -> dict: ...
     def select_radio_by_identity(self, target: dict) -> dict: ...
+    def select_tab_by_identity(self, target: dict) -> dict: ...
 
 
 @dataclass
@@ -54,6 +55,7 @@ class StructuredUIBackend:
         "control.set_checked_by_identity",
         "control.read_selected",
         "control.select_radio_by_identity",
+        "control.select_tab_by_identity",
     })
 
     def can_execute(self, request: ActionRequest, capability: Capability) -> bool:
@@ -130,6 +132,8 @@ class StructuredUIBackend:
                     data = self.identity_driver.read_selected_by_identity(target)
                 elif request.capability == "control.select_radio_by_identity":
                     data = self.identity_driver.select_radio_by_identity(target)
+                elif request.capability == "control.select_tab_by_identity":
+                    data = self.identity_driver.select_tab_by_identity(target)
                 else:
                     text = request.arguments.get("text")
                     if not isinstance(text, str):
