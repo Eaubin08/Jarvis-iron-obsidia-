@@ -191,6 +191,22 @@ def _local_capabilities_reply(text: str) -> str | None:
     value = re.sub(r"[^a-z0-9 ]+", " ", value)
     value = " ".join(value.split())
 
+    if "bluetooth" in value and any(
+        phrase in value
+        for phrase in (
+            "possibilites",
+            "capacites",
+            "que peux tu faire",
+            "qu est ce que tu peux faire",
+        )
+    ):
+        return (
+            "Avec le Bluetooth actuellement branché, je peux lire son état, "
+            "l'activer et le désactiver. Les modifications passent par Obsidia/KX108 "
+            "et sont vérifiées sur l'état physique. Je n'ai pas encore de capacité "
+            "gouvernée pour l'appairage, le transfert de fichiers ou l'envoi de données."
+        )
+
     patterns = (
         r"\bqu est ce que tu peux faire\b",
         r"\bque peux tu faire\b",
