@@ -90,3 +90,8 @@ class UIADriver:
         control = win.child_window(title=control_name, class_name=class_name)
         control.wait("exists", timeout=10)
         return {"window": window_title, "control": control_name, "text": control.window_text()}
+
+    def get_window_hwnd(self, *, window_title: str) -> int:
+        win = self.window(title=window_title)
+        win.wait("exists", timeout=10)
+        return int(win.handle)
