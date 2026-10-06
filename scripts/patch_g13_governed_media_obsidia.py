@@ -55,6 +55,8 @@ def patch_pc2() -> None:
     marker = None
     payload = r'''
 # === G13 governed media ===
+import uuid as _g13_uuid
+
 OP_MEDIA_CONTROL = "V2_MEDIA_CONTROL"
 _CAP_MEDIA_PREPARE = "PC_V2_MEDIA_CONTROL_PREPARE"
 _CAP_MEDIA_EXECUTE = "PC_V2_MEDIA_CONTROL_EXECUTE"
@@ -72,15 +74,17 @@ def pc_v2_media_control_prepare(action, *, stores_base_dir, session_id="", execu
         return _prep_rej(OP_MEDIA_CONTROL, _CAP_MEDIA_PREPARE, "MEDIA_ACTION_UNSUPPORTED", session_id)
 
     st = _stores(stores_base_dir)
+    invocation_id = _g13_uuid.uuid4().hex
     desc = {
         "action": action,
         "capability": capability,
         "session_id": session_id,
+        "invocation_id": invocation_id,
         "operation_type": OP_MEDIA_CONTROL,
     }
     eah = _eah(OP_MEDIA_CONTROL, desc)
-    child = _v2id("chd", eah + capability)
-    v2id = _v2id("v2x", eah + session_id)
+    child = _v2id("chd", eah + capability + invocation_id)
+    v2id = _v2id("v2x", eah + session_id + invocation_id)
     mh = _sha16(json.dumps(desc, sort_keys=True))
     dh = _persist_desc(v2id, OP_MEDIA_CONTROL, eah, desc, st["v2exec"])
     return {
@@ -182,8 +186,10 @@ def pc_v2_media_control_execute(
         ),
     }
 '''
-    if payload.strip() not in text:
-        text = text.rstrip() + "\n\n" + payload.strip() + "\n"
+    section_marker = "# === G13 governed media ==="
+    if section_marker in text:
+        text = text.split(section_marker, 1)[0].rstrip()
+    text = text.rstrip() + "\n\n" + payload.strip() + "\n"
     PC2.write_text(text, encoding="utf-8")
 
 
