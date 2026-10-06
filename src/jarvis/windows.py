@@ -150,7 +150,52 @@ class NativeWindowsBackend:
                 f"Windows driver failure: {type(exc).__name__}: {exc}",
                 backend=self.name,
             )
-        return ActionResult(True, "Windows action completed", data=data, backend=self.name)
+        message = self._format_success_message(request.capability, data)
+        return ActionResult(True, message, data=data, backend=self.name)
+
+    @staticmethod
+    def _format_success_message(capability: str, data: dict) -> str:
+        if capability == "audio.status":
+            percent = data.get("volume_percent")
+            muted = data.get("muted")
+            if isinstance(percent, int):
+                mute_text = "oui" if muted is True else "non" if muted is False else "inconnu"
+                return f"Volume actuel : {percent} %. Muet : {mute_text}."
+
+        if capability == "system.battery":
+            percent = data.get("battery_percent")
+            ac_online = data.get("ac_online")
+            if isinstance(percent, int):
+                power_text = "branché sur secteur" if ac_online is True else "sur batterie" if ac_online is False else "alimentation inconnue"
+                return f"Batterie : {percent} %. État : {power_text}."
+
+        if capability == "wifi.status":
+            adapters = data.get("adapters") or []
+            if not adapters:
+                return "Wi-Fi : aucun adaptateur détecté."
+            states = []
+            for adapter in adapters:
+                name = adapter.get("Name") or adapter.get("InterfaceDescription") or "adaptateur"
+                status = adapter.get("Status") or "inconnu"
+                states.append(f"{name}={status}")
+            return "Wi-Fi : " + "; ".join(states) + "."
+
+        if capability == "bluetooth.status":
+            devices = data.get("devices") or []
+            if not devices:
+                return "Bluetooth : aucun périphérique radio détecté."
+            states = []
+            for device in devices:
+                name = device.get("FriendlyName") or "périphérique"
+                status = device.get("Status") or "inconnu"
+                states.append(f"{name}={status}")
+            return "Bluetooth : " + "; ".join(states) + "."
+
+        if capability == "window.list":
+            windows = data.get("windows") or []
+            return f"Fenêtres visibles détectées : {len(windows)}."
+
+        return "Windows action completed"
 
     @staticmethod
     def _required(request: ActionRequest, key: str) -> str:
