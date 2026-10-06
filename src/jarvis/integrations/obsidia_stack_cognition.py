@@ -33,6 +33,40 @@ def _is_legacy_graphiti_text(value: object) -> bool:
     return any(marker in text for marker in _LEGACY_GRAPHITI_MARKERS)
 
 
+_RUNTIME_STATE_MARKERS = (
+    "etat systeme",
+    "état système",
+    "etat runtime",
+    "état runtime",
+    "native memory",
+    "memoire active",
+    "mémoire active",
+    "readonly",
+    "lecture seule",
+    "runtime brody",
+)
+
+
+def _is_runtime_state_query(value: str) -> bool:
+    text = " ".join(str(value or "").casefold().split())
+    return any(marker in text for marker in _RUNTIME_STATE_MARKERS)
+
+
+def _looks_like_generic_runtime_state_answer(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = " ".join(value.casefold().split())
+    return (
+        "etat systeme readonly" in text
+        or "état système readonly" in text
+        or (
+            "kx108_only" in text
+            and "aucune decision" in text
+            and "aucune ecriture" in text
+        )
+    )
+
+
 def _governed_capability_answer(
     authority_snapshot: dict,
     *,
@@ -203,6 +237,13 @@ class ObsidiaStackCognition:
                 "w4_memory_retrieval_status"
             ),
         }
+
+        if safe and _looks_like_generic_runtime_state_answer(answer) and not _is_runtime_state_query(text):
+            print(
+                "JARJAR_LOCAL_BRODY: FALLBACK semantic_mismatch "
+                "generic_runtime_state_answer_for_non_runtime_query"
+            )
+            return None
 
         if not safe:
             print(
