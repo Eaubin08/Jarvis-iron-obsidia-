@@ -93,3 +93,50 @@ def test_g13_windows_readonly_reply_surfaces_observed_volume():
         {"volume_percent": 37, "muted": False},
     )
     assert message == "Volume actuel : 37 %. Muet : non."
+
+
+from jarvis.core import JarvisCore
+from jarvis.providers.local_stub import StubCognition, StubMemory
+
+
+class _AudioStatusBackend:
+    name = "windows.structured"
+    priority = 0
+
+    def can_execute(self, request, capability):
+        return capability.backend_family == "windows"
+
+    def execute(self, request):
+        from jarvis.contracts import ActionResult
+        if request.capability == "audio.status":
+            return ActionResult(
+                True,
+                "Volume actuel : 50 %. Muet : non.",
+                data={"volume_percent": 50, "muted": False},
+                backend=self.name,
+            )
+        raise AssertionError("mutating backend must not execute")
+
+
+def test_g13_blocked_volume_mutation_reports_unchanged_observed_state():
+    registry = LocalCapabilityRegistry()
+    for name in ("audio.adjust_volume", "audio.status"):
+        registry.register(Capability(name, "windows"))
+    actions = ActionRouter(
+        registry=registry,
+        permission_policy=KX108OnlyLivePermissionPolicy(),
+        backends=[_AudioStatusBackend()],
+    )
+    core = JarvisCore(
+        StubCognition(),
+        StubMemory(),
+        fast_intent=FastIntentRouter(),
+        actions=actions,
+    )
+
+    reply = core.handle_text("Baisse le volume de 15.")
+    assert reply == (
+        "Je n'ai pas modifié le volume : l'action physique est bloquée "
+        "par la gouvernance. Volume actuel : 50 %. Muet : non."
+    )
+    assert core.last_source == "ACTION/WINDOWS.STRUCTURED"
