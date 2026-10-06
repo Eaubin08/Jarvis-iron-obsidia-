@@ -16,6 +16,8 @@ class BrowserDriver(Protocol):
     def read(self, selector: str | None = None) -> dict: ...
     def inspect_element(self, selector: str) -> dict: ...
     def activate_link_by_identity(self, identity: dict) -> dict: ...
+    def inspect_disclosure(self, selector: str) -> dict: ...
+    def set_disclosure_by_identity(self, identity: dict, target_expanded: bool) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -31,6 +33,8 @@ class BrowserBackend:
         "browser.read",
         "browser.inspect_element",
         "browser.activate_link",
+        "browser.inspect_disclosure",
+        "browser.set_disclosure",
         "browser.click",
         "browser.fill",
     })
@@ -50,6 +54,14 @@ class BrowserBackend:
                 data = self.driver.inspect_element(selector)
             elif request.capability == "browser.activate_link":
                 data = self.driver.activate_link_by_identity(dict(request.arguments))
+            elif request.capability == "browser.inspect_disclosure":
+                selector = self._required(request, "selector")
+                data = self.driver.inspect_disclosure(selector)
+            elif request.capability == "browser.set_disclosure":
+                target_expanded = request.arguments.get("target_expanded")
+                if not isinstance(target_expanded, bool):
+                    raise ValueError("target_expanded must be bool")
+                data = self.driver.set_disclosure_by_identity(dict(request.arguments), target_expanded)
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)

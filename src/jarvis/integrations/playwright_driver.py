@@ -30,6 +30,17 @@ def _scheme(url: str) -> str:
     return urlparse(url).scheme.lower()
 
 
+def _bool_attr(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    lowered = str(value).strip().lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    return None
+
+
 @dataclass
 class PlaywrightDriver:
     headless: bool = False
@@ -218,6 +229,155 @@ class PlaywrightDriver:
             "popup_detected": events["popup"],
             "new_page_detected": events["new_page"],
             "download_detected": events["download"],
+            "proof_strength": "STRONG",
+            "realized_state_verified": True,
+        }
+
+    def inspect_disclosure(self, selector: str) -> dict:
+        page = self._ensure_page()
+        locator = page.locator(selector)
+        element_count = locator.count()
+        result = {"url": page.url, "selector": selector, "element_count": element_count}
+        result.update(self._identity_fields(page))
+        if element_count != 1:
+            return result
+
+        item = locator.first
+        text = item.inner_text()
+        role = item.get_attribute("role") or ""
+        aria_expanded = item.get_attribute("aria-expanded")
+        aria_controls = item.get_attribute("aria-controls") or ""
+        open_attr = item.get_attribute("open")
+        tag_name = (item.get_attribute("data-tag-name") or "").lower()
+        selector_tag = selector.strip().split("#", 1)[0].split(".", 1)[0].lower()
+        if not tag_name and selector_tag in {"details", "summary", "button"}:
+            tag_name = selector_tag
+
+        disclosure_class = ""
+        current_expanded = None
+        if tag_name == "details" or open_attr is not None:
+            disclosure_class = "DETAILS_OPEN"
+            current_expanded = open_attr is not None
+        else:
+            aria_state = _bool_attr(aria_expanded)
+            if aria_state is not None:
+                disclosure_class = "ARIA_EXPANDED"
+                current_expanded = aria_state
+
+        metadata_payload = "|".join([
+            selector,
+            tag_name,
+            role.lower(),
+            aria_controls,
+            disclosure_class,
+            text,
+        ])
+        result.update({
+            "visible": bool(item.is_visible()),
+            "enabled": bool(item.is_enabled()),
+            "tag_name": tag_name,
+            "role": role.lower(),
+            "aria_expanded": aria_expanded,
+            "aria_controls": aria_controls,
+            "open": open_attr is not None,
+            "disclosure_class": disclosure_class,
+            "current_expanded": current_expanded,
+            "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "metadata_sha256": hashlib.sha256(metadata_payload.encode()).hexdigest(),
+            "main_frame": True,
+        })
+        return result
+
+    def set_disclosure_by_identity(self, identity: dict, target_expanded: bool) -> dict:
+        page = self._ensure_page()
+        selector = str(identity.get("selector") or "").strip()
+        if not selector:
+            raise ValueError("missing browser argument: selector")
+
+        observed = self.inspect_disclosure(selector)
+        for key, error in (
+            ("browser_session_id", "SESSION_ID_DRIFT"),
+            ("page_id", "PAGE_ID_DRIFT"),
+            ("url", "URL_DRIFT"),
+            ("origin", "ORIGIN_DRIFT"),
+            ("disclosure_class", "DISCLOSURE_CLASS_DRIFT"),
+            ("metadata_sha256", "ELEMENT_IDENTITY_DRIFT"),
+        ):
+            if str(observed.get(key) or "") != str(identity.get(key) or ""):
+                raise ValueError(error)
+        if observed.get("element_count") != 1:
+            raise ValueError("SELECTOR_COUNT_DRIFT")
+        if observed.get("current_expanded") is not identity.get("current_expanded"):
+            raise ValueError("PRE_STATE_DRIFT")
+        if observed.get("aria_controls") != identity.get("aria_controls"):
+            raise ValueError("ARIA_CONTROLS_DRIFT")
+        if observed.get("visible") is not True:
+            raise ValueError("ELEMENT_NOT_VISIBLE")
+        if observed.get("enabled") is not True:
+            raise ValueError("ELEMENT_NOT_ENABLED")
+        if observed.get("closed") is True:
+            raise ValueError("PAGE_CLOSED")
+        if identity.get("main_frame") is not True:
+            raise ValueError("IFRAME_UNSUPPORTED")
+        if observed.get("main_frame") is False:
+            raise ValueError("IFRAME_UNSUPPORTED")
+        if observed.get("disclosure_class") not in {"DETAILS_OPEN", "ARIA_EXPANDED"}:
+            raise ValueError("UNSUPPORTED_DISCLOSURE_CLASS")
+
+        events = {"popup": False, "new_page": False, "download": False}
+
+        def _mark(name):
+            def _handler(*_args):
+                events[name] = True
+            return _handler
+
+        if observed.get("current_expanded") is target_expanded:
+            post = self.inspect_disclosure(selector)
+            mutation_performed = False
+        else:
+            if hasattr(page, "on"):
+                page.on("popup", _mark("popup"))
+                page.on("download", _mark("download"))
+            context = getattr(page, "context", None)
+            if context is not None and hasattr(context, "on"):
+                context.on("page", _mark("new_page"))
+            page.locator(selector).first.click()
+            mutation_performed = True
+            if events["popup"]:
+                raise ValueError("UNEXPECTED_POPUP")
+            if events["new_page"]:
+                raise ValueError("UNEXPECTED_NEW_PAGE")
+            if events["download"]:
+                raise ValueError("UNEXPECTED_DOWNLOAD")
+            post = self.inspect_disclosure(selector)
+
+        if _canonical_url(str(post.get("url") or "")) != _canonical_url(str(identity.get("url") or "")):
+            raise ValueError("UNEXPECTED_NAVIGATION")
+        if post.get("browser_session_id") != identity.get("browser_session_id"):
+            raise ValueError("POST_SESSION_ID_DRIFT")
+        if post.get("page_id") != identity.get("page_id"):
+            raise ValueError("POST_PAGE_ID_DRIFT")
+        if post.get("metadata_sha256") != identity.get("metadata_sha256"):
+            raise ValueError("POST_ELEMENT_IDENTITY_DRIFT")
+        if post.get("closed") is True:
+            raise ValueError("POST_PAGE_CLOSED")
+        if post.get("current_expanded") is not target_expanded:
+            raise ValueError("REALIZED_STATE_MISMATCH")
+        return {
+            "url": post.get("url"),
+            "selector": selector,
+            "browser_session_id": post.get("browser_session_id"),
+            "page_id": post.get("page_id"),
+            "origin": post.get("origin"),
+            "closed": post.get("closed"),
+            "disclosure_class": post.get("disclosure_class"),
+            "target_expanded": target_expanded,
+            "current_expanded": post.get("current_expanded"),
+            "mutation_performed": mutation_performed,
+            "popup_detected": events["popup"],
+            "new_page_detected": events["new_page"],
+            "download_detected": events["download"],
+            "navigation_detected": False,
             "proof_strength": "STRONG",
             "realized_state_verified": True,
         }
