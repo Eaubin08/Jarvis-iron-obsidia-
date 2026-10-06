@@ -16,6 +16,7 @@ from .governed_app import GovernedAppOpenCommandHandler
 from .governed_window import GovernedWindowCommandHandler
 from .governed_media import GovernedMediaCommandHandler
 from .governed_connectivity import GovernedConnectivityCommandHandler
+from .governed_window_control import GovernedWindowControlCommandHandler
 
 from .contracts import ActionRequest, CognitionProvider, MemoryProvider, RiskClass
 
@@ -35,6 +36,7 @@ class JarvisCore:
     governed_window: GovernedWindowCommandHandler | None = None
     governed_media: GovernedMediaCommandHandler | None = None
     governed_connectivity: GovernedConnectivityCommandHandler | None = None
+    governed_window_control: GovernedWindowControlCommandHandler | None = None
     last_source: str = field(default="LOCAL", init=False)
     session_id: str = field(default_factory=lambda: f"jarjar-{uuid4().hex}", init=False)
 
@@ -116,6 +118,16 @@ class JarvisCore:
                     if governed_connectivity_reply is not None:
                         self.last_source = "OBSIDIA/GOVERNED_CONNECTIVITY"
                         return governed_connectivity_reply
+
+                if self.governed_window_control is not None:
+                    governed_window_control_reply = self.governed_window_control.handle_request(
+                        match.request,
+                        session_id=self.session_id,
+                        original_text=text,
+                    )
+                    if governed_window_control_reply is not None:
+                        self.last_source = "OBSIDIA/GOVERNED_WINDOW_CONTROL"
+                        return governed_window_control_reply
 
                 result = self.actions.execute(match.request, context)
 
