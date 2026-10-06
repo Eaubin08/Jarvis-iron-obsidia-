@@ -75,6 +75,7 @@ def patch_pc2() -> None:
     payload = r'''
 # === G13 governed connectivity ===
 import uuid as _g13_conn_uuid
+import time as _g13_conn_time
 
 OP_CONNECTIVITY_CONTROL = "V2_CONNECTIVITY_CONTROL"
 _CAP_CONN_PREPARE = "PC_V2_CONNECTIVITY_CONTROL_PREPARE"
@@ -241,10 +242,19 @@ def pc_v2_connectivity_execute(
             session_id,
         )
 
-    post = executor.connectivity_status(family)
-    if not post.get("ok"):
-        return _exec_rej(OP_CONNECTIVITY_CONTROL, _CAP_CONN_EXECUTE, "POST_STATE_READ_FAILED", session_id)
-    post_enabled = _g13_conn_observed_enabled(family, post)
+    post = None
+    post_enabled = None
+    # Windows network/PnP state can settle asynchronously after the mutation.
+    # Re-read a bounded number of times; never convert an unresolved state into PASS.
+    for _attempt in range(6):
+        post = executor.connectivity_status(family)
+        if not post.get("ok"):
+            return _exec_rej(OP_CONNECTIVITY_CONTROL, _CAP_CONN_EXECUTE, "POST_STATE_READ_FAILED", session_id)
+        post_enabled = _g13_conn_observed_enabled(family, post)
+        if post_enabled is enabled:
+            break
+        _g13_conn_time.sleep(0.5)
+
     if post_enabled is not enabled:
         return _exec_rej(
             OP_CONNECTIVITY_CONTROL, _CAP_CONN_EXECUTE,
