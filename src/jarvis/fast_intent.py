@@ -349,17 +349,17 @@ class FastIntentRouter:
 
     @staticmethod
     def _wifi(text: str) -> ActionRequest | None:
-        if text in {"wifi", "wi fi", "etat wifi", "statut wifi"}:
+        if text in {"wifi", "wi fi", "etat wifi", "etat du wifi", "etat wi fi", "etat du wi fi", "statut wifi", "statut wi fi"}:
             return ActionRequest("wifi.status", risk=RiskClass.READ_ONLY)
-        if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi"}:
+        if text in {"active le wifi", "active wifi", "allume le wifi", "allume wifi", "active le wi fi", "active wi fi", "allume le wi fi", "allume wi fi"}:
             return ActionRequest("wifi.enable", risk=RiskClass.SENSITIVE)
-        if text in {"desactive le wifi", "coupe le wifi", "coupe wifi"}:
+        if text in {"desactive le wifi", "coupe le wifi", "coupe wifi", "desactive le wi fi", "coupe le wi fi", "coupe wi fi"}:
             return ActionRequest("wifi.disable", risk=RiskClass.SENSITIVE)
         return None
 
     @staticmethod
     def _bluetooth(text: str) -> ActionRequest | None:
-        if text in {"bluetooth", "etat bluetooth", "statut bluetooth"}:
+        if text in {"bluetooth", "etat bluetooth", "etat du bluetooth", "statut bluetooth", "statut du bluetooth"}:
             return ActionRequest("bluetooth.status", risk=RiskClass.READ_ONLY)
         if text in {"active le bluetooth", "active bluetooth", "allume le bluetooth"}:
             return ActionRequest("bluetooth.enable", risk=RiskClass.SENSITIVE)
