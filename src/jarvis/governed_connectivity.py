@@ -83,6 +83,12 @@ class GovernedConnectivityCommandHandler:
         )
         if result.get("status") != pc2.EXECUTED_OK:
             reason = result.get("reason") or result.get("status") or "EXECUTE_REJECTED"
+            folded = str(reason).casefold()
+            if "requiert une" in folded and "levation" in folded or "administrator privileges" in folded or "administrateur" in folded:
+                return (
+                    f"{family.upper()} non modifié : HOLD_PRIVILEGE_REQUIRED. "
+                    "Windows exige une élévation administrateur pour cette action."
+                )
             return f"{family.upper()} non modifié : {reason}."
 
         gate = result.get("kx108_pre_gate", "UNKNOWN")
