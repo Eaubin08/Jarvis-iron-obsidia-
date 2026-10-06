@@ -396,3 +396,50 @@ def test_g11_history_audit_and_replay_never_reexecute(tmp_path):
     assert "Audit readonly" in audit and "PASS" in audit
     assert "Replay readonly" in replay and "Gate=ALLOW" in replay
     assert execute.call_count == 1
+
+
+def test_g11_restores_last_move_from_persisted_proofs_after_restart(tmp_path):
+    stores = tmp_path / "stores"
+    for name in ("sar", "sre", "kxpre", "approval", "v2exec"):
+        (stores / name).mkdir(parents=True, exist_ok=True)
+
+    v2id = "v2x-test"
+    kxid = "kxpre-test"
+    sreid = "sre-test"
+    sarid = "sar-test"
+
+    (stores / "v2exec" / f"{v2id}.json").write_text(
+        '{"descriptor":{"source_path":"README.md","dest_path":"READMETEST.md"}}',
+        encoding="utf-8",
+    )
+    (stores / "kxpre" / f"{kxid}.json").write_text(
+        '{"x108_gate":"ALLOW"}',
+        encoding="utf-8",
+    )
+    (stores / "sar" / f"{sarid}.json").write_text(
+        '{"operation_type":"V2_MOVE_FILE","batch_execution_id":"v2x-test",'
+        '"kx108_pre_decision_record_id":"kxpre-test",'
+        '"sealed_apply_receipt_id":"sar-test",'
+        '"sealed_rollback_evidence_id":"sre-test",'
+        '"target_path":"READMETEST.md"}',
+        encoding="utf-8",
+    )
+
+    cfg = _move_config(tmp_path)
+    cfg = GovernedMoveConfig(
+        execution_worktree_path=cfg.execution_worktree_path,
+        main_worktree_path=cfg.main_worktree_path,
+        branch_name=cfg.branch_name,
+        base_sha=cfg.base_sha,
+        stores_base_dir=stores,
+        obsidia_root=cfg.obsidia_root,
+    )
+    coordinator = GovernedMoveCoordinator(cfg, MagicMock(), MagicMock(), MagicMock())
+
+    restored = coordinator.restore_last_execution_from_stores()
+
+    assert restored is not None
+    assert restored["source_path"] == "README.md"
+    assert restored["dest_path"] == "READMETEST.md"
+    assert restored["kx108_pre_gate"] == "ALLOW"
+    assert restored["_restored_from_persisted_proofs"] is True
