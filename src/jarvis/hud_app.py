@@ -425,7 +425,10 @@ class JarjarHUD(tk.Tk):
 
     def _sync_model(self) -> None:
         snap = self.controller.model.snapshot()
-        _write_runtime_telemetry(self.controller)
+        try:
+            _write_runtime_telemetry(self.controller)
+        except Exception as exc:
+            print(f"JARJAR_TELEMETRY: non-blocking write failure: {type(exc).__name__}: {exc}")
         state = snap["state"]
         session_open = snap.get("session_open", False)
 
