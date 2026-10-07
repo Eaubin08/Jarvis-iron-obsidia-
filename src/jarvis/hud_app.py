@@ -74,9 +74,28 @@ def _write_runtime_telemetry(controller: HUDController) -> None:
         "last_result": last_jarjar,
     }
     path = _telemetry_path()
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(path)
+    tmp = path.with_name(
+        f"{path.stem}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    try:
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        for attempt in range(5):
+            try:
+                tmp.replace(path)
+                return
+            except PermissionError:
+                if attempt == 4:
+                    return
+                time.sleep(0.05 * (attempt + 1))
+    finally:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
 
 
 class JarjarHUD(tk.Tk):
