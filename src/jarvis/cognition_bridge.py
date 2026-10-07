@@ -177,7 +177,8 @@ class CostAwareCognitionRouter:
                 answer = self.qwen.respond(user_input, context)
             answer = answer.strip()
             return answer or None
-        except Exception:
+        except Exception as exc:
+            print(f"JARJAR_QWEN: ERROR {type(exc).__name__}: {exc}")
             return None
 
     def _brody(self, user_input: str, context: ContextSnapshot) -> str | None:
