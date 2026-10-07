@@ -20,7 +20,8 @@ from jarvis.contracts import ContextSnapshot
 class LocalQwenCognition:
     endpoint: str = "http://127.0.0.1:8080/v1/chat/completions"
     model: str = "Qwen2.5-3B-Instruct"
-    timeout_seconds: float = 20.0
+    timeout_seconds: float = 120.0
+    max_tokens: int = 128
     live_timeline: object | None = None
     _resolved_model: str | None = field(default=None, init=False, repr=False)
 
@@ -94,6 +95,7 @@ class LocalQwenCognition:
                 {"role": "user", "content": "\n\n".join(user_parts)},
             ],
             "temperature": 0.2,
+            "max_tokens": self.max_tokens,
             "stream": False,
         }
         request = Request(
@@ -133,6 +135,7 @@ def from_environment(*, live_timeline=None) -> LocalQwenCognition:
             "http://127.0.0.1:8080/v1/chat/completions",
         ),
         model=os.getenv("JARJAR_QWEN_MODEL", "Qwen2.5-3B-Instruct"),
-        timeout_seconds=float(os.getenv("JARJAR_QWEN_TIMEOUT", "20")),
+        timeout_seconds=float(os.getenv("JARJAR_QWEN_TIMEOUT", "120")),
+        max_tokens=int(os.getenv("JARJAR_QWEN_MAX_TOKENS", "128")),
         live_timeline=live_timeline,
     )
