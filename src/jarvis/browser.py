@@ -22,6 +22,8 @@ class BrowserDriver(Protocol):
     def set_checked_by_identity(self, identity: dict, target_checked: bool) -> dict: ...
     def inspect_radio(self, selector: str) -> dict: ...
     def select_radio_by_identity(self, identity: dict) -> dict: ...
+    def inspect_select(self, selector: str) -> dict: ...
+    def select_option_by_identity(self, identity: dict, option_identity: dict) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -43,6 +45,8 @@ class BrowserBackend:
         "browser.set_checked",
         "browser.inspect_radio",
         "browser.select_radio",
+        "browser.inspect_select",
+        "browser.select_option",
         "browser.click",
         "browser.fill",
     })
@@ -83,6 +87,14 @@ class BrowserBackend:
                 data = self.driver.inspect_radio(selector)
             elif request.capability == "browser.select_radio":
                 data = self.driver.select_radio_by_identity(dict(request.arguments))
+            elif request.capability == "browser.inspect_select":
+                selector = self._required(request, "selector")
+                data = self.driver.inspect_select(selector)
+            elif request.capability == "browser.select_option":
+                option_identity = request.arguments.get("option_identity")
+                if not isinstance(option_identity, dict):
+                    raise ValueError("option_identity must be dict")
+                data = self.driver.select_option_by_identity(dict(request.arguments), option_identity)
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)

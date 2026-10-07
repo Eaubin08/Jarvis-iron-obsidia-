@@ -83,6 +83,89 @@ def _radio_group_identity(browser_session_id: str, page_id: str, name: str, form
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+def _option_counts(options: list[dict], key: str, value: str) -> int:
+    return sum(1 for option in options if str(option.get(key) or "") == value)
+
+
+def _selected_option_from_value(options: list[dict], current_value: str) -> dict | None:
+    matches = [option for option in options if str(option.get("option_value") or "") == current_value]
+    return dict(matches[0]) if len(matches) == 1 else None
+
+
+def _resolve_option_identity(options: list[dict], target: dict) -> dict:
+    if target.get("match_kind") in {"value", "label", "text", "index"}:
+        option = dict(target)
+        if option.get("match_count") != 1:
+            raise ValueError("OPTION_MATCH_COUNT_INVALID")
+        if option.get("option_disabled") is True:
+            raise ValueError("OPTION_DISABLED")
+        for existing in options:
+            if _same_physical_option(existing, option):
+                if _option_counts(options, "option_value", str(option.get("option_value") or "")) != 1:
+                    raise ValueError("DUPLICATE_OPTION_VALUE")
+                return option
+        raise ValueError("OPTION_TARGET_NOT_FOUND")
+    modes = [
+        ("value", "option_value"),
+        ("label", "option_label"),
+        ("text", "option_text"),
+        ("index", "option_index"),
+    ]
+    supplied = [(mode, key) for mode, key in modes if target.get(key) is not None]
+    if len(supplied) != 1:
+        raise ValueError("EXACTLY_ONE_OPTION_IDENTITY_MODE_REQUIRED")
+    match_kind, key = supplied[0]
+    match_value = target.get(key)
+    if match_kind == "index":
+        if not isinstance(match_value, int) or isinstance(match_value, bool) or match_value < 0:
+            raise ValueError("OPTION_INDEX_INVALID")
+        matches = [option for option in options if option.get("option_index") == match_value]
+    else:
+        match_value = str(match_value)
+        if not match_value:
+            raise ValueError("OPTION_IDENTITY_VALUE_REQUIRED")
+        matches = [option for option in options if str(option.get(key) or "") == match_value]
+    if len(matches) == 0:
+        raise ValueError("OPTION_TARGET_NOT_FOUND")
+    if len(matches) > 1:
+        if match_kind == "value":
+            raise ValueError("DUPLICATE_OPTION_VALUE")
+        if match_kind == "label":
+            raise ValueError("DUPLICATE_OPTION_LABEL")
+        if match_kind == "text":
+            raise ValueError("DUPLICATE_OPTION_TEXT")
+        raise ValueError("DUPLICATE_OPTION_INDEX")
+    option = dict(matches[0])
+    if option.get("option_disabled") is True:
+        raise ValueError("OPTION_DISABLED")
+    option["match_kind"] = match_kind
+    option["match_value"] = match_value
+    option["match_count"] = 1
+    # Post-read without evaluate can prove a selected option by value only when that value is unique.
+    if _option_counts(options, "option_value", str(option.get("option_value") or "")) != 1:
+        raise ValueError("DUPLICATE_OPTION_VALUE")
+    return option
+
+
+def _same_option_identity(a: dict, b: dict) -> bool:
+    for key in (
+        "match_kind", "match_value", "option_value", "option_label",
+        "option_text", "option_index", "option_disabled", "match_count",
+    ):
+        if a.get(key) != b.get(key):
+            return False
+    return True
+
+
+def _same_physical_option(a: dict | None, b: dict | None) -> bool:
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        return False
+    for key in ("option_value", "option_label", "option_text", "option_index", "option_disabled"):
+        if a.get(key) != b.get(key):
+            return False
+    return True
+
+
 @dataclass
 class PlaywrightDriver:
     headless: bool = False
@@ -723,6 +806,180 @@ class PlaywrightDriver:
             "closed": post.get("closed"),
             "checked": post.get("checked"),
             "radio_group_identity": post.get("radio_group_identity"),
+            "mutation_performed": mutation_performed,
+            "popup_detected": events["popup"],
+            "new_page_detected": events["new_page"],
+            "download_detected": events["download"],
+            "navigation_detected": False,
+            "proof_strength": "STRONG",
+            "realized_state_verified": True,
+        }
+
+    def inspect_select(self, selector: str) -> dict:
+        page = self._ensure_page()
+        locator = page.locator(selector)
+        select_count = locator.count()
+        result = {"url": page.url, "select_selector": selector, "select_count": select_count}
+        result.update(self._identity_fields(page))
+        if select_count != 1:
+            return result
+
+        item = locator.first
+        tag_name = (item.get_attribute("data-tag-name") or "").lower()
+        selector_tag = selector.strip().split("#", 1)[0].split(".", 1)[0].lower()
+        if not tag_name and selector_tag in {"select"}:
+            tag_name = selector_tag
+        multiple = item.get_attribute("multiple") is not None
+        role = item.get_attribute("role") or ""
+        name = item.get_attribute("name") or ""
+        element_id = item.get_attribute("id") or ""
+        form_owner = item.get_attribute("form") or ""
+        current_value = item.input_value()
+        options = []
+        option_locator = item.locator("option") if hasattr(item, "locator") else locator.locator("option")
+        option_count = option_locator.count()
+        for index in range(option_count):
+            option = option_locator.nth(index)
+            text = option.inner_text()
+            value_attr = option.get_attribute("value")
+            option_value = text if value_attr is None else value_attr
+            label = option.get_attribute("label") or text
+            options.append({
+                "option_index": index,
+                "option_value": option_value,
+                "option_label": label,
+                "option_text": text,
+                "option_disabled": option.get_attribute("disabled") is not None,
+            })
+        current_selected_option = _selected_option_from_value(options, str(current_value or ""))
+        current_selected_ambiguous = current_selected_option is None and current_value not in (None, "")
+        metadata_payload = "|".join([
+            selector,
+            tag_name,
+            str(multiple),
+            role.lower(),
+            name,
+            element_id,
+            form_owner,
+            str(option_count),
+        ])
+        result.update({
+            "visible": bool(item.is_visible()),
+            "enabled": bool(item.is_enabled()),
+            "tag_name": tag_name,
+            "role": role.lower(),
+            "name": name,
+            "id": element_id,
+            "form_owner": form_owner,
+            "multiple": multiple,
+            "current_value": current_value,
+            "current_selected_option": current_selected_option,
+            "current_selected_ambiguous": current_selected_ambiguous,
+            "options": options,
+            "option_count": option_count,
+            "metadata_sha256": hashlib.sha256(metadata_payload.encode()).hexdigest(),
+            "main_frame": True,
+        })
+        return result
+
+    def select_option_by_identity(self, identity: dict, option_identity: dict) -> dict:
+        page = self._ensure_page()
+        selector = str(identity.get("select_selector") or "").strip()
+        if not selector:
+            raise ValueError("missing browser argument: select_selector")
+
+        observed = self.inspect_select(selector)
+        for key, error in (
+            ("browser_session_id", "SESSION_ID_DRIFT"),
+            ("page_id", "PAGE_ID_DRIFT"),
+            ("url", "URL_DRIFT"),
+            ("origin", "ORIGIN_DRIFT"),
+            ("tag_name", "TAG_DRIFT"),
+            ("multiple", "MULTI_SELECT_DRIFT"),
+            ("metadata_sha256", "SELECT_IDENTITY_DRIFT"),
+        ):
+            if observed.get(key) != identity.get(key):
+                raise ValueError(error)
+        if observed.get("select_count") != 1:
+            raise ValueError("SELECTOR_COUNT_DRIFT")
+        if observed.get("tag_name") != "select":
+            raise ValueError("UNSUPPORTED_SELECT_TARGET")
+        if observed.get("multiple") is True:
+            raise ValueError("UNSUPPORTED_MULTI_SELECT_V0")
+        if not _same_physical_option(observed.get("current_selected_option"), identity.get("current_selected_option")):
+            raise ValueError("PRE_SELECTED_DRIFT")
+        if observed.get("visible") is not True:
+            raise ValueError("ELEMENT_NOT_VISIBLE")
+        if observed.get("enabled") is not True:
+            raise ValueError("ELEMENT_NOT_ENABLED")
+        if observed.get("closed") is True:
+            raise ValueError("PAGE_CLOSED")
+        if identity.get("main_frame") is not True:
+            raise ValueError("IFRAME_UNSUPPORTED")
+        if observed.get("main_frame") is not True:
+            raise ValueError("IFRAME_UNSUPPORTED")
+
+        target = _resolve_option_identity(list(observed.get("options") or []), option_identity)
+        if not _same_option_identity(target, option_identity):
+            raise ValueError("OPTION_IDENTITY_DRIFT")
+
+        events = {"popup": False, "new_page": False, "download": False}
+
+        def _mark(name):
+            def _handler(*_args):
+                events[name] = True
+            return _handler
+
+        if _same_physical_option(observed.get("current_selected_option"), option_identity):
+            post = self.inspect_select(selector)
+            mutation_performed = False
+        else:
+            if hasattr(page, "on"):
+                page.on("popup", _mark("popup"))
+                page.on("download", _mark("download"))
+            context = getattr(page, "context", None)
+            if context is not None and hasattr(context, "on"):
+                context.on("page", _mark("new_page"))
+            if option_identity.get("match_kind") == "label":
+                page.locator(selector).first.select_option(label=str(option_identity.get("match_value") or ""))
+            elif option_identity.get("match_kind") == "index":
+                page.locator(selector).first.select_option(index=int(option_identity.get("match_value")))
+            else:
+                page.locator(selector).first.select_option(str(option_identity.get("option_value") or ""))
+            mutation_performed = True
+            if events["popup"]:
+                raise ValueError("UNEXPECTED_POPUP")
+            if events["new_page"]:
+                raise ValueError("UNEXPECTED_NEW_PAGE")
+            if events["download"]:
+                raise ValueError("UNEXPECTED_DOWNLOAD")
+            post = self.inspect_select(selector)
+
+        if _canonical_url(str(post.get("url") or "")) != _canonical_url(str(identity.get("url") or "")):
+            raise ValueError("UNEXPECTED_NAVIGATION")
+        if post.get("browser_session_id") != identity.get("browser_session_id"):
+            raise ValueError("POST_SESSION_ID_DRIFT")
+        if post.get("page_id") != identity.get("page_id"):
+            raise ValueError("POST_PAGE_ID_DRIFT")
+        if post.get("metadata_sha256") != identity.get("metadata_sha256"):
+            raise ValueError("POST_SELECT_IDENTITY_DRIFT")
+        post_target = _resolve_option_identity(list(post.get("options") or []), option_identity)
+        if not _same_option_identity(post_target, option_identity):
+            raise ValueError("POST_OPTION_IDENTITY_DRIFT")
+        if not _same_physical_option(post.get("current_selected_option"), option_identity):
+            raise ValueError("REALIZED_STATE_MISMATCH")
+        if post.get("closed") is True:
+            raise ValueError("POST_PAGE_CLOSED")
+        return {
+            "url": post.get("url"),
+            "select_selector": selector,
+            "browser_session_id": post.get("browser_session_id"),
+            "page_id": post.get("page_id"),
+            "origin": post.get("origin"),
+            "closed": post.get("closed"),
+            "current_value": post.get("current_value"),
+            "current_selected_option": post.get("current_selected_option"),
+            "target_option_identity": option_identity,
             "mutation_performed": mutation_performed,
             "popup_detected": events["popup"],
             "new_page_detected": events["new_page"],
