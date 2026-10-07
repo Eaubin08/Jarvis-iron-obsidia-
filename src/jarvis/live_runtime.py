@@ -90,7 +90,7 @@ def build_live_controller() -> HUDController:
     if os.getenv("JARJAR_LIVE_CONTEXT", "1").strip().lower() not in {"0", "false", "no", "off"}:
         camera_indices = tuple(
             int(x.strip())
-            for x in os.getenv("JARJAR_CAMERA_INDICES", "0,1").split(",")
+            for x in os.getenv("JARJAR_CAMERA_INDICES", "0,1,2,3").split(",")
             if x.strip()
         )
         camera_rig = CameraRig.from_device_indices(camera_indices)
