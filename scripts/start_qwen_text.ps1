@@ -1,7 +1,9 @@
 param(
     [int]$Port = 8080,
     [int]$CtxSize = 4096,
-    [string]$Model = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"
+    [string]$Model = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M",
+    [switch]$CpuOnly,
+    [string]$LogFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,10 +18,24 @@ if (-not $llama) {
     exit 2
 }
 
-Write-Host "JARJAR_QWEN: starting Qwen2.5-3B-Instruct Q4_K_M on port $Port"
+$mode = if ($CpuOnly) { "CPU" } else { "AUTO" }
+Write-Host "JARJAR_QWEN: starting Qwen2.5-3B-Instruct Q4_K_M on port $Port (mode=$mode)"
+
+$args = @('-hf',$Model,'--host','127.0.0.1','--port',"$Port",'-c',"$CtxSize")
+if ($CpuOnly) {
+    $args += @('--gpu-layers','0')
+}
+if ($LogFile) {
+    $args += @('--log-file',$LogFile,'--log-verbosity','5','--log-colors','off')
+}
 
 if ($llama.Name -eq "llama-server.exe" -or $llama.Name -eq "llama-server") {
-    & $llama.Source -hf $Model --host 127.0.0.1 --port $Port -c $CtxSize
+    & $llama.Source @args
 } else {
-    & $llama.Source serve -hf $Model --host 127.0.0.1 --port $Port -c $CtxSize
+    & $llama.Source serve @args
 }
+
+$code = $LASTEXITCODE
+if ($null -eq $code) { $code = 1 }
+Write-Host "JARJAR_QWEN: llama.cpp exited with code $code (mode=$mode)"
+exit $code
