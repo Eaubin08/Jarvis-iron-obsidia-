@@ -7,7 +7,7 @@ description.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 from urllib.error import HTTPError, URLError
@@ -22,6 +22,27 @@ class LocalQwenCognition:
     model: str = "Qwen2.5-3B-Instruct"
     timeout_seconds: float = 20.0
     live_timeline: object | None = None
+    _resolved_model: str | None = field(default=None, init=False, repr=False)
+
+    def _discover_model(self) -> str:
+        if self._resolved_model:
+            return self._resolved_model
+        models_endpoint = self.endpoint.rsplit("/chat/completions", 1)[0] + "/models"
+        try:
+            request = Request(models_endpoint, method="GET")
+            with urlopen(request, timeout=min(self.timeout_seconds, 5.0)) as response:
+                packet = json.loads(response.read().decode("utf-8"))
+            rows = packet.get("data") if isinstance(packet, dict) else None
+            if isinstance(rows, list) and rows:
+                model_id = rows[0].get("id") if isinstance(rows[0], dict) else None
+                if isinstance(model_id, str) and model_id.strip():
+                    self._resolved_model = model_id.strip()
+                    print(f"JARJAR_QWEN_MODEL: discovered={self._resolved_model}")
+                    return self._resolved_model
+        except Exception as exc:
+            print(f"JARJAR_QWEN_MODEL: discovery_failed={type(exc).__name__}: {exc}")
+        self._resolved_model = self.model
+        return self._resolved_model
 
     def _live_context(self, user_input: str) -> str:
         if self.live_timeline is None:
@@ -67,7 +88,7 @@ class LocalQwenCognition:
             user_parts.append(f"CONTEXTE LIVE STRUCTURÉ:\n{live}")
 
         payload = {
-            "model": self.model,
+            "model": self._discover_model(),
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": "\n\n".join(user_parts)},
@@ -84,8 +105,16 @@ class LocalQwenCognition:
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 raw = response.read()
-        except (HTTPError, URLError, TimeoutError) as exc:
-            raise RuntimeError("local Qwen unavailable") from exc
+        except HTTPError as exc:
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")
+            except Exception:
+                detail = ""
+            raise RuntimeError(f"local Qwen HTTP {exc.code}: {detail[:1200]}") from exc
+        except URLError as exc:
+            raise RuntimeError(f"local Qwen endpoint unavailable: {exc.reason}") from exc
+        except TimeoutError as exc:
+            raise RuntimeError("local Qwen request timed out") from exc
 
         try:
             packet = json.loads(raw.decode("utf-8"))
