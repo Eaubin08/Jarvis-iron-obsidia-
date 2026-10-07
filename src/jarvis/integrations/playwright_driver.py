@@ -26,6 +26,17 @@ _FIELD_SENSITIVE_AUTOCOMPLETE = {
     "cc-exp-month",
     "cc-exp-year",
 }
+_SUBMIT_ALLOWED_CLASSES = {"button:submit", "input:submit", "input:image"}
+_SUBMIT_SENSITIVE_AUTOCOMPLETE = _FIELD_SENSITIVE_AUTOCOMPLETE
+_SUBMIT_SENSITIVE_INPUT_TYPES = {"password"}
+_SUBMIT_PAYMENT_INPUT_TYPES = {"month"}
+_SUBMIT_EXECUTION_STATES = {
+    "NOT_DISPATCHED",
+    "DISPATCHED",
+    "RESPONSE_OBSERVED",
+    "POSTCONDITION_CONFIRMED",
+    "DISPATCHED_OUTCOME_UNCERTAIN",
+}
 
 
 def _canonical_url(url: str) -> str:
@@ -184,6 +195,22 @@ def _field_value_sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _hash_text(value: str) -> str:
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()
+
+
+def _safe_url_evidence(url: str) -> dict:
+    canonical = _canonical_url(str(url or ""))
+    parsed = urlparse(canonical)
+    endpoint = urlunparse(parsed._replace(query="", fragment=""))
+    return {
+        "url_hash": _hash_text(canonical),
+        "endpoint": endpoint,
+        "origin": f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else "",
+        "has_query": bool(parsed.query),
+    }
+
+
 def _field_class(tag_name: str, input_type: str) -> str:
     if tag_name == "textarea":
         return "TEXTAREA"
@@ -248,6 +275,82 @@ def _same_field_identity(a: dict, b: dict) -> bool:
         if a.get(key) != b.get(key):
             return False
     return True
+
+
+def _form_pre_state_anchor(identity: dict) -> str:
+    snapshot = {
+        "anchor_schema": "BROWSER_SUBMIT_FORM_NAVIGATION_PRE_STATE_V1",
+        "browser_session_id": identity.get("browser_session_id") or "",
+        "page_id": identity.get("page_id") or "",
+        "url": identity.get("url") or "",
+        "origin": identity.get("origin") or "",
+        "form_selector": identity.get("form_selector") or "",
+        "submitter_selector": identity.get("submitter_selector") or "",
+        "form_metadata_sha256": identity.get("metadata_sha256") or "",
+        "submitter_metadata_sha256": identity.get("submitter_metadata_sha256") or "",
+        "field_manifest_hash": identity.get("field_manifest_hash") or "",
+    }
+    return _hash_text(json_dumps_stable(snapshot))
+
+
+def json_dumps_stable(value: Any) -> str:
+    import json
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def _same_form_submission_identity(a: dict, b: dict) -> bool:
+    for key in (
+        "browser_session_id", "page_id", "url", "origin",
+        "form_selector", "form_count", "form_action", "resolved_action",
+        "method", "target", "enctype", "name", "id", "autocomplete",
+        "submitter_selector", "submitter_count", "submitter_tag",
+        "submitter_type", "submitter_name", "submitter_value_sha256",
+        "submitter_form_owner", "submitter_text_sha256",
+        "metadata_sha256", "submitter_metadata_sha256",
+        "field_manifest_hash", "field_count", "main_frame_only",
+    ):
+        if a.get(key) != b.get(key):
+            return False
+    return True
+
+
+def _validate_form_submission_identity(identity: dict) -> str:
+    if not identity.get("browser_session_id"):
+        return "SESSION_ID_MISSING"
+    if not identity.get("page_id"):
+        return "PAGE_ID_MISSING"
+    if identity.get("closed") is True:
+        return "PAGE_CLOSED"
+    if identity.get("main_frame_only") is not True:
+        return "IFRAME_UNSUPPORTED"
+    if identity.get("form_count") != 1:
+        return "FORM_COUNT_NOT_ONE"
+    if identity.get("submitter_count") != 1:
+        return "SUBMITTER_COUNT_NOT_ONE"
+    if identity.get("form_tag") != "form":
+        return "FORM_TAG_REQUIRED"
+    if str(identity.get("method") or "").lower() != "get":
+        return "FORM_METHOD_NOT_GET"
+    if str(identity.get("target") or "").lower() in {"_blank", "_parent", "_top"}:
+        return "FORM_TARGET_NEW_CONTEXT_UNSUPPORTED"
+    if identity.get("same_origin_action") is not True:
+        return "CROSS_ORIGIN_ACTION_UNSUPPORTED"
+    submitter_class = f"{identity.get('submitter_tag')}:{identity.get('submitter_type')}"
+    if submitter_class not in _SUBMIT_ALLOWED_CLASSES:
+        return "UNSUPPORTED_SUBMITTER_TARGET"
+    if identity.get("submitter_visible") is not True:
+        return "SUBMITTER_NOT_VISIBLE"
+    if identity.get("submitter_enabled") is not True:
+        return "SUBMITTER_NOT_ENABLED"
+    if identity.get("submitter_belongs_to_form") is not True:
+        return "SUBMITTER_FORM_OWNER_MISMATCH"
+    if identity.get("contains_password") is True:
+        return "PASSWORD_FORM_DEFERRED"
+    if identity.get("contains_otp_sensitive") is True:
+        return "OTP_FORM_DEFERRED"
+    if identity.get("contains_payment_sensitive") is True:
+        return "PAYMENT_FORM_DEFERRED"
+    return ""
 
 
 @dataclass
@@ -1236,6 +1339,369 @@ class PlaywrightDriver:
             "navigation_detected": False,
             "proof_strength": "STRONG",
             "realized_state_verified": True,
+        }
+
+    def inspect_form_submission(self, form_selector: str, submitter_selector: str) -> dict:
+        page = self._ensure_page()
+        form_selector = str(form_selector or "").strip()
+        submitter_selector = str(submitter_selector or "").strip()
+        form = page.locator(form_selector)
+        submitter = page.locator(submitter_selector)
+        form_count = form.count()
+        submitter_count = submitter.count()
+        result = {
+            "url": page.url,
+            "origin": self._page_origin(page.url),
+            "form_selector": form_selector,
+            "form_count": form_count,
+            "submitter_selector": submitter_selector,
+            "submitter_count": submitter_count,
+            "main_frame_only": True,
+        }
+        result.update(self._identity_fields(page))
+        if form_count != 1 or submitter_count != 1:
+            return result
+
+        form_item = form.first
+        submit_item = submitter.first
+        form_tag = (form_item.get_attribute("data-tag-name") or "").strip().lower()
+        if not form_tag and form_selector.lower().lstrip().startswith("form"):
+            form_tag = "form"
+        method = (form_item.get_attribute("method") or "get").strip().lower() or "get"
+        raw_action = form_item.get_attribute("action") or page.url
+        resolved_action = _canonical_url(urljoin(page.url, raw_action))
+        action_origin = self._page_origin(resolved_action)
+        current_origin = self._page_origin(page.url)
+        target = (form_item.get_attribute("target") or "").strip().lower()
+        enctype = (form_item.get_attribute("enctype") or "application/x-www-form-urlencoded").strip().lower()
+        form_name = form_item.get_attribute("name") or ""
+        form_id = form_item.get_attribute("id") or ""
+        autocomplete = (form_item.get_attribute("autocomplete") or "").strip().lower()
+
+        submitter_tag = (submit_item.get_attribute("data-tag-name") or "").strip().lower()
+        if not submitter_tag:
+            s = submitter_selector.lower()
+            if s.lstrip().startswith("button"):
+                submitter_tag = "button"
+            elif s.lstrip().startswith("input"):
+                submitter_tag = "input"
+        submitter_type = (submit_item.get_attribute("type") or ("submit" if submitter_tag == "button" else "")).strip().lower()
+        if submitter_tag == "button" and not submitter_type:
+            submitter_type = "submit"
+        submitter_name = submit_item.get_attribute("name") or ""
+        submitter_value = submit_item.get_attribute("value") or ""
+        submitter_form_owner = submit_item.get_attribute("form") or ""
+        submitter_text = ""
+        if hasattr(submit_item, "inner_text"):
+            try:
+                submitter_text = submit_item.inner_text() or ""
+            except Exception:
+                submitter_text = ""
+        submitter_belongs = submitter_form_owner in ("", form_id) if form_id else submitter_form_owner == ""
+
+        field_manifest = self._form_field_manifest(form, form_id)
+        field_manifest_hash = _hash_text(json_dumps_stable(field_manifest))
+        metadata_payload = "|".join([
+            form_selector, form_tag, raw_action, resolved_action, method,
+            target, enctype, form_name, form_id, autocomplete,
+        ])
+        submitter_metadata_payload = "|".join([
+            submitter_selector, submitter_tag, submitter_type, submitter_name,
+            submitter_form_owner, submitter_value, submitter_text,
+        ])
+        result.update({
+            "form_tag": form_tag,
+            "form_action": raw_action,
+            "resolved_action": resolved_action,
+            "resolved_action_hash": _hash_text(resolved_action),
+            "resolved_action_endpoint": _safe_url_evidence(resolved_action)["endpoint"],
+            "method": method,
+            "target": target,
+            "enctype": enctype,
+            "name": form_name,
+            "id": form_id,
+            "autocomplete": autocomplete,
+            "same_origin_action": action_origin == current_origin,
+            "submitter_tag": submitter_tag,
+            "submitter_type": submitter_type,
+            "submitter_name": submitter_name,
+            "submitter_value_sha256": _hash_text(submitter_value),
+            "submitter_value_length": len(submitter_value),
+            "submitter_form_owner": submitter_form_owner,
+            "submitter_belongs_to_form": submitter_belongs,
+            "submitter_visible": bool(submit_item.is_visible()),
+            "submitter_enabled": bool(submit_item.is_enabled()),
+            "submitter_text_sha256": _hash_text(submitter_text),
+            "field_manifest": field_manifest,
+            "field_manifest_hash": field_manifest_hash,
+            "field_count": len(field_manifest),
+            "contains_password": any(f.get("sensitive_class") == "password" for f in field_manifest),
+            "contains_otp_sensitive": any(f.get("sensitive_class") == "otp" for f in field_manifest),
+            "contains_payment_sensitive": any(f.get("sensitive_class") == "payment" for f in field_manifest),
+            "metadata_sha256": _hash_text(metadata_payload),
+            "submitter_metadata_sha256": _hash_text(submitter_metadata_payload),
+            "physical_state_anchor": "",
+            "redirect_policy": "SAME_ORIGIN_REDIRECT_CHAIN",
+            "expected_effect": "NAVIGATION",
+        })
+        result["physical_state_anchor"] = _form_pre_state_anchor(result)
+        return result
+
+    def _form_field_manifest(self, form, form_id: str) -> list[dict]:
+        fields: list[dict] = []
+        if not hasattr(form, "locator"):
+            return fields
+        try:
+            controls = form.locator("input, textarea, select")
+            count = controls.count()
+        except Exception:
+            return fields
+        for index in range(count):
+            control = controls.nth(index)
+            tag = (control.get_attribute("data-tag-name") or "").strip().lower()
+            input_type = (control.get_attribute("type") or ("text" if tag == "input" else "")).strip().lower()
+            name = control.get_attribute("name") or ""
+            autocomplete = (control.get_attribute("autocomplete") or "").strip().lower()
+            form_owner = control.get_attribute("form") or form_id or ""
+            enabled = bool(control.is_enabled())
+            checked = None
+            if hasattr(control, "is_checked"):
+                try:
+                    checked = bool(control.is_checked())
+                except Exception:
+                    checked = None
+            value = ""
+            if tag in {"input", "textarea", "select"} and hasattr(control, "input_value"):
+                try:
+                    value = control.input_value() or ""
+                except Exception:
+                    value = control.get_attribute("value") or ""
+            sensitive = ""
+            if input_type in _SUBMIT_SENSITIVE_INPUT_TYPES:
+                sensitive = "password"
+            elif autocomplete == "one-time-code":
+                sensitive = "otp"
+            elif autocomplete in _SUBMIT_SENSITIVE_AUTOCOMPLETE or input_type in _SUBMIT_PAYMENT_INPUT_TYPES:
+                sensitive = "payment"
+            fields.append({
+                "index": index,
+                "name_sha256": _hash_text(name),
+                "type": input_type,
+                "tag_name": tag,
+                "form_owner_sha256": _hash_text(form_owner),
+                "enabled": enabled,
+                "checked": checked,
+                "successful_control_v0": bool(enabled and name),
+                "value_sha256": _hash_text(value),
+                "value_length": len(value),
+                "hidden": input_type == "hidden",
+                "autocomplete": autocomplete,
+                "sensitive_class": sensitive,
+            })
+        return fields
+
+    def submit_get_navigation_by_identity(self, identity: dict) -> dict:
+        page = self._ensure_page()
+        form_selector = str(identity.get("form_selector") or "").strip()
+        submitter_selector = str(identity.get("submitter_selector") or "").strip()
+        if not form_selector:
+            raise ValueError("missing browser argument: form_selector")
+        if not submitter_selector:
+            raise ValueError("missing browser argument: submitter_selector")
+
+        observed = self.inspect_form_submission(form_selector, submitter_selector)
+        reason = _validate_form_submission_identity(observed)
+        if reason:
+            raise ValueError(reason)
+        if not _same_form_submission_identity(identity, observed):
+            raise ValueError("FORM_SUBMISSION_IDENTITY_DRIFT")
+        if observed.get("physical_state_anchor") != identity.get("physical_state_anchor"):
+            raise ValueError("PRE_STATE_DRIFT")
+
+        events = {"popup": False, "new_page": False, "download": False}
+        request_seen: dict[str, Any] = {}
+        response_seen: dict[str, Any] = {}
+        execution_state = "NOT_DISPATCHED"
+
+        approved_endpoint = _safe_url_evidence(str(identity.get("resolved_action") or "")).get("endpoint")
+        approved_origin = str(identity.get("origin") or "")
+
+        def _mark(name):
+            def _handler(*_args):
+                events[name] = True
+            return _handler
+
+        def _request_handler(request):
+            nonlocal execution_state
+            try:
+                method = request.method
+                url = request.url
+                resource_type = getattr(request, "resource_type", "")
+                post_data = request.post_data if hasattr(request, "post_data") else None
+            except Exception:
+                return
+            safe = _safe_url_evidence(url)
+            if str(method).upper() == "GET" and safe.get("endpoint") == approved_endpoint:
+                request_seen.update({
+                    "method": str(method).upper(),
+                    "url_hash": safe["url_hash"],
+                    "endpoint": safe["endpoint"],
+                    "origin": safe["origin"],
+                    "has_query": safe["has_query"],
+                    "resource_type": resource_type,
+                    "post_data_present": bool(post_data),
+                    "fingerprint": _hash_text("|".join([
+                        str(method).upper(), safe["url_hash"], str(resource_type), identity.get("field_manifest_hash") or "",
+                    ])),
+                })
+                execution_state = "DISPATCHED"
+
+        def _response_handler(response):
+            nonlocal execution_state
+            try:
+                request = response.request
+                method = request.method
+                url = response.url
+                status = response.status
+            except Exception:
+                return
+            safe = _safe_url_evidence(url)
+            if str(method).upper() == "GET" and safe.get("endpoint") == approved_endpoint:
+                response_seen.update({
+                    "status": status,
+                    "url_hash": safe["url_hash"],
+                    "endpoint": safe["endpoint"],
+                    "origin": safe["origin"],
+                    "same_origin": safe["origin"] == approved_origin,
+                })
+                execution_state = "RESPONSE_OBSERVED"
+
+        if hasattr(page, "on"):
+            page.on("popup", _mark("popup"))
+            page.on("download", _mark("download"))
+            page.on("request", _request_handler)
+            page.on("response", _response_handler)
+        context = getattr(page, "context", None)
+        if context is not None and hasattr(context, "on"):
+            context.on("page", _mark("new_page"))
+
+        page.locator(submitter_selector).first.click()
+
+        if not request_seen:
+            raise ValueError("REQUEST_NOT_OBSERVED")
+        if events["popup"]:
+            execution_state = "DISPATCHED_OUTCOME_UNCERTAIN"
+        if events["new_page"]:
+            execution_state = "DISPATCHED_OUTCOME_UNCERTAIN"
+        if events["download"]:
+            execution_state = "DISPATCHED_OUTCOME_UNCERTAIN"
+        if request_seen.get("method") != "GET" or request_seen.get("post_data_present"):
+            execution_state = "DISPATCHED_OUTCOME_UNCERTAIN"
+        if request_seen.get("origin") != approved_origin:
+            execution_state = "DISPATCHED_OUTCOME_UNCERTAIN"
+
+        try:
+            post = self.read()
+        except Exception as exc:
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, f"POST_READ_FAILED:{type(exc).__name__}")
+
+        final_safe = _safe_url_evidence(str(post.get("url") or ""))
+        if execution_state == "DISPATCHED_OUTCOME_UNCERTAIN":
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "SIDE_EFFECT_OR_REQUEST_POLICY_VIOLATION", post, final_safe)
+        if not response_seen:
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "RESPONSE_NOT_OBSERVED", post, final_safe)
+        if response_seen.get("same_origin") is not True:
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "CROSS_ORIGIN_RESPONSE_OR_REDIRECT", post, final_safe)
+        if post.get("browser_session_id") != identity.get("browser_session_id"):
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "POST_SESSION_ID_DRIFT", post, final_safe)
+        if post.get("page_id") != identity.get("page_id"):
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "POST_PAGE_ID_DRIFT", post, final_safe)
+        if post.get("closed") is True:
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "POST_PAGE_CLOSED", post, final_safe)
+        if final_safe.get("origin") != approved_origin:
+            return self._submission_uncertain_result(identity, request_seen, response_seen, events, "CROSS_ORIGIN_FINAL_URL", post, final_safe)
+
+        return {
+            "url_hash": final_safe["url_hash"],
+            "final_url_hash": final_safe["url_hash"],
+            "final_url_endpoint": final_safe["endpoint"],
+            "final_origin": final_safe["origin"],
+            "browser_session_id": post.get("browser_session_id"),
+            "page_id": post.get("page_id"),
+            "closed": post.get("closed"),
+            "form_selector": form_selector,
+            "submitter_selector": submitter_selector,
+            "field_manifest_hash": identity.get("field_manifest_hash"),
+            "request_observed": True,
+            "request_method": request_seen.get("method"),
+            "request_url_hash": request_seen.get("url_hash"),
+            "request_endpoint": request_seen.get("endpoint"),
+            "request_resource_type": request_seen.get("resource_type"),
+            "request_fingerprint": request_seen.get("fingerprint"),
+            "response_observed": True,
+            "response_status": response_seen.get("status"),
+            "response_url_hash": response_seen.get("url_hash"),
+            "execution_state": "POSTCONDITION_CONFIRMED",
+            "transport_proof": "STRONG",
+            "navigation_proof": "STRONG",
+            "application_proof": "NOT_CLAIMED",
+            "realized_state_verified": True,
+            "proof_strength": "STRONG",
+            "redirect_policy": "SAME_ORIGIN_REDIRECT_CHAIN",
+            "popup_detected": events["popup"],
+            "new_page_detected": events["new_page"],
+            "download_detected": events["download"],
+            "plaintext_form_data_returned": False,
+            "replay_physical_action_allowed": False,
+            "idempotency_assumed": False,
+        }
+
+    def _submission_uncertain_result(
+        self,
+        identity: dict,
+        request_seen: dict,
+        response_seen: dict,
+        events: dict,
+        reason: str,
+        post: dict | None = None,
+        final_safe: dict | None = None,
+    ) -> dict:
+        post = post or {}
+        final_safe = final_safe or {}
+        return {
+            "url_hash": final_safe.get("url_hash", ""),
+            "final_url_hash": final_safe.get("url_hash", ""),
+            "final_url_endpoint": final_safe.get("endpoint", ""),
+            "final_origin": final_safe.get("origin", ""),
+            "browser_session_id": post.get("browser_session_id", identity.get("browser_session_id")),
+            "page_id": post.get("page_id", identity.get("page_id")),
+            "closed": post.get("closed"),
+            "form_selector": identity.get("form_selector"),
+            "submitter_selector": identity.get("submitter_selector"),
+            "field_manifest_hash": identity.get("field_manifest_hash"),
+            "request_observed": bool(request_seen),
+            "request_method": request_seen.get("method"),
+            "request_url_hash": request_seen.get("url_hash"),
+            "request_endpoint": request_seen.get("endpoint"),
+            "request_resource_type": request_seen.get("resource_type"),
+            "request_fingerprint": request_seen.get("fingerprint"),
+            "response_observed": bool(response_seen),
+            "response_status": response_seen.get("status"),
+            "response_url_hash": response_seen.get("url_hash"),
+            "execution_state": "DISPATCHED_OUTCOME_UNCERTAIN",
+            "uncertain_reason": reason,
+            "transport_proof": "STRONG" if request_seen else "NONE",
+            "navigation_proof": "UNCERTAIN",
+            "application_proof": "NOT_CLAIMED",
+            "realized_state_verified": False,
+            "proof_strength": "UNCERTAIN",
+            "redirect_policy": "SAME_ORIGIN_REDIRECT_CHAIN",
+            "popup_detected": events.get("popup", False),
+            "new_page_detected": events.get("new_page", False),
+            "download_detected": events.get("download", False),
+            "plaintext_form_data_returned": False,
+            "replay_physical_action_allowed": False,
+            "idempotency_assumed": False,
         }
 
     def click(self, selector: str) -> dict:

@@ -26,6 +26,8 @@ class BrowserDriver(Protocol):
     def select_option_by_identity(self, identity: dict, option_identity: dict) -> dict: ...
     def inspect_field(self, selector: str) -> dict: ...
     def set_field_value_by_identity(self, identity: dict, target_value: str) -> dict: ...
+    def inspect_form_submission(self, form_selector: str, submitter_selector: str) -> dict: ...
+    def submit_get_navigation_by_identity(self, identity: dict) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -51,6 +53,8 @@ class BrowserBackend:
         "browser.select_option",
         "browser.inspect_field",
         "browser.set_field_value",
+        "browser.inspect_form_submission",
+        "browser.submit_get_navigation",
         "browser.click",
     })
 
@@ -106,6 +110,12 @@ class BrowserBackend:
                 if not isinstance(target_value, str):
                     raise ValueError("target_value must be str")
                 data = self.driver.set_field_value_by_identity(dict(request.arguments), target_value)
+            elif request.capability == "browser.inspect_form_submission":
+                form_selector = self._required(request, "form_selector")
+                submitter_selector = self._required(request, "submitter_selector")
+                data = self.driver.inspect_form_submission(form_selector, submitter_selector)
+            elif request.capability == "browser.submit_get_navigation":
+                data = self.driver.submit_get_navigation_by_identity(dict(request.arguments))
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)
