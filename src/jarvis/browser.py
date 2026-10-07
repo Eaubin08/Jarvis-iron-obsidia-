@@ -24,6 +24,8 @@ class BrowserDriver(Protocol):
     def select_radio_by_identity(self, identity: dict) -> dict: ...
     def inspect_select(self, selector: str) -> dict: ...
     def select_option_by_identity(self, identity: dict, option_identity: dict) -> dict: ...
+    def inspect_field(self, selector: str) -> dict: ...
+    def set_field_value_by_identity(self, identity: dict, target_value: str) -> dict: ...
     def click(self, selector: str) -> dict: ...
     def fill(self, selector: str, value: str) -> dict: ...
 
@@ -47,8 +49,9 @@ class BrowserBackend:
         "browser.select_radio",
         "browser.inspect_select",
         "browser.select_option",
+        "browser.inspect_field",
+        "browser.set_field_value",
         "browser.click",
-        "browser.fill",
     })
 
     def can_execute(self, request: ActionRequest, capability: Capability) -> bool:
@@ -95,13 +98,17 @@ class BrowserBackend:
                 if not isinstance(option_identity, dict):
                     raise ValueError("option_identity must be dict")
                 data = self.driver.select_option_by_identity(dict(request.arguments), option_identity)
+            elif request.capability == "browser.inspect_field":
+                selector = self._required(request, "selector")
+                data = self.driver.inspect_field(selector)
+            elif request.capability == "browser.set_field_value":
+                target_value = request.arguments.get("target_value")
+                if not isinstance(target_value, str):
+                    raise ValueError("target_value must be str")
+                data = self.driver.set_field_value_by_identity(dict(request.arguments), target_value)
             elif request.capability == "browser.click":
                 selector = self._required(request, "selector")
                 data = self.driver.click(selector)
-            elif request.capability == "browser.fill":
-                selector = self._required(request, "selector")
-                value = self._required(request, "value")
-                data = self.driver.fill(selector, value)
             else:
                 return ActionResult(False, "unsupported browser capability", backend=self.name)
         except (KeyError, ValueError) as exc:

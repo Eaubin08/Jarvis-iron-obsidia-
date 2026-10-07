@@ -12,6 +12,20 @@ from urllib.parse import urljoin, urlparse, urlunparse
 
 
 _BLOCKED_LINK_SCHEMES = {"javascript", "data", "file", "mailto", "tel"}
+_FIELD_MAX_TARGET_VALUE_LENGTH = 4096
+_FIELD_SUPPORTED_INPUT_TYPES = {"text", "search", "email", "url", "tel"}
+_FIELD_DEFERRED_INPUT_TYPES = {"number", "date", "time", "datetime-local", "password"}
+_FIELD_BLOCKED_INPUT_TYPES = {"file", "hidden"}
+_FIELD_SENSITIVE_AUTOCOMPLETE = {
+    "current-password",
+    "new-password",
+    "one-time-code",
+    "cc-number",
+    "cc-csc",
+    "cc-exp",
+    "cc-exp-month",
+    "cc-exp-year",
+}
 
 
 def _canonical_url(url: str) -> str:
@@ -161,6 +175,76 @@ def _same_physical_option(a: dict | None, b: dict | None) -> bool:
     if not isinstance(a, dict) or not isinstance(b, dict):
         return False
     for key in ("option_value", "option_label", "option_text", "option_index", "option_disabled"):
+        if a.get(key) != b.get(key):
+            return False
+    return True
+
+
+def _field_value_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _field_class(tag_name: str, input_type: str) -> str:
+    if tag_name == "textarea":
+        return "TEXTAREA"
+    if tag_name == "input" and input_type in _FIELD_SUPPORTED_INPUT_TYPES:
+        return f"INPUT_{input_type.upper()}"
+    if tag_name == "input" and input_type in _FIELD_DEFERRED_INPUT_TYPES:
+        return "DEFERRED"
+    if tag_name == "input" and input_type in _FIELD_BLOCKED_INPUT_TYPES:
+        return "BLOCKED"
+    return "UNSUPPORTED"
+
+
+def _validate_field_identity(identity: dict) -> str:
+    if not identity.get("browser_session_id"):
+        return "SESSION_ID_MISSING"
+    if not identity.get("page_id"):
+        return "PAGE_ID_MISSING"
+    if identity.get("closed") is True:
+        return "PAGE_CLOSED"
+    if identity.get("element_count") != 1:
+        return "FIELD_COUNT_NOT_ONE"
+    if identity.get("main_frame") is not True:
+        return "IFRAME_UNSUPPORTED"
+    field_class = identity.get("supported_field_class")
+    if field_class not in {"INPUT_TEXT", "INPUT_SEARCH", "INPUT_EMAIL", "INPUT_URL", "INPUT_TEL", "TEXTAREA"}:
+        input_type = identity.get("type")
+        if input_type == "password":
+            return "PASSWORD_FIELD_DEFERRED"
+        if input_type == "file":
+            return "FILE_FIELD_BLOCKED"
+        if input_type == "hidden":
+            return "HIDDEN_FIELD_BLOCKED"
+        if input_type in {"number", "date", "time", "datetime-local"}:
+            return "FIELD_TYPE_DEFERRED"
+        if identity.get("contenteditable"):
+            return "CONTENTEDITABLE_DEFERRED"
+        return "UNSUPPORTED_FIELD_TARGET"
+    if str(identity.get("autocomplete") or "").strip().lower() in _FIELD_SENSITIVE_AUTOCOMPLETE:
+        return "SENSITIVE_AUTOCOMPLETE_DEFERRED"
+    if identity.get("visible") is not True:
+        return "ELEMENT_NOT_VISIBLE"
+    if identity.get("enabled") is not True:
+        return "ELEMENT_NOT_ENABLED"
+    if identity.get("editable") is not True:
+        return "ELEMENT_NOT_EDITABLE"
+    if identity.get("readonly") is True:
+        return "ELEMENT_READONLY"
+    if not isinstance(identity.get("current_value_sha256"), str) or not identity.get("current_value_sha256"):
+        return "CURRENT_VALUE_HASH_MISSING"
+    if not isinstance(identity.get("current_value_length"), int):
+        return "CURRENT_VALUE_LENGTH_MISSING"
+    return ""
+
+
+def _same_field_identity(a: dict, b: dict) -> bool:
+    for key in (
+        "browser_session_id", "page_id", "url", "origin", "selector",
+        "element_count", "tag_name", "type", "name", "id", "role",
+        "autocomplete", "form_owner", "metadata_sha256", "main_frame",
+        "supported_field_class",
+    ):
         if a.get(key) != b.get(key):
             return False
     return True
@@ -980,6 +1064,171 @@ class PlaywrightDriver:
             "current_value": post.get("current_value"),
             "current_selected_option": post.get("current_selected_option"),
             "target_option_identity": option_identity,
+            "mutation_performed": mutation_performed,
+            "popup_detected": events["popup"],
+            "new_page_detected": events["new_page"],
+            "download_detected": events["download"],
+            "navigation_detected": False,
+            "proof_strength": "STRONG",
+            "realized_state_verified": True,
+        }
+
+    def inspect_field(self, selector: str) -> dict:
+        page = self._ensure_page()
+        locator = page.locator(selector)
+        element_count = locator.count()
+        result = {"url": page.url, "selector": selector, "element_count": element_count}
+        result.update(self._identity_fields(page))
+        if element_count != 1:
+            return result
+
+        item = locator.first
+        tag_name = (item.get_attribute("data-tag-name") or "").strip().lower()
+        selector_tag = selector.strip().split("#", 1)[0].split(".", 1)[0].lower()
+        if not tag_name and selector_tag in {"input", "textarea"}:
+            tag_name = selector_tag
+        input_type = (item.get_attribute("type") or ("text" if tag_name == "input" else "")).strip().lower()
+        name = item.get_attribute("name") or ""
+        element_id = item.get_attribute("id") or ""
+        role = (item.get_attribute("role") or "").lower()
+        autocomplete = (item.get_attribute("autocomplete") or "").strip().lower()
+        form_owner = item.get_attribute("form") or ""
+        readonly = item.get_attribute("readonly") is not None
+        contenteditable = item.get_attribute("contenteditable") is not None
+        visible = bool(item.is_visible())
+        enabled = bool(item.is_enabled())
+        field_class = _field_class(tag_name, input_type)
+        current_value = ""
+        current_hash = ""
+        current_length = None
+        editable = False
+        if field_class in {"INPUT_TEXT", "INPUT_SEARCH", "INPUT_EMAIL", "INPUT_URL", "INPUT_TEL", "TEXTAREA"}:
+            current_value = item.input_value()
+            current_hash = _field_value_sha256(current_value)
+            current_length = len(current_value)
+            editable = bool(item.is_editable())
+        elif hasattr(item, "is_editable"):
+            try:
+                editable = bool(item.is_editable())
+            except Exception:
+                editable = False
+        metadata_payload = "|".join([
+            selector,
+            tag_name,
+            input_type,
+            name,
+            element_id,
+            role,
+            autocomplete,
+            form_owner,
+            field_class,
+        ])
+        result.update({
+            "tag_name": tag_name,
+            "type": input_type,
+            "name": name,
+            "id": element_id,
+            "role": role,
+            "autocomplete": autocomplete,
+            "form_owner": form_owner,
+            "visible": visible,
+            "enabled": enabled,
+            "editable": editable,
+            "readonly": readonly,
+            "contenteditable": contenteditable,
+            "supported_field_class": field_class,
+            "current_value_sha256": current_hash,
+            "current_value_length": current_length,
+            "metadata_sha256": hashlib.sha256(metadata_payload.encode()).hexdigest(),
+            "main_frame": True,
+            "max_target_value_length": _FIELD_MAX_TARGET_VALUE_LENGTH,
+            "sensitive_autocomplete_denylist": sorted(_FIELD_SENSITIVE_AUTOCOMPLETE),
+        })
+        return result
+
+    def set_field_value_by_identity(self, identity: dict, target_value: str) -> dict:
+        if not isinstance(target_value, str):
+            raise ValueError("TARGET_VALUE_STRING_REQUIRED")
+        if len(target_value) > _FIELD_MAX_TARGET_VALUE_LENGTH:
+            raise ValueError("TARGET_VALUE_TOO_LONG")
+        selector = str(identity.get("selector") or "").strip()
+        if not selector:
+            raise ValueError("missing browser argument: selector")
+
+        observed = self.inspect_field(selector)
+        reason = _validate_field_identity(observed)
+        if reason:
+            raise ValueError(reason)
+        if identity.get("main_frame") is not True:
+            raise ValueError("IFRAME_UNSUPPORTED")
+        if not _same_field_identity(identity, observed):
+            raise ValueError("FIELD_IDENTITY_DRIFT")
+        if observed.get("current_value_sha256") != identity.get("current_value_sha256"):
+            raise ValueError("PRE_VALUE_HASH_DRIFT")
+        if observed.get("current_value_length") != identity.get("current_value_length"):
+            raise ValueError("PRE_VALUE_LENGTH_DRIFT")
+
+        page = self._ensure_page()
+        target_hash = _field_value_sha256(target_value)
+        target_length = len(target_value)
+        events = {"popup": False, "new_page": False, "download": False}
+
+        def _mark(name):
+            def _handler(*_args):
+                events[name] = True
+            return _handler
+
+        if observed.get("current_value_sha256") == target_hash and observed.get("current_value_length") == target_length:
+            post = self.inspect_field(selector)
+            mutation_performed = False
+        else:
+            if hasattr(page, "on"):
+                page.on("popup", _mark("popup"))
+                page.on("download", _mark("download"))
+            context = getattr(page, "context", None)
+            if context is not None and hasattr(context, "on"):
+                context.on("page", _mark("new_page"))
+            page.locator(selector).first.fill(target_value)
+            mutation_performed = True
+            if events["popup"]:
+                raise ValueError("UNEXPECTED_POPUP")
+            if events["new_page"]:
+                raise ValueError("UNEXPECTED_NEW_PAGE")
+            if events["download"]:
+                raise ValueError("UNEXPECTED_DOWNLOAD")
+            post = self.inspect_field(selector)
+
+        if _canonical_url(str(post.get("url") or "")) != _canonical_url(str(identity.get("url") or "")):
+            raise ValueError("UNEXPECTED_NAVIGATION")
+        if post.get("browser_session_id") != identity.get("browser_session_id"):
+            raise ValueError("POST_SESSION_ID_DRIFT")
+        if post.get("page_id") != identity.get("page_id"):
+            raise ValueError("POST_PAGE_ID_DRIFT")
+        if not _same_field_identity({**identity, "current_value_sha256": post.get("current_value_sha256"),
+                                     "current_value_length": post.get("current_value_length")}, post):
+            raise ValueError("POST_FIELD_IDENTITY_DRIFT")
+        if post.get("current_value_sha256") != target_hash:
+            raise ValueError("REALIZED_STATE_MISMATCH")
+        if post.get("current_value_length") != target_length:
+            raise ValueError("REALIZED_STATE_LENGTH_MISMATCH")
+        if post.get("closed") is True:
+            raise ValueError("POST_PAGE_CLOSED")
+        return {
+            "url": post.get("url"),
+            "selector": selector,
+            "browser_session_id": post.get("browser_session_id"),
+            "page_id": post.get("page_id"),
+            "origin": post.get("origin"),
+            "closed": post.get("closed"),
+            "field_identity": {k: post.get(k) for k in (
+                "selector", "element_count", "tag_name", "type", "name", "id",
+                "role", "autocomplete", "form_owner", "metadata_sha256",
+                "main_frame", "supported_field_class",
+            )},
+            "target_value_sha256": target_hash,
+            "post_value_sha256": post.get("current_value_sha256"),
+            "target_value_length": target_length,
+            "post_value_length": post.get("current_value_length"),
             "mutation_performed": mutation_performed,
             "popup_detected": events["popup"],
             "new_page_detected": events["new_page"],
