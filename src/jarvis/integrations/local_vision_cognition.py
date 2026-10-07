@@ -5,7 +5,7 @@ from Jarjar's live timeline and returns text only. It has no action authority.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import base64
 import json
 import mimetypes
@@ -28,6 +28,27 @@ class LocalVisionCognition:
     max_tokens: int = 96
     screen_max_dimension: int = 1280
     vision_cache_dir: str | Path = "runtime_data/vision_inputs"
+    _resolved_model: str | None = field(default=None, init=False, repr=False)
+
+    def _discover_model(self) -> str:
+        if self._resolved_model:
+            return self._resolved_model
+        models_endpoint = self.endpoint.rsplit("/chat/completions", 1)[0] + "/models"
+        try:
+            request = Request(models_endpoint, method="GET")
+            with urlopen(request, timeout=min(self.timeout_seconds, 5.0)) as response:
+                packet = json.loads(response.read().decode("utf-8"))
+            rows = packet.get("data") if isinstance(packet, dict) else None
+            if isinstance(rows, list) and rows:
+                model_id = rows[0].get("id") if isinstance(rows[0], dict) else None
+                if isinstance(model_id, str) and model_id.strip():
+                    self._resolved_model = model_id.strip()
+                    print(f"JARJAR_VISION_MODEL: discovered={self._resolved_model}")
+                    return self._resolved_model
+        except Exception as exc:
+            print(f"JARJAR_VISION_MODEL: discovery_failed={type(exc).__name__}: {exc}")
+        self._resolved_model = self.model
+        return self._resolved_model
 
     def _prepare_visual_input(self, path: Path, source: str) -> Path:
         if "live-screen" not in source.casefold():
@@ -114,7 +135,7 @@ class LocalVisionCognition:
             })
 
         payload = {
-            "model": self.model,
+            "model": self._discover_model(),
             "messages": [
                 {
                     "role": "system",
