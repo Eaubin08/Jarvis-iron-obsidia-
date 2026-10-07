@@ -194,7 +194,8 @@ class CostAwareCognitionRouter:
         try:
             answer = self.vision.respond(user_input, context).strip()
             return answer or None
-        except Exception:
+        except Exception as exc:
+            print(f"JARJAR_VISION: ERROR {type(exc).__name__}: {exc}")
             return None
 
     def _runtime_state_answer(self) -> str | None:
