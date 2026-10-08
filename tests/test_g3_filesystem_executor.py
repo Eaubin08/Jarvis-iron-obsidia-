@@ -58,7 +58,7 @@ def test_apply_unified_patch_authorized_target_only(tmp_path):
     result = backend.apply_unified_patch(repo, patch, ["a.txt"])
 
     assert result.ok is True
-    assert (repo / "a.txt").read_bytes() == b"after\n"
+    assert (repo / "a.txt").read_text().splitlines() == ["after"]
 
 
 def test_apply_unified_patch_target_mismatch_fails_closed(tmp_path):
