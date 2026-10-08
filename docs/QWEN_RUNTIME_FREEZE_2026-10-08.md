@@ -195,6 +195,21 @@ Full Python regression:
 
 The only code change required for this regression was to make the G3 unified-patch test newline-agnostic on Windows.
 
+## Follow-up note — launcher integration
+
+TODO after this freeze: integrate the four canonical runtime services into the appropriate launcher/control surface if still useful, instead of requiring four manual PowerShell terminals.
+
+Target services:
+
+- Kernel X108 `:3001`
+- Brody / API / Native Memory `:8000`
+- Qwen text local `:8080`
+- Qwen-VL `:8081`
+
+Preferred rule: the launcher should call the canonical startup scripts/commands recorded in this freeze rather than reconstructing or duplicating their internals. Preserve the exact local Qwen text model path and the validated llama.cpp b11193 runtime unless a future change is deliberately revalidated.
+
+This is a follow-up integration task, not a reason to reopen the validated Qwen runtime freeze.
+
 ## Freeze verdict
 
 ```text
