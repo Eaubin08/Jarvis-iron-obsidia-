@@ -75,9 +75,9 @@ def build_live_controller() -> HUDController:
         wake_word=wake,
         stt=stt,
         conversation=conversation,
-        max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "120.0")),
+        max_utterance_seconds=float(os.getenv("JARVIS_MAX_UTTERANCE_SECONDS", "20.0")),
         silence_seconds=float(os.getenv("JARVIS_END_SILENCE_SECONDS", "2.00")),
-        rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "300")),
+        rms_threshold=int(os.getenv("JARVIS_SPEECH_RMS_THRESHOLD", "650")),
         wake_speech_start_timeout=float(os.getenv("JARVIS_WAKE_SPEECH_TIMEOUT", "6.0")),
         follow_up_start_timeout=float(os.getenv("JARVIS_FOLLOW_UP_TIMEOUT", "3.0")),
         on_wake=lambda: model.set_session_open(True),
@@ -90,7 +90,7 @@ def build_live_controller() -> HUDController:
     if os.getenv("JARJAR_LIVE_CONTEXT", "1").strip().lower() not in {"0", "false", "no", "off"}:
         camera_indices = tuple(
             int(x.strip())
-            for x in os.getenv("JARJAR_CAMERA_INDICES", "0,1").split(",")
+            for x in os.getenv("JARJAR_CAMERA_INDICES", "0,1,2,3").split(",")
             if x.strip()
         )
         camera_rig = CameraRig.from_device_indices(camera_indices)

@@ -105,6 +105,11 @@ class HUDController:
             if self.model.state is not HUDState.ERROR:
                 self.model.set_state(HUDState.IDLE)
 
+    def _set_listening_unless_busy(self) -> None:
+        current = self.model.snapshot().get("state")
+        if current not in {HUDState.THINKING.value, HUDState.SPEAKING.value}:
+            self.model.set_state(HUDState.LISTENING)
+
     def _run_voice_handler(
         self,
         handler: Callable[[], tuple[str, str] | None] | None,
@@ -116,14 +121,16 @@ class HUDController:
         if handler is None:
             raise RuntimeError(missing_message)
 
-        self.model.set_state(HUDState.LISTENING)
+        self._set_listening_unless_busy()
         try:
             result = handler()
             if result is None:
                 if self.model.session_open:
-                    self.model.set_state(HUDState.LISTENING)
+                    self._set_listening_unless_busy()
                 else:
-                    self.model.set_state(HUDState.IDLE)
+                    current = self.model.snapshot().get("state")
+                    if current not in {HUDState.THINKING.value, HUDState.SPEAKING.value}:
+                        self.model.set_state(HUDState.IDLE)
                 return None
             transcript, reply = result
             transcript = transcript.strip()
@@ -133,10 +140,6 @@ class HUDController:
             self.model.append("YOU", transcript)
             self.model.append(self._jarjar_label(), reply)
             self._sync_governance_surface(reply)
-            if self.model.session_open:
-                self.model.set_state(HUDState.LISTENING)
-            else:
-                self.model.set_state(HUDState.IDLE)
             return transcript, reply
         except Exception:
             self.model.set_state(HUDState.ERROR)

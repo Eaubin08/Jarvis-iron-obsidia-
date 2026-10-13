@@ -47,5 +47,11 @@ class CameraRig:
     def snapshot_all(self) -> dict[str, CameraObservation]:
         observations: dict[str, CameraObservation] = {}
         for slot in self.slots:
-            observations[slot.camera_id] = slot.runtime.snapshot()
+            try:
+                observations[slot.camera_id] = slot.runtime.snapshot()
+            except Exception as exc:
+                print(
+                    f"JARJAR_CAMERA: {slot.camera_id} unavailable "
+                    f"{type(exc).__name__}: {exc}"
+                )
         return observations
