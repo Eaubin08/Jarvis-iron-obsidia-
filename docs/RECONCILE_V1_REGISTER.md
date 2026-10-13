@@ -2,7 +2,9 @@
 
 Branch: `reconcile/jarvis-iron-obsidia-v1`
 Date: 2026-10-13
-Status: **RECONCILED — CI NOT GREEN — NO FREEZE TAG — PHYSICAL VALIDATION PENDING**
+Status: **ORGANIZATION_RECONCILED — RUNTIME_NOT_CERTIFIED**
+
+Organizational closure tag: `org-reconciled/jarvis-iron-obsidia-v1-20261013`, placed on the commit that contains this version of the register. This tag certifies the Git organization only (provenance, integration, exclusions). **It is not a runtime freeze**: CI is red and physical validation has not been done. The certified runtime freeze of this repository remains `jarjar-qwen-runtime-freeze-20261008` on `main`.
 
 This register records what the reconciliation branch contains, where each element comes from, what was left out and why, and the test results. No source branch was modified. Nothing was deleted. Nothing was merged into `main`.
 
@@ -44,7 +46,8 @@ Tree check after the merge (`42780c29`): identical to `main` except 6 files, all
 |---|---|
 | `b9b56d2b663bb2916e2f97a9434618cae4275b5f` | `.github/workflows/ci.yml`: push trigger extended to `reconcile/**`; `test` job installs `pillow>=10` |
 | `e553999a58c192323960cab12257657f3b635cb3` | adds this register |
-| (this commit) | register updated with the Python 3.13 finding |
+| `e97dcdecff799ae963f203643bb0c4dd3674e596` | register updated with the Python 3.13 finding |
+| (this commit) | register finalized for organizational closure |
 
 ## 4. Already contained in the base (nothing to integrate)
 
@@ -69,7 +72,7 @@ Tree check after the merge (`42780c29`): identical to `main` except 6 files, all
 
 ## 6. Tests
 
-CI run `38348917752` on `b9b56d2b663bb2916e2f97a9434618cae4275b5f` (workflow "Jarvis Iron CI", push). Run `38349270872` on the register commit `e553999a58c192323960cab12257657f3b635cb3` gives the same results:
+CI run `38348917752` on `b9b56d2b663bb2916e2f97a9434618cae4275b5f` (workflow "Jarvis Iron CI", push). Run `38349270872` on the register commit `e553999a58c192323960cab12257657f3b635cb3` and run `38349663347` on `e97dcdecff799ae963f203643bb0c4dd3674e596` give the same results:
 
 | Job | Result |
 |---|---|
@@ -99,13 +102,19 @@ Not decided here: whether `aab6ea5e` is an intended behaviour change whose test 
 
 ## 7. Open items
 
+CI results above are reported as observed; nothing was masked, skipped or fixed.
+
 | Item | Status |
 |---|---|
-| `test_voice_turn_returns_idle_after_completed_voice_handler` | FAILING on this branch (from source commit `aab6ea5e`); decision required |
-| Python 3.13 support (`audioop` removed) | suite cannot be collected on 3.13; inherited from `main`; decision required |
-| Freeze tag on this branch | NOT created (CI not verified) |
-| Physical validation on FIXE (Qwen text, Qwen-VL camera, Qwen-VL screen, Jarjar route E2E) | PENDING — this branch is not the state validated by `jarjar-qwen-runtime-freeze-20261008` |
-| CI on `main` | still red (Pillow missing from `.[dev]`); `main` untouched by design |
+| HUD state after a completed voice turn — `test_voice_turn_returns_idle_after_completed_voice_handler` | **OPEN_TECHNICAL_ITEM**. Failing on Python 3.11 (Windows, Ubuntu). Known cause: source commit `aab6ea5e` removes the final state reset. Unknown: intended change with a stale test, or regression |
+| Python 3.13 — `audioop` removed from the standard library | **OPEN_TECHNICAL_ITEM**. 5 test modules fail at collection on 3.13 (`test_f5_microphone`, `test_f5_microphone_integration`, `test_f5_physical_follow_up`, `test_f5_physical_voice_e2e`, `test_g9_physical_governed_voice_e2e`). Inherited from `main`. Supposed remedy, not applied: `audioop-lts` on 3.13 or dropping 3.13 from the matrix |
+| Runtime freeze tag on this branch | NOT created. Only the organizational closure tag exists |
+| Physical validation: Qwen text | **PENDING** |
+| Physical validation: Qwen-VL camera | **PENDING** |
+| Physical validation: Qwen-VL screen | **PENDING** |
+| Physical validation: Jarjar route E2E | **PENDING** |
+| Relation to the validated state | this branch is NOT the state validated by `jarjar-qwen-runtime-freeze-20261008`; it adds 9 runtime commits on top of it |
+| CI on `main` | still red. Known cause on the head: Pillow missing from `.[dev]` (collection error). The two items above are hidden behind it on `main` as well (supposed for the HUD item: `main` does not contain `aab6ea5e`, so that test is expected to pass there). `main` untouched by design |
 | Obsidia port provenance | `docs/OBSIDIA_OPENJARVIS_PORT_AUDIT_2026-09-30.md` names the source repository and per-file blob SHA; no X-108 commit SHA is pinned |
 
 ## 8. Guarantees
