@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - build/jarvis-v0
+      - "reconcile/**"
   pull_request:
     branches:
       - main
@@ -24,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev]" "pillow>=10"
       - name: Core and contract tests
         run: python -m pytest -q --ignore=tests/test_f3_playwright_integration.py --ignore=tests/test_f4_win32_integration.py --ignore=tests/test_f4_uia_integration.py --ignore=tests/test_f5_stt_integration.py --ignore=tests/test_f5_tts_integration.py
 
