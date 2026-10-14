@@ -29,6 +29,8 @@ TOGGLE_OFF = 0           # ToggleState.Off
 TOGGLE_ON = 1            # ToggleState.On
 TOGGLE_INDETERMINATE = 2 # ToggleState.Indeterminate
 CHECKBOX_CONTROL_TYPE = "CheckBox"
+RADIO_CONTROL_TYPE   = "RadioButton"
+TAB_CONTROL_TYPE     = "TabItem"
 
 
 @dataclass(frozen=True)
@@ -95,6 +97,9 @@ class UIAElementSource(Protocol):
     def has_toggle_pattern(self, element: Any) -> bool: ...
     def get_toggle_state(self, element: Any) -> int: ...
     def do_toggle(self, element: Any) -> None: ...
+    def has_selection_item_pattern(self, element: Any) -> bool: ...
+    def get_is_selected(self, element: Any) -> bool: ...
+    def do_select(self, element: Any) -> None: ...
 
 
 def _sha256(text: str) -> str:
@@ -216,6 +221,68 @@ class StableUIAController:
                 "realized_state_verified": True,
                 "proof": "uia_toggle_pattern_readback"}
 
+    def read_selected_by_identity(self, target):
+        identity = self._coerce(target)
+        element, info = self._resolve(identity)
+        ctrl_type = str(info.get("control_type") or "")
+        if ctrl_type not in (RADIO_CONTROL_TYPE, TAB_CONTROL_TYPE):
+            raise IdentityError("control type is not RadioButton or TabItem")
+        if not self._source.has_selection_item_pattern(element):
+            raise IdentityError("control has no SelectionItemPattern")
+        is_selected = self._source.get_is_selected(element)
+        return {"ok": True, "target_identity": identity.to_dict(),
+                "is_selected": bool(is_selected)}
+
+    def select_radio_by_identity(self, target):
+        identity = self._coerce(target)
+        element, info = self._resolve(identity)
+        if str(info.get("control_type") or "") != RADIO_CONTROL_TYPE:
+            raise IdentityError("control type is not RadioButton")
+        if not bool(info.get("enabled")):
+            raise IdentityError("control is disabled")
+        if not self._source.has_selection_item_pattern(element):
+            raise IdentityError("control has no SelectionItemPattern")
+        pre_is_selected = self._source.get_is_selected(element)
+        mutation_performed = False
+        if not pre_is_selected:
+            self._source.do_select(element)
+            mutation_performed = True
+        after, _ = self._resolve(identity)
+        post_is_selected = self._source.get_is_selected(after)
+        if not post_is_selected:
+            raise IdentityError("realized state mismatch: RadioButton is not selected after Select()")
+        return {"ok": True, "target_identity": identity.to_dict(),
+                "pre_is_selected": bool(pre_is_selected),
+                "post_is_selected": bool(post_is_selected),
+                "mutation_performed": mutation_performed,
+                "realized_state_verified": True,
+                "proof": "uia_selection_item_pattern_readback"}
+
+    def select_tab_by_identity(self, target):
+        identity = self._coerce(target)
+        element, info = self._resolve(identity)
+        if str(info.get("control_type") or "") != TAB_CONTROL_TYPE:
+            raise IdentityError("control type is not TabItem")
+        if not bool(info.get("enabled")):
+            raise IdentityError("control is disabled")
+        if not self._source.has_selection_item_pattern(element):
+            raise IdentityError("control has no SelectionItemPattern")
+        pre_is_selected = self._source.get_is_selected(element)
+        mutation_performed = False
+        if not pre_is_selected:
+            self._source.do_select(element)
+            mutation_performed = True
+        after, _ = self._resolve(identity)
+        post_is_selected = self._source.get_is_selected(after)
+        if not post_is_selected:
+            raise IdentityError("realized state mismatch: TabItem is not selected after Select()")
+        return {"ok": True, "target_identity": identity.to_dict(),
+                "pre_is_selected": bool(pre_is_selected),
+                "post_is_selected": bool(post_is_selected),
+                "mutation_performed": mutation_performed,
+                "realized_state_verified": True,
+                "proof": "uia_selection_item_pattern_readback"}
+
     # ── internals ──────────────────────────────────────────────────────────────
     @staticmethod
     def _coerce(target: UIAControlIdentity | dict) -> UIAControlIdentity:
@@ -277,6 +344,8 @@ class StableUIAController:
         has_value = self._source.has_value_pattern(element)
         _htfn = getattr(self._source, "has_toggle_pattern", None)
         has_toggle = _htfn(element) if _htfn is not None else False
+        _hsip = getattr(self._source, "has_selection_item_pattern", None)
+        has_selection_item = _hsip(element) if _hsip is not None else False
         return {
             "identity": identity.to_dict(),
             "name": str(info.get("name") or "")[:200],
@@ -285,7 +354,7 @@ class StableUIAController:
             "is_password": bool(info.get("is_password")),
             "is_read_only": bool(self._source.is_read_only(element)) if has_value else None,
             "bounds": dict(info.get("bounds") or {}),
-            "patterns": (["value"] if has_value else []) + (["toggle"] if has_toggle else []),
+            "patterns": (["value"] if has_value else []) + (["toggle"] if has_toggle else []) + (["selection_item"] if has_selection_item else []),
         }
 
 
@@ -372,3 +441,19 @@ class PywinautoUIASource:
 
     def do_toggle(self, element) -> None:
         element.iface_toggle.Toggle()
+
+    def has_selection_item_pattern(self, element) -> bool:
+        try:
+            element.iface_selection_item
+            return True
+        except Exception:
+            return False
+
+    def get_is_selected(self, element) -> bool:
+        try:
+            return bool(element.iface_selection_item.CurrentIsSelected)
+        except Exception:
+            return False
+
+    def do_select(self, element) -> None:
+        element.iface_selection_item.Select()
