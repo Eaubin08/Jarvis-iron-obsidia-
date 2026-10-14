@@ -4,6 +4,8 @@ Branch: `reconcile/jarvis-iron-obsidia-v1-portable`
 Date: 2026-10-14
 Status: **ORGANIZATION_RECONCILED — RUNTIME_NOT_CERTIFIED**
 
+Organizational closure tag: `org-reconciled/jarvis-iron-obsidia-v1-portable-20261014`, placed on the commit that contains this version of the register. It certifies the Git organization only (provenance, integration, exclusions). **It is not a runtime freeze**: CI is red and physical validation has not been done.
+
 This register is complementary to `docs/RECONCILE_V1_REGISTER.md`, which stays unchanged and remains the record of `reconcile/jarvis-iron-obsidia-v1`. It records the integration of the G2/G3 governed executors that existed only on the laptop until 2026-10-13. No source branch was modified. Nothing was deleted. Nothing was merged into `main`.
 
 ## 1. Sources and merge
@@ -78,7 +80,25 @@ This is the single failure on the merge tree. It is the same failure as on paren
 
 ### 4.3 GitHub CI
 
-Not yet run when this commit was made; results are recorded in the next commit of this register.
+CI run `38498184076` on `db13ccf58c503ddd6d4090165d090bf7fe8763c6` (workflow "Jarvis Iron CI", push). Conclusion: failure.
+
+| Job | Result |
+|---|---|
+| `test (windows-latest, 3.11)` | FAILURE — 35 failed, 598 passed, 10 skipped |
+| `test (ubuntu-latest, 3.11)` | FAILURE — 35 failed, 598 passed, 10 skipped |
+| `test (windows-latest, 3.13)` | FAILURE — 5 collection errors: `ModuleNotFoundError: No module named 'audioop'` |
+| `test (ubuntu-latest, 3.13)` | FAILURE — 5 collection errors: `ModuleNotFoundError: No module named 'audioop'` |
+| `browser-integration` | success |
+| `windows-integration` | success |
+| `voice-stt-integration` | success |
+| `voice-tts-integration` | success |
+
+The 35 failures on Python 3.11 are, on both OS:
+
+- 1 × `tests/test_f10_hud_controller.py::test_voice_turn_returns_idle_after_completed_voice_handler` — the pre-existing HUD failure of section 4.2.
+- 34 × `tests/test_g3_a1_page_identity_red.py` — `ModuleNotFoundError: No module named 'playwright'`. **New on this branch.** This test file comes from parent 2 (commit `c25a52d0`). Its helper `_inject_page` patches `playwright.sync_api.sync_playwright`, which requires the `playwright` package to be importable, while the `test` job installs only `.[dev]` and `playwright` belongs to the `browser` extra. The same 34 tests pass in the local run of section 4.1, where `playwright` is installed. This is a CI dependency gap revealed by the integration, not a behaviour failure observed in the executors. No fix was applied.
+
+The Python 3.13 result is the inherited `audioop` item; the suite does not run on 3.13.
 
 ## 5. Open items
 
@@ -86,6 +106,7 @@ Not yet run when this commit was made; results are recorded in the next commit o
 |---|---|
 | HUD state after a completed voice turn | **OPEN_TECHNICAL_ITEM**, inherited from `reconcile/jarvis-iron-obsidia-v1`, not fixed |
 | Python 3.13 — `audioop` removed from the standard library | **OPEN_TECHNICAL_ITEM**, inherited, not fixed |
+| `tests/test_g3_a1_page_identity_red.py` needs `playwright` in the core `test` job | **OPEN_TECHNICAL_ITEM**, new on this branch: 34 tests fail in CI on Python 3.11 for a missing dependency. Supposed remedy, not applied: install the `browser` extra in the `test` job, or move the file to the browser job |
 | Physical validation: G2 UIA radio and tab selection on real applications | **PENDING** |
 | Physical validation: G3 browser executors on real sites | **PENDING** |
 | Physical validation: Qwen text, Qwen-VL camera, Qwen-VL screen, Jarjar route E2E | **PENDING** (unchanged from the v1 register) |
